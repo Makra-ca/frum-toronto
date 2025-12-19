@@ -71,14 +71,26 @@ async function getCategoriesWithSubcategories() {
     })
     .filter((cat) => cat.businessCount > 0);
 
+  // Get top 6 subcategories by business count
+  const topCategories = subcategories
+    .filter((sub) => sub.name && sub.name.trim() !== "" && Number(sub.businessCount || 0) > 0)
+    .map((sub) => ({
+      name: sub.name,
+      slug: sub.slug,
+      count: Number(sub.businessCount || 0),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
+
   return {
     categories: categoriesWithSubs,
     totalBusinesses: totalResult[0]?.count || 0,
+    topCategories,
   };
 }
 
 export default async function DirectoryPage() {
-  const { categories, totalBusinesses } = await getCategoriesWithSubcategories();
+  const { categories, totalBusinesses, topCategories } = await getCategoriesWithSubcategories();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -99,7 +111,7 @@ export default async function DirectoryPage() {
 
       {/* Content */}
       <div className="container mx-auto px-4 py-8">
-        <AmazonStyleBrowser categories={categories} />
+        <AmazonStyleBrowser categories={categories} topCategories={topCategories} />
       </div>
     </div>
   );

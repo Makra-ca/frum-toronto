@@ -22,8 +22,15 @@ interface Category {
   subcategories: Subcategory[];
 }
 
+interface TopCategory {
+  name: string;
+  slug: string;
+  count: number;
+}
+
 interface AmazonStyleBrowserProps {
   categories: Category[];
+  topCategories?: TopCategory[];
 }
 
 // Placeholder images for categories (Unsplash)
@@ -50,7 +57,7 @@ const categoryImages: Record<string, string> = {
 
 const defaultImage = "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&h=300&fit=crop";
 
-export function AmazonStyleBrowser({ categories }: AmazonStyleBrowserProps) {
+export function AmazonStyleBrowser({ categories, topCategories = [] }: AmazonStyleBrowserProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category | null>(categories[0] || null);
   const [mobileActiveCategory, setMobileActiveCategory] = useState<Category | null>(null);
@@ -64,16 +71,6 @@ export function AmazonStyleBrowser({ categories }: AmazonStyleBrowserProps) {
       router.push("/directory/search");
     }
   };
-
-  // Popular search terms
-  const popularSearches = [
-    "Restaurants",
-    "Kosher Bakeries",
-    "Real Estate",
-    "Lawyers",
-    "Accountants",
-    "Catering",
-  ];
 
   return (
     <div>
@@ -96,26 +93,20 @@ export function AmazonStyleBrowser({ categories }: AmazonStyleBrowserProps) {
         </div>
       </form>
 
-      {/* Quick Links */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {/* Kosher Only link - commented out for frum website
-        <Link
-          href="/directory/search?kosher=true"
-          className="px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded text-sm font-medium transition-colors"
-        >
-          Kosher Only
-        </Link>
-        */}
-        {popularSearches.map((term) => (
-          <Link
-            key={term}
-            href={`/directory/search?q=${encodeURIComponent(term)}`}
-            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm transition-colors"
-          >
-            {term}
-          </Link>
-        ))}
-      </div>
+      {/* Quick Links - Top Categories */}
+      {topCategories.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {topCategories.map((cat) => (
+            <Link
+              key={cat.slug}
+              href={`/directory/${cat.slug}`}
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm transition-colors"
+            >
+              {cat.name} ({cat.count})
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Amazon-style Two Panel Layout - Desktop Only */}
       <div className="hidden lg:block bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">

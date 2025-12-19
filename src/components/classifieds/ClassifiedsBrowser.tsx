@@ -14,8 +14,15 @@ interface Category {
   listingCount: number;
 }
 
+interface TopCategory {
+  name: string;
+  slug: string;
+  count: number;
+}
+
 interface ClassifiedsBrowserProps {
   categories: Category[];
+  topCategories?: TopCategory[];
 }
 
 // Placeholder images for classified categories (Unsplash)
@@ -60,7 +67,7 @@ function getCategoryImage(slug: string): string {
   return defaultImage;
 }
 
-export function ClassifiedsBrowser({ categories }: ClassifiedsBrowserProps) {
+export function ClassifiedsBrowser({ categories, topCategories = [] }: ClassifiedsBrowserProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category | null>(categories[0] || null);
   const router = useRouter();
@@ -71,16 +78,6 @@ export function ClassifiedsBrowser({ categories }: ClassifiedsBrowserProps) {
       router.push(`/classifieds?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
-
-  // Popular search terms for classifieds
-  const popularSearches = [
-    "Jobs",
-    "Apartments",
-    "Babysitter",
-    "Furniture",
-    "Tutoring",
-    "Carpool",
-  ];
 
   return (
     <div>
@@ -103,7 +100,7 @@ export function ClassifiedsBrowser({ categories }: ClassifiedsBrowserProps) {
         </div>
       </form>
 
-      {/* Quick Links */}
+      {/* Quick Links - Top Categories */}
       <div className="flex flex-wrap gap-2 mb-6">
         <Link
           href="/classifieds/new"
@@ -112,13 +109,13 @@ export function ClassifiedsBrowser({ categories }: ClassifiedsBrowserProps) {
           <Plus className="h-4 w-4" />
           Post a Classified
         </Link>
-        {popularSearches.map((term) => (
+        {topCategories.map((cat) => (
           <Link
-            key={term}
-            href={`/classifieds?q=${encodeURIComponent(term)}`}
+            key={cat.slug}
+            href={`/classifieds?category=${cat.slug}`}
             className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm transition-colors"
           >
-            {term}
+            {cat.name} ({cat.count})
           </Link>
         ))}
       </div>

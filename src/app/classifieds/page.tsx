@@ -51,7 +51,7 @@ async function getCategories() {
     .orderBy(classifiedCategories.displayOrder, classifiedCategories.name);
 
   // Filter to only categories with listings
-  return categoriesResult
+  const categories = categoriesResult
     .filter((cat) => cat.name && cat.name.trim() !== "")
     .map((cat) => ({
       id: cat.id,
@@ -60,6 +60,18 @@ async function getCategories() {
       listingCount: Number(cat.listingCount || 0),
     }))
     .filter((cat) => cat.listingCount > 0);
+
+  // Get top 6 categories by listing count
+  const topCategories = [...categories]
+    .sort((a, b) => b.listingCount - a.listingCount)
+    .slice(0, 6)
+    .map((cat) => ({
+      name: cat.name,
+      slug: cat.slug,
+      count: cat.listingCount,
+    }));
+
+  return { categories, topCategories };
 }
 
 async function getClassifieds(searchParams: SearchParams) {
@@ -134,7 +146,7 @@ export default async function ClassifiedsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const [categories, { classifieds: listings, totalCount, totalPages, page }] = await Promise.all([
+  const [{ categories, topCategories }, { classifieds: listings, totalCount, totalPages, page }] = await Promise.all([
     getCategories(),
     getClassifieds(params),
   ]);
@@ -171,7 +183,7 @@ export default async function ClassifiedsPage({
 
         {/* Content */}
         <div className="container mx-auto px-4 py-8">
-          <ClassifiedsBrowser categories={categories} />
+          <ClassifiedsBrowser categories={categories} topCategories={topCategories} />
         </div>
       </div>
     );
