@@ -1,8 +1,21 @@
+"use client";
+
 import Link from "next/link";
+import Image from "next/image";
 import { Facebook, Twitter, Mail, Phone } from "lucide-react";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
 
   return (
     <footer className="bg-blue-900 text-white">
@@ -11,7 +24,16 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* About */}
           <div>
-            <h3 className="text-xl font-bold mb-4">FrumToronto</h3>
+            <div className="flex items-center gap-2 mb-4">
+              <Image
+                src="/logo.png"
+                alt="FrumToronto"
+                width={50}
+                height={50}
+                className="h-10 w-auto"
+              />
+              <span className="text-xl font-bold">FrumToronto</span>
+            </div>
             <p className="text-blue-200 text-sm mb-4">
               The Toronto Jewish Orthodox Community Gateway. Connecting the
               community with businesses, shuls, events, and resources.
@@ -139,12 +161,18 @@ export function Footer() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-blue-200">
             <p>&copy; {currentYear} FrumToronto. All rights reserved.</p>
             <div className="flex gap-4">
-              <Link href="/privacy" className="hover:text-white transition-colors">
+              <button
+                onClick={() => setPrivacyOpen(true)}
+                className="hover:text-white transition-colors"
+              >
                 Privacy Policy
-              </Link>
-              <Link href="/terms" className="hover:text-white transition-colors">
-                Terms of Service
-              </Link>
+              </button>
+              <button
+                onClick={() => setTermsOpen(true)}
+                className="hover:text-white transition-colors"
+              >
+                Terms & Conditions
+              </button>
               <Link href="/faq" className="hover:text-white transition-colors">
                 FAQ
               </Link>
@@ -152,6 +180,35 @@ export function Footer() {
           </div>
         </div>
       </div>
+
+      {/* Privacy Policy Dialog */}
+      <Dialog open={privacyOpen} onOpenChange={setPrivacyOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Privacy Policy</DialogTitle>
+          </DialogHeader>
+          <DialogDescription className="text-sm leading-relaxed">
+            FRUMToronto respects the privacy of its members. Contact information
+            and email addresses are used for internal purposes and to contact
+            members regarding new features and promotions of this site. No
+            information provided to us will be sold to third party agencies.
+          </DialogDescription>
+        </DialogContent>
+      </Dialog>
+
+      {/* Terms & Conditions Dialog */}
+      <Dialog open={termsOpen} onOpenChange={setTermsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Terms & Conditions</DialogTitle>
+          </DialogHeader>
+          <DialogDescription className="text-sm leading-relaxed">
+            FRUMToronto does not take any responsibility for the Kashrus or
+            reliability of any advertisements plus FRUMToronto reserves the
+            right to refuse listing or advertising at our discretion.
+          </DialogDescription>
+        </DialogContent>
+      </Dialog>
     </footer>
   );
 }

@@ -11,7 +11,7 @@ interface Subcategory {
   businessCount: number;
 }
 
-interface Category {
+export interface DirectoryCategory {
   id: number;
   name: string;
   slug: string;
@@ -37,12 +37,21 @@ const categoryImages: Record<string, string> = {
 
 const defaultImage = "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&h=200&fit=crop";
 
-export function DirectoryMegaMenu() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [activeCategory, setActiveCategory] = useState<Category | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+interface DirectoryMegaMenuProps {
+  categories?: DirectoryCategory[] | null;
+}
 
+export function DirectoryMegaMenu({ categories: prefetchedCategories }: DirectoryMegaMenuProps) {
+  const [categories, setCategories] = useState<DirectoryCategory[]>(prefetchedCategories || []);
+  const [activeCategory, setActiveCategory] = useState<DirectoryCategory | null>(
+    prefetchedCategories?.[0] || null
+  );
+  const [isLoading, setIsLoading] = useState(!prefetchedCategories);
+
+  // Only fetch if no prefetched data provided
   useEffect(() => {
+    if (prefetchedCategories) return;
+
     fetch("/api/directory/categories")
       .then((res) => res.json())
       .then((data) => {
@@ -53,7 +62,7 @@ export function DirectoryMegaMenu() {
         setIsLoading(false);
       })
       .catch(() => setIsLoading(false));
-  }, []);
+  }, [prefetchedCategories]);
 
   if (isLoading) {
     return (

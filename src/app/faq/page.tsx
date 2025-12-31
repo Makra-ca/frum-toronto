@@ -149,7 +149,7 @@ export default function FAQPage() {
               Still have questions?
             </h3>
             <p className="text-blue-700 mb-6">
-              Can't find what you're looking for? We're here to help.
+              Can&apos;t find what you&apos;re looking for? We&apos;re here to help.
             </p>
             <a
               href="/contact"

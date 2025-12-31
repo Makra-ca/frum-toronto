@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect } from "react";
-import { Menu, ChevronDown, ChevronLeft, ChevronRight, Search, User } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
+import { Menu, ChevronDown, ChevronLeft, ChevronRight, Search, User, LogOut, LayoutDashboard, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -17,19 +19,42 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { mainNavigation } from "@/lib/constants/navigation";
 import { cn } from "@/lib/utils";
-import { DirectoryMegaMenu } from "./DirectoryMegaMenu";
+import { DirectoryMegaMenu, DirectoryCategory } from "./DirectoryMegaMenu";
 import { DirectoryMobileDrilldown } from "./DirectoryMobileDrilldown";
-import { ClassifiedsMegaMenu } from "./ClassifiedsMegaMenu";
+import { ClassifiedsMegaMenu, ClassifiedsData } from "./ClassifiedsMegaMenu";
 import { ClassifiedsMobileDrilldown } from "./ClassifiedsMobileDrilldown";
 
 export function Header() {
+  const { data: session, status } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showDirectoryDrilldown, setShowDirectoryDrilldown] = useState(false);
   const [showClassifiedsDrilldown, setShowClassifiedsDrilldown] = useState(false);
+
+  // Prefetched nav data - loaded on mount for instant dropdowns
+  const [directoryCategories, setDirectoryCategories] = useState<DirectoryCategory[] | null>(null);
+  const [classifiedsData, setClassifiedsData] = useState<ClassifiedsData | null>(null);
+
+  const isAdmin = session?.user?.role === "admin";
+
+  // Prefetch navigation data on mount
+  useEffect(() => {
+    // Fetch directory categories
+    fetch("/api/directory/categories")
+      .then((res) => res.json())
+      .then((data) => setDirectoryCategories(data))
+      .catch(() => {});
+
+    // Fetch classifieds data
+    fetch("/api/classifieds/categories")
+      .then((res) => res.json())
+      .then((data) => setClassifiedsData(data))
+      .catch(() => {});
+  }, []);
 
   // Reset drill-down state when menu closes
   useEffect(() => {
@@ -48,13 +73,45 @@ export function Header() {
             The Toronto Jewish Orthodox Community Gateway
           </span>
           <div className="flex items-center gap-4 ml-auto">
-            <Link href="/login" className="hover:underline">
-              Login
-            </Link>
-            <span>|</span>
-            <Link href="/register" className="hover:underline">
-              Register
-            </Link>
+            {status === "loading" ? (
+              <span className="text-blue-200">Loading...</span>
+            ) : session ? (
+              <>
+                <span className="hidden sm:inline text-blue-200">
+                  {session.user?.name || session.user?.email}
+                </span>
+                {isAdmin && (
+                  <>
+                    <span className="hidden sm:inline">|</span>
+                    <Link href="/admin" className="hover:underline flex items-center gap-1">
+                      <Shield className="h-3 w-3" />
+                      Admin
+                    </Link>
+                  </>
+                )}
+                <span>|</span>
+                <Link href="/dashboard" className="hover:underline">
+                  Dashboard
+                </Link>
+                <span>|</span>
+                <button
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="hover:underline"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="hover:underline">
+                  Login
+                </Link>
+                <span>|</span>
+                <Link href="/register" className="hover:underline">
+                  Register
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -63,9 +120,19 @@ export function Header() {
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-blue-900">Frum</span>
-            <span className="text-2xl font-bold text-blue-600">Toronto</span>
+          <Link href="/" className="flex items-center gap-3">
+            <Image
+              src="/logo.png"
+              alt="FrumToronto"
+              width={60}
+              height={60}
+              className="h-12 w-auto"
+              priority
+            />
+            <div className="flex items-baseline">
+              <span className="text-2xl font-bold text-blue-900">Frum</span>
+              <span className="text-2xl font-bold text-blue-600">Toronto</span>
+            </div>
           </Link>
 
           {/* Desktop Navigation */}
@@ -80,7 +147,7 @@ export function Header() {
                         {item.label}
                       </NavigationMenuTrigger>
                       <NavigationMenuContent>
-                        <DirectoryMegaMenu />
+                        <DirectoryMegaMenu categories={directoryCategories} />
                       </NavigationMenuContent>
                     </>
                   ) : item.label === "Classifieds" ? (
@@ -89,7 +156,7 @@ export function Header() {
                         {item.label}
                       </NavigationMenuTrigger>
                       <NavigationMenuContent>
-                        <ClassifiedsMegaMenu />
+                        <ClassifiedsMegaMenu data={classifiedsData} />
                       </NavigationMenuContent>
                     </>
                   ) : item.children ? (
@@ -141,13 +208,47 @@ export function Header() {
                   <User className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link href="/login">Login</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/register">Register</Link>
-                </DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-56">
+                {session ? (
+                  <>
+                    <div className="px-2 py-1.5">
+                      <p className="text-sm font-medium">{session.user?.name}</p>
+                      <p className="text-xs text-muted-foreground">{session.user?.email}</p>
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard" className="cursor-pointer">
+                        <LayoutDashboard className="mr-2 h-4 w-4" />
+                        Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    {isAdmin && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin" className="cursor-pointer">
+                          <Shield className="mr-2 h-4 w-4" />
+                          Admin Panel
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => signOut({ callbackUrl: "/" })}
+                      className="cursor-pointer text-red-600"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href="/login">Login</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/register">Register</Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -170,7 +271,7 @@ export function Header() {
                       <ChevronLeft className="h-5 w-5" />
                       Back to Menu
                     </button>
-                    <DirectoryMobileDrilldown onClose={() => setMobileMenuOpen(false)} />
+                    <DirectoryMobileDrilldown onClose={() => setMobileMenuOpen(false)} categories={directoryCategories} />
                   </div>
                 ) : showClassifiedsDrilldown ? (
                   <div className="flex flex-col h-full">
@@ -182,7 +283,7 @@ export function Header() {
                       <ChevronLeft className="h-5 w-5" />
                       Back to Menu
                     </button>
-                    <ClassifiedsMobileDrilldown onClose={() => setMobileMenuOpen(false)} />
+                    <ClassifiedsMobileDrilldown onClose={() => setMobileMenuOpen(false)} data={classifiedsData} />
                   </div>
                 ) : (
                   <nav className="flex flex-col gap-4 mt-8 px-6">
@@ -221,20 +322,55 @@ export function Header() {
                       </div>
                     ))}
                     <div className="border-t pt-4 mt-4">
-                      <Link
-                        href="/login"
-                        className="block py-2 text-lg font-medium hover:text-blue-600"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        Login
-                      </Link>
-                      <Link
-                        href="/register"
-                        className="block py-2 text-lg font-medium hover:text-blue-600"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        Register
-                      </Link>
+                      {session ? (
+                        <>
+                          <div className="py-2 text-sm text-gray-500">
+                            Signed in as {session.user?.email}
+                          </div>
+                          <Link
+                            href="/dashboard"
+                            className="block py-2 text-lg font-medium hover:text-blue-600"
+                            onClick={() => setMobileMenuOpen(false)}
+                          >
+                            Dashboard
+                          </Link>
+                          {isAdmin && (
+                            <Link
+                              href="/admin"
+                              className="block py-2 text-lg font-medium hover:text-blue-600"
+                              onClick={() => setMobileMenuOpen(false)}
+                            >
+                              Admin Panel
+                            </Link>
+                          )}
+                          <button
+                            onClick={() => {
+                              setMobileMenuOpen(false);
+                              signOut({ callbackUrl: "/" });
+                            }}
+                            className="block py-2 text-lg font-medium text-red-600 hover:text-red-700"
+                          >
+                            Sign Out
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <Link
+                            href="/login"
+                            className="block py-2 text-lg font-medium hover:text-blue-600"
+                            onClick={() => setMobileMenuOpen(false)}
+                          >
+                            Login
+                          </Link>
+                          <Link
+                            href="/register"
+                            className="block py-2 text-lg font-medium hover:text-blue-600"
+                            onClick={() => setMobileMenuOpen(false)}
+                          >
+                            Register
+                          </Link>
+                        </>
+                      )}
                     </div>
                   </nav>
                 )}

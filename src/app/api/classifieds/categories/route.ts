@@ -3,6 +3,9 @@ import { db } from "@/lib/db";
 import { classifiedCategories, classifieds } from "@/lib/db/schema";
 import { sql, eq, and, or, isNull, gt, desc } from "drizzle-orm";
 
+// Cache for 5 minutes - categories rarely change
+export const revalidate = 300;
+
 export async function GET() {
   // Get categories with listing counts using LEFT JOIN and GROUP BY
   const categoriesResult = await db

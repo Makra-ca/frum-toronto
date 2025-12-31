@@ -3,6 +3,9 @@ import { db } from "@/lib/db";
 import { businessCategories } from "@/lib/db/schema";
 import { sql, isNull } from "drizzle-orm";
 
+// Cache for 5 minutes - categories rarely change
+export const revalidate = 300;
+
 export async function GET() {
   // Get parent categories
   const parents = await db

@@ -4,14 +4,14 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ChevronRight, Plus, Clock } from "lucide-react";
 
-interface Category {
+export interface ClassifiedCategory {
   id: number;
   name: string;
   slug: string;
   listingCount: number;
 }
 
-interface RecentListing {
+export interface ClassifiedRecentListing {
   id: number;
   title: string;
   price: string | null;
@@ -22,9 +22,9 @@ interface RecentListing {
   categorySlug: string;
 }
 
-interface ApiResponse {
-  categories: Category[];
-  recentListings: RecentListing[];
+export interface ClassifiedsData {
+  categories: ClassifiedCategory[];
+  recentListings: ClassifiedRecentListing[];
 }
 
 // Placeholder images for classified categories (Unsplash)
@@ -68,15 +68,24 @@ function formatTimeAgo(dateString: string): string {
   return date.toLocaleDateString();
 }
 
-export function ClassifiedsMegaMenu() {
-  const [data, setData] = useState<ApiResponse | null>(null);
-  const [activeCategory, setActiveCategory] = useState<Category | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+interface ClassifiedsMegaMenuProps {
+  data?: ClassifiedsData | null;
+}
 
+export function ClassifiedsMegaMenu({ data: prefetchedData }: ClassifiedsMegaMenuProps) {
+  const [data, setData] = useState<ClassifiedsData | null>(prefetchedData || null);
+  const [activeCategory, setActiveCategory] = useState<ClassifiedCategory | null>(
+    prefetchedData?.categories[0] || null
+  );
+  const [isLoading, setIsLoading] = useState(!prefetchedData);
+
+  // Only fetch if no prefetched data provided
   useEffect(() => {
+    if (prefetchedData) return;
+
     fetch("/api/classifieds/categories")
       .then((res) => res.json())
-      .then((result: ApiResponse) => {
+      .then((result: ClassifiedsData) => {
         setData(result);
         if (result.categories.length > 0) {
           setActiveCategory(result.categories[0]);
@@ -84,7 +93,7 @@ export function ClassifiedsMegaMenu() {
         setIsLoading(false);
       })
       .catch(() => setIsLoading(false));
-  }, []);
+  }, [prefetchedData]);
 
   if (isLoading) {
     return (

@@ -49,7 +49,7 @@ export default function AboutPage() {
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-3">Our Mission</h2>
                 <p className="text-gray-600 text-lg leading-relaxed">
-                  FrumToronto.com is not just a community site — it's <span className="font-semibold text-blue-700">our community's site</span>.
+                  FrumToronto.com is not just a community site — it&apos;s <span className="font-semibold text-blue-700">our community&apos;s site</span>.
                   With our commitment to servicing the Toronto community as a whole and as individuals,
                   we hope to be an invaluable source of information and knowledge that everyone can benefit from.
                 </p>
@@ -138,8 +138,8 @@ export default function AboutPage() {
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-4">Our Solution</h3>
                 <p className="text-gray-600 leading-relaxed">
-                  FrumToronto.com is all about removing these limitations. We've created one site for
-                  Shul listings, business directories, community calendar, news, events, D'vrei Torah
+                  FrumToronto.com is all about removing these limitations. We&apos;ve created one site for
+                  Shul listings, business directories, community calendar, news, events, D&apos;vrei Torah
                   and advice on practically everything you can think of. One site for lost and found,
                   career opportunities and other classified type ads. Recipes, Simchas and Gemachs.
                   One site designed with everyone in mind.
@@ -159,7 +159,7 @@ export default function AboutPage() {
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-blue-900 mb-4">We Need Your Help</h2>
                 <p className="text-blue-800 leading-relaxed">
-                  We need the participation of the entire community — individuals and groups — to tell us what's going on.
+                  We need the participation of the entire community — individuals and groups — to tell us what&apos;s going on.
                   The more everyone uses resources like the Classified section, the more beneficial they become.
                   Questions and comments are always welcome.
                 </p>

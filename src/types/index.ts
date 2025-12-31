@@ -1,5 +1,5 @@
 // User types
-export type UserRole = "admin" | "business" | "member";
+export type UserRole = "admin" | "shul" | "business" | "content_contributor" | "member";
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type SubscriptionStatus = "active" | "cancelled" | "past_due" | "trialing";
 

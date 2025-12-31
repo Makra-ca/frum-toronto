@@ -4,33 +4,23 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ChevronRight, ChevronLeft, Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-
-interface Subcategory {
-  id: number;
-  name: string;
-  slug: string;
-  businessCount: number;
-}
-
-interface Category {
-  id: number;
-  name: string;
-  slug: string;
-  businessCount: number;
-  subcategories: Subcategory[];
-}
+import { DirectoryCategory } from "./DirectoryMegaMenu";
 
 interface DirectoryMobileDrilldownProps {
   onClose: () => void;
+  categories?: DirectoryCategory[] | null;
 }
 
-export function DirectoryMobileDrilldown({ onClose }: DirectoryMobileDrilldownProps) {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState<Category | null>(null);
+export function DirectoryMobileDrilldown({ onClose, categories: prefetchedCategories }: DirectoryMobileDrilldownProps) {
+  const [categories, setCategories] = useState<DirectoryCategory[]>(prefetchedCategories || []);
+  const [isLoading, setIsLoading] = useState(!prefetchedCategories);
+  const [activeCategory, setActiveCategory] = useState<DirectoryCategory | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Only fetch if no prefetched data provided
   useEffect(() => {
+    if (prefetchedCategories) return;
+
     fetch("/api/directory/categories")
       .then((res) => res.json())
       .then((data) => {
@@ -38,7 +28,7 @@ export function DirectoryMobileDrilldown({ onClose }: DirectoryMobileDrilldownPr
         setIsLoading(false);
       })
       .catch(() => setIsLoading(false));
-  }, []);
+  }, [prefetchedCategories]);
 
   // Filter subcategories based on search (only when viewing a category)
   const filteredSubcategories = activeCategory?.subcategories.filter((sub) =>

@@ -23,15 +23,61 @@ import { relations } from "drizzle-orm";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
-  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  passwordHash: varchar("password_hash", { length: 255 }), // Nullable for OAuth users
   firstName: varchar("first_name", { length: 100 }),
   lastName: varchar("last_name", { length: 100 }),
   phone: varchar("phone", { length: 20 }),
-  role: varchar("role", { length: 20 }).default("member").notNull(), // admin, business, member
-  emailVerified: boolean("email_verified").default(false),
+  image: varchar("image", { length: 500 }), // OAuth profile picture
+  role: varchar("role", { length: 20 }).default("member").notNull(), // admin, business, content_contributor, member
+  emailVerified: timestamp("email_verified"), // Changed to timestamp for NextAuth
   isActive: boolean("is_active").default(true),
+  isTrusted: boolean("is_trusted").default(false), // Trusted users skip approval queue
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ============================================
+// NEXTAUTH TABLES
+// ============================================
+
+export const accounts = pgTable("accounts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 255 }).notNull(),
+  provider: varchar("provider", { length: 255 }).notNull(),
+  providerAccountId: varchar("provider_account_id", { length: 255 }).notNull(),
+  refresh_token: text("refresh_token"),
+  access_token: text("access_token"),
+  expires_at: integer("expires_at"),
+  token_type: varchar("token_type", { length: 255 }),
+  scope: varchar("scope", { length: 255 }),
+  id_token: text("id_token"),
+  session_state: varchar("session_state", { length: 255 }),
+}, (table) => [
+  uniqueIndex("accounts_provider_provider_account_id").on(table.provider, table.providerAccountId),
+]);
+
+export const sessions = pgTable("sessions", {
+  id: serial("id").primaryKey(),
+  sessionToken: varchar("session_token", { length: 255 }).notNull().unique(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  expires: timestamp("expires").notNull(),
+});
+
+export const verificationTokens = pgTable("verification_tokens", {
+  identifier: varchar("identifier", { length: 255 }).notNull(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expires: timestamp("expires").notNull(),
+}, (table) => [
+  uniqueIndex("verification_tokens_identifier_token").on(table.identifier, table.token),
+]);
+
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expires: timestamp("expires").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // ============================================
@@ -146,6 +192,35 @@ export const daveningSchedules = pgTable("davening_schedules", {
   index("idx_davening_shul").on(table.shulId),
 ]);
 
+// User-Shul assignments (for shul managers)
+export const userShuls = pgTable("user_shuls", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  shulId: integer("shul_id").notNull().references(() => shuls.id, { onDelete: "cascade" }),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  assignedBy: integer("assigned_by").references(() => users.id),
+}, (table) => [
+  uniqueIndex("idx_user_shuls_unique").on(table.userId, table.shulId),
+  index("idx_user_shuls_user").on(table.userId),
+  index("idx_user_shuls_shul").on(table.shulId),
+]);
+
+// Shul registration requests (users requesting to manage shuls)
+export const shulRegistrationRequests = pgTable("shul_registration_requests", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  shulId: integer("shul_id").notNull().references(() => shuls.id, { onDelete: "cascade" }),
+  message: text("message"), // Optional message from user explaining their connection
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, approved, rejected
+  reviewedBy: integer("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_shul_requests_status").on(table.status),
+  index("idx_shul_requests_user").on(table.userId),
+]);
+
 // ============================================
 // CLASSIFIEDS
 // ============================================
@@ -212,21 +287,47 @@ export const events = pgTable("events", {
 
 export const shiurim = pgTable("shiurim", {
   id: serial("id").primaryKey(),
-  shulId: integer("shul_id").references(() => shuls.id),
-  teacherName: varchar("teacher_name", { length: 200 }).notNull(),
+  // Teacher info
+  teacherTitle: varchar("teacher_title", { length: 20 }), // Rabbi, Harav, Rav, etc.
+  teacherFirstName: varchar("teacher_first_name", { length: 100 }),
+  teacherLastName: varchar("teacher_last_name", { length: 100 }),
+  teacherName: varchar("teacher_name", { length: 200 }).notNull(), // Kept for backward compatibility
+  // Basic info
   title: varchar("title", { length: 255 }).notNull(),
-  topic: varchar("topic", { length: 200 }),
   description: text("description"),
-  location: varchar("location", { length: 500 }),
-  dayOfWeek: integer("day_of_week").notNull(), // 0=Sun
-  time: time("time").notNull(),
-  duration: integer("duration"), // minutes
-  level: varchar("level", { length: 50 }), // beginner, intermediate, advanced
-  gender: varchar("gender", { length: 20 }), // men, women, mixed
-  cost: varchar("cost", { length: 100 }),
+  // Location - either shul reference or custom location
+  shulId: integer("shul_id").references(() => shuls.id),
+  locationName: varchar("location_name", { length: 200 }), // Custom location name
+  locationAddress: varchar("location_address", { length: 500 }),
+  locationPostalCode: varchar("location_postal_code", { length: 20 }),
+  locationArea: varchar("location_area", { length: 50 }), // Down Town, Bathurst & Eglinton, etc.
+  location: varchar("location", { length: 500 }), // Legacy field
+  // Schedule
+  schedule: jsonb("schedule"), // {0: {start: "09:00", end: "10:00", notes: ""}, 1: {...}, ...}
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  dayOfWeek: integer("day_of_week"), // Legacy - single day
+  time: time("time"), // Legacy - single time
+  duration: integer("duration"), // minutes (legacy)
+  // Classification
+  category: varchar("category", { length: 100 }), // Daf Yomi, Halacha, Parsha, etc.
+  classType: varchar("class_type", { length: 50 }), // Shiur, lecture, group, Chavrusa
+  level: varchar("level", { length: 50 }), // All, Beginner, Intermediate, Advanced
+  gender: varchar("gender", { length: 20 }), // Everyone, Men, Women
+  // Contact info
+  contactName: varchar("contact_name", { length: 100 }),
   contactPhone: varchar("contact_phone", { length: 40 }),
   contactEmail: varchar("contact_email", { length: 255 }),
+  website: varchar("website", { length: 255 }),
+  // Additional
+  cost: varchar("cost", { length: 100 }),
+  projectOf: varchar("project_of", { length: 200 }), // Sponsoring organization
+  submitterEmail: varchar("submitter_email", { length: 255 }),
+  isOnHold: boolean("is_on_hold").default(false),
   isActive: boolean("is_active").default(true),
+  approvalStatus: varchar("approval_status", { length: 20 }).default("approved"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
   oldId: integer("old_id"),
 });
 
@@ -380,6 +481,7 @@ export const emailSubscribers = pgTable("email_subscribers", {
 
 export const contactSubmissions = pgTable("contact_submissions", {
   id: serial("id").primaryKey(),
+  category: varchar("category", { length: 50 }).notNull(),
   name: varchar("name", { length: 100 }).notNull(),
   email: varchar("email", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 40 }),
@@ -398,6 +500,22 @@ export const usersRelations = relations(users, ({ many }) => ({
   classifieds: many(classifieds),
   events: many(events),
   simchas: many(simchas),
+  accounts: many(accounts),
+  sessions: many(sessions),
+  managedShuls: many(userShuls),
+  shulRequests: many(shulRegistrationRequests),
+}));
+
+export const accountsRelations = relations(accounts, ({ one }) => ({
+  user: one(users, { fields: [accounts.userId], references: [users.id] }),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, { fields: [sessions.userId], references: [users.id] }),
+}));
+
+export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
+  user: one(users, { fields: [passwordResetTokens.userId], references: [users.id] }),
 }));
 
 export const businessesRelations = relations(businesses, ({ one, many }) => ({
@@ -413,4 +531,18 @@ export const shulsRelations = relations(shuls, ({ one, many }) => ({
   daveningSchedules: many(daveningSchedules),
   shiurim: many(shiurim),
   events: many(events),
+  managers: many(userShuls),
+  registrationRequests: many(shulRegistrationRequests),
+}));
+
+export const userShulsRelations = relations(userShuls, ({ one }) => ({
+  user: one(users, { fields: [userShuls.userId], references: [users.id] }),
+  shul: one(shuls, { fields: [userShuls.shulId], references: [shuls.id] }),
+  assignedByUser: one(users, { fields: [userShuls.assignedBy], references: [users.id] }),
+}));
+
+export const shulRegistrationRequestsRelations = relations(shulRegistrationRequests, ({ one }) => ({
+  user: one(users, { fields: [shulRegistrationRequests.userId], references: [users.id] }),
+  shul: one(shuls, { fields: [shulRegistrationRequests.shulId], references: [shuls.id] }),
+  reviewer: one(users, { fields: [shulRegistrationRequests.reviewedBy], references: [users.id] }),
 }));

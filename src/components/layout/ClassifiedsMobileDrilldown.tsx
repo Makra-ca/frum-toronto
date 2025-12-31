@@ -4,29 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ChevronRight, Search, Loader2, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
-
-interface Category {
-  id: number;
-  name: string;
-  slug: string;
-  listingCount: number;
-}
-
-interface RecentListing {
-  id: number;
-  title: string;
-  price: string | null;
-  priceType: string;
-  categoryName: string;
-}
-
-interface ApiResponse {
-  categories: Category[];
-  recentListings: RecentListing[];
-}
+import { ClassifiedsData } from "./ClassifiedsMegaMenu";
 
 interface ClassifiedsMobileDrilldownProps {
   onClose: () => void;
+  data?: ClassifiedsData | null;
 }
 
 function formatPrice(price: string | null, priceType: string): string {
@@ -36,20 +18,23 @@ function formatPrice(price: string | null, priceType: string): string {
   return `$${num.toLocaleString()}`;
 }
 
-export function ClassifiedsMobileDrilldown({ onClose }: ClassifiedsMobileDrilldownProps) {
-  const [data, setData] = useState<ApiResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export function ClassifiedsMobileDrilldown({ onClose, data: prefetchedData }: ClassifiedsMobileDrilldownProps) {
+  const [data, setData] = useState<ClassifiedsData | null>(prefetchedData || null);
+  const [isLoading, setIsLoading] = useState(!prefetchedData);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Only fetch if no prefetched data provided
   useEffect(() => {
+    if (prefetchedData) return;
+
     fetch("/api/classifieds/categories")
       .then((res) => res.json())
-      .then((result: ApiResponse) => {
+      .then((result: ClassifiedsData) => {
         setData(result);
         setIsLoading(false);
       })
       .catch(() => setIsLoading(false));
-  }, []);
+  }, [prefetchedData]);
 
   // Filter categories based on search
   const filteredCategories = data?.categories.filter((cat) =>
