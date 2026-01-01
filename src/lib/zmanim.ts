@@ -1,4 +1,4 @@
-import { HDate, Location, Zmanim, HebrewCalendar, flags } from "@hebcal/core";
+import { HDate, Location, Zmanim, HebrewCalendar, flags, TimedEvent } from "@hebcal/core";
 
 // Toronto coordinates
 const TORONTO_LAT = 43.6629;
@@ -81,7 +81,9 @@ export function getZmanimForDate(date: Date = new Date()): ZmanimResponse {
 
     // Check for candle lighting
     if (desc.startsWith("Candle lighting:")) {
-      candleLighting = ev.eventTime || null;
+      if (ev instanceof TimedEvent) {
+        candleLighting = ev.eventTime || null;
+      }
       // If there's candle lighting, it's either Friday or Yom Tov eve
       const dayOfWeek = date.getDay();
       if (dayOfWeek === 5) {
@@ -93,7 +95,9 @@ export function getZmanimForDate(date: Date = new Date()): ZmanimResponse {
 
     // Check for Havdalah
     if (desc.startsWith("Havdalah:") || desc.startsWith("Havdalah (")) {
-      havdalah = ev.eventTime || null;
+      if (ev instanceof TimedEvent) {
+        havdalah = ev.eventTime || null;
+      }
     }
 
     // Check for special days (holidays, fast days)
