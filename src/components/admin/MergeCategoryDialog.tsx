@@ -50,17 +50,19 @@ export function MergeCategoryDialog({
 
   if (!sourceCategory) return null;
 
+  const sourceCategoryId = sourceCategory.id;
+
   // Flatten all categories for dropdown, excluding the source
   function getAvailableTargets(): { id: number; name: string; depth: number }[] {
     const result: { id: number; name: string; depth: number }[] = [];
 
     function addCategory(cat: Category, depth: number) {
-      if (cat.id !== sourceCategory.id) {
+      if (cat.id !== sourceCategoryId) {
         result.push({ id: cat.id, name: cat.name, depth });
       }
       if (cat.children) {
         cat.children.forEach((child) => {
-          if (child.id !== sourceCategory.id) {
+          if (child.id !== sourceCategoryId) {
             result.push({ id: child.id, name: child.name, depth: depth + 1 });
           }
         });
@@ -75,7 +77,7 @@ export function MergeCategoryDialog({
 
   async function handleMerge() {
     if (!targetCategoryId) return;
-    await onMerge(sourceCategory.id, parseInt(targetCategoryId));
+    await onMerge(sourceCategoryId, parseInt(targetCategoryId));
     setTargetCategoryId("");
   }
 

@@ -14,21 +14,39 @@ import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2, MapPin, Check, X, Loader2 } from "lucide-react";
 import { ReorderButtons } from "./ReorderButtons";
 
-interface Business {
+interface BusinessHours {
+  sunday?: { open: string; close: string } | null;
+  monday?: { open: string; close: string } | null;
+  tuesday?: { open: string; close: string } | null;
+  wednesday?: { open: string; close: string } | null;
+  thursday?: { open: string; close: string } | null;
+  friday?: { open: string; close: string } | null;
+  saturday?: { open: string; close: string } | null;
+}
+
+export interface Business {
   id: number;
   name: string;
   slug: string;
   description: string | null;
   address: string | null;
   city: string | null;
+  postalCode: string | null;
   phone: string | null;
   email: string | null;
+  website: string | null;
+  logoUrl: string | null;
+  hours: BusinessHours | null;
+  isKosher: boolean | null;
+  kosherCertification: string | null;
   approvalStatus: string | null;
   isFeatured: boolean | null;
   displayOrder: number | null;
+  isActive: boolean | null;
   createdAt: Date | string | null;
   categoryId: number | null;
   categoryName: string | null;
+  parentCategoryId: number | null;
   ownerEmail: string | null;
   ownerName: string | null;
 }

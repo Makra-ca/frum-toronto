@@ -110,11 +110,11 @@ export const categorySchema = z.object({
   icon: z.string().max(50).optional().nullable(),
   imageUrl: z.string().url().max(500).optional().nullable().or(z.literal("")),
   parentId: z.number().int().positive().optional().nullable(),
-  displayOrder: z.number().int().default(0),
-  isActive: z.boolean().default(true),
+  displayOrder: z.number().int().optional().default(0),
+  isActive: z.boolean().optional().default(true),
 });
 
-export type CategoryFormData = z.infer<typeof categorySchema>;
+export type CategoryFormData = z.input<typeof categorySchema>;
 
 // ============================================
 // SHIURIM

@@ -19,29 +19,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ShulForm } from "@/components/admin/ShulForm";
-import { ShulTable } from "@/components/admin/ShulTable";
+import { ShulTable, type Shul } from "@/components/admin/ShulTable";
 import { ShulFormData } from "@/lib/validations/content";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
-
-interface Shul {
-  id: number;
-  name: string;
-  slug: string;
-  description: string | null;
-  address: string | null;
-  city: string | null;
-  postalCode: string | null;
-  phone: string | null;
-  email: string | null;
-  website: string | null;
-  rabbi: string | null;
-  denomination: string | null;
-  nusach: string | null;
-  hasMinyan: boolean | null;
-  isActive: boolean | null;
-  createdAt: string | null;
-}
 
 export default function AdminShulsPage() {
   const [shuls, setShuls] = useState<Shul[]>([]);

@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BusinessForm } from "@/components/admin/BusinessForm";
-import { BusinessTable } from "@/components/admin/BusinessTable";
+import { BusinessTable, type Business } from "@/components/admin/BusinessTable";
 import { Plus, Search, X, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,33 +42,6 @@ interface BusinessHours {
   thursday?: { open: string; close: string } | null;
   friday?: { open: string; close: string } | null;
   saturday?: { open: string; close: string } | null;
-}
-
-interface Business {
-  id: number;
-  name: string;
-  slug: string;
-  description: string | null;
-  address: string | null;
-  city: string | null;
-  postalCode: string | null;
-  phone: string | null;
-  email: string | null;
-  website: string | null;
-  logoUrl: string | null;
-  hours: BusinessHours | null;
-  isKosher: boolean | null;
-  kosherCertification: string | null;
-  approvalStatus: string | null;
-  isFeatured: boolean | null;
-  displayOrder: number | null;
-  isActive: boolean | null;
-  createdAt: Date | string | null;
-  categoryId: number | null;
-  categoryName: string | null;
-  parentCategoryId: number | null;
-  ownerEmail: string | null;
-  ownerName: string | null;
 }
 
 interface Category {
