@@ -43,8 +43,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id as string;
-        token.role = user.role;
-        token.isTrusted = user.isTrusted;
+        // For OAuth users, fetch role from database since profile() always returns "member"
+        // For credentials, user.role is already correct from the authorize() callback
+        if (user.email) {
+          const [dbUser] = await db
+            .select({ role: users.role, isTrusted: users.isTrusted })
+            .from(users)
+            .where(eq(users.email, user.email))
+            .limit(1);
+          if (dbUser) {
+            token.role = dbUser.role;
+            token.isTrusted = dbUser.isTrusted ?? false;
+          } else {
+            token.role = user.role;
+            token.isTrusted = user.isTrusted;
+          }
+        } else {
+          token.role = user.role;
+          token.isTrusted = user.isTrusted;
+        }
       }
       // Handle session updates
       if (trigger === "update" && session) {
