@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { shuls, businesses } from "@/lib/db/schema";
+import { shuls } from "@/lib/db/schema";
 import { shulSchema } from "@/lib/validations/content";
-import { eq, desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
-// GET /api/admin/shuls - List all shuls with business info
+// Helper function to generate slug from name
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "") // Remove special characters
+    .replace(/\s+/g, "-") // Replace spaces with hyphens
+    .replace(/-+/g, "-") // Replace multiple hyphens with single
+    .trim();
+}
+
+// GET /api/admin/shuls - List all shuls
 export async function GET() {
   try {
     const session = await auth();
@@ -14,21 +24,9 @@ export async function GET() {
     }
 
     const allShuls = await db
-      .select({
-        id: shuls.id,
-        businessId: shuls.businessId,
-        rabbi: shuls.rabbi,
-        denomination: shuls.denomination,
-        nusach: shuls.nusach,
-        hasMinyan: shuls.hasMinyan,
-        businessName: businesses.name,
-        businessSlug: businesses.slug,
-        address: businesses.address,
-        phone: businesses.phone,
-      })
+      .select()
       .from(shuls)
-      .leftJoin(businesses, eq(shuls.businessId, businesses.id))
-      .orderBy(desc(shuls.id));
+      .orderBy(desc(shuls.createdAt));
 
     return NextResponse.json(allShuls);
   } catch (error) {
@@ -51,42 +49,38 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = shulSchema.parse(body);
 
-    // Check if business exists
-    const business = await db
-      .select()
-      .from(businesses)
-      .where(eq(businesses.id, validatedData.businessId))
-      .limit(1);
+    // Generate slug if not provided
+    let slug = validatedData.slug || generateSlug(validatedData.name);
 
-    if (business.length === 0) {
-      return NextResponse.json(
-        { error: "Business not found" },
-        { status: 404 }
-      );
-    }
-
-    // Check if shul already exists for this business
-    const existingShul = await db
-      .select()
+    // Check if slug already exists and make unique if needed
+    const existingSlug = await db
+      .select({ id: shuls.id })
       .from(shuls)
-      .where(eq(shuls.businessId, validatedData.businessId))
+      .where(eq(shuls.slug, slug))
       .limit(1);
 
-    if (existingShul.length > 0) {
-      return NextResponse.json(
-        { error: "A shul already exists for this business" },
-        { status: 400 }
-      );
+    if (existingSlug.length > 0) {
+      // Append timestamp to make unique
+      slug = `${slug}-${Date.now()}`;
     }
 
     const [newShul] = await db
       .insert(shuls)
       .values({
-        businessId: validatedData.businessId,
+        name: validatedData.name,
+        slug,
+        description: validatedData.description,
+        address: validatedData.address,
+        city: validatedData.city || "Toronto",
+        postalCode: validatedData.postalCode,
+        phone: validatedData.phone,
+        email: validatedData.email || null,
+        website: validatedData.website || null,
         rabbi: validatedData.rabbi,
         denomination: validatedData.denomination,
         nusach: validatedData.nusach,
         hasMinyan: validatedData.hasMinyan,
+        isActive: true,
       })
       .returning();
 

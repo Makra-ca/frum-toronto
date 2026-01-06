@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { events, shuls, businesses } from "@/lib/db/schema";
+import { events, shuls } from "@/lib/db/schema";
 import { eventSchema } from "@/lib/validations/content";
 import { eq, desc } from "drizzle-orm";
 
@@ -36,11 +36,10 @@ export async function GET(request: NextRequest) {
         isActive: events.isActive,
         createdAt: events.createdAt,
         shulId: events.shulId,
-        shulName: businesses.name,
+        shulName: shuls.name,
       })
       .from(events)
       .leftJoin(shuls, eq(events.shulId, shuls.id))
-      .leftJoin(businesses, eq(shuls.businessId, businesses.id))
       .orderBy(desc(events.startTime));
 
     const allEvents = await query;

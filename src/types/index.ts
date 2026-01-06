@@ -78,12 +78,20 @@ export type TefilahType = "shacharis" | "mincha" | "maariv";
 
 export interface Shul {
   id: number;
-  businessId: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  address: string | null;
+  city: string | null;
+  postalCode: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
   rabbi: string | null;
   denomination: string | null;
   nusach: string | null;
   hasMinyan: boolean;
-  business?: Business;
+  isActive: boolean;
 }
 
 export interface DaveningSchedule {

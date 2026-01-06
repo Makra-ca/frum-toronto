@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { shuls, businesses, daveningSchedules } from "@/lib/db/schema";
+import { shuls, daveningSchedules } from "@/lib/db/schema";
 import { shulSchema } from "@/lib/validations/content";
-import { eq } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
+
+// Helper function to generate slug from name
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim();
+}
 
 // GET /api/admin/shuls/[id] - Get single shul with davening schedules
 export async function GET(
@@ -24,21 +34,8 @@ export async function GET(
     }
 
     const [shul] = await db
-      .select({
-        id: shuls.id,
-        businessId: shuls.businessId,
-        rabbi: shuls.rabbi,
-        denomination: shuls.denomination,
-        nusach: shuls.nusach,
-        hasMinyan: shuls.hasMinyan,
-        businessName: businesses.name,
-        businessSlug: businesses.slug,
-        address: businesses.address,
-        phone: businesses.phone,
-        email: businesses.email,
-      })
+      .select()
       .from(shuls)
-      .leftJoin(businesses, eq(shuls.businessId, businesses.id))
       .where(eq(shuls.id, shulId))
       .limit(1);
 
@@ -94,30 +91,39 @@ export async function PUT(
       return NextResponse.json({ error: "Shul not found" }, { status: 404 });
     }
 
-    // If changing business, check if new business already has a shul
-    if (validatedData.businessId !== existingShul.businessId) {
-      const [conflictingShul] = await db
-        .select()
+    // Generate slug if name changed and no custom slug provided
+    let slug = validatedData.slug || generateSlug(validatedData.name);
+
+    // Check if slug already exists (for a different shul)
+    if (slug !== existingShul.slug) {
+      const [existingSlug] = await db
+        .select({ id: shuls.id })
         .from(shuls)
-        .where(eq(shuls.businessId, validatedData.businessId))
+        .where(and(eq(shuls.slug, slug), ne(shuls.id, shulId)))
         .limit(1);
 
-      if (conflictingShul) {
-        return NextResponse.json(
-          { error: "A shul already exists for this business" },
-          { status: 400 }
-        );
+      if (existingSlug) {
+        slug = `${slug}-${Date.now()}`;
       }
     }
 
     const [updatedShul] = await db
       .update(shuls)
       .set({
-        businessId: validatedData.businessId,
+        name: validatedData.name,
+        slug,
+        description: validatedData.description,
+        address: validatedData.address,
+        city: validatedData.city || "Toronto",
+        postalCode: validatedData.postalCode,
+        phone: validatedData.phone,
+        email: validatedData.email || null,
+        website: validatedData.website || null,
         rabbi: validatedData.rabbi,
         denomination: validatedData.denomination,
         nusach: validatedData.nusach,
         hasMinyan: validatedData.hasMinyan,
+        updatedAt: new Date(),
       })
       .where(eq(shuls.id, shulId))
       .returning();

@@ -83,7 +83,8 @@ export async function GET(
       orderBy = desc(businesses.createdAt);
       break;
     default:
-      orderBy = asc(businesses.name);
+      // Default: order by displayOrder first (admin-defined order), then alphabetically
+      orderBy = sql`${businesses.displayOrder} ASC NULLS LAST, ${businesses.name} ASC`;
   }
 
   // Build conditions

@@ -4,6 +4,8 @@ import { eq, sql, isNull, count } from "drizzle-orm";
 import { Building2 } from "lucide-react";
 import { AmazonStyleBrowser } from "@/components/directory/AmazonStyleBrowser";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Business Directory",
   description: "Browse the Toronto Jewish Orthodox community business directory",
@@ -16,6 +18,7 @@ async function getCategoriesWithSubcategories() {
       id: businessCategories.id,
       name: businessCategories.name,
       slug: businessCategories.slug,
+      imageUrl: businessCategories.imageUrl,
       displayOrder: businessCategories.displayOrder,
     })
     .from(businessCategories)
@@ -65,6 +68,7 @@ async function getCategoriesWithSubcategories() {
         id: parent.id,
         name: parent.name,
         slug: parent.slug,
+        imageUrl: parent.imageUrl,
         businessCount: totalBusinesses,
         subcategories: subs,
       };

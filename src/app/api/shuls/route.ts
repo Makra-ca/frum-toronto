@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { shuls, businesses } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { shuls } from "@/lib/db/schema";
+import { eq, asc, and } from "drizzle-orm";
 
 export async function GET(request: Request) {
   try {
@@ -9,38 +9,22 @@ export async function GET(request: Request) {
     const denomination = searchParams.get("denomination");
     const nusach = searchParams.get("nusach");
 
-    let query = db
-      .select({
-        id: shuls.id,
-        businessId: shuls.businessId,
-        name: businesses.name,
-        slug: businesses.slug,
-        address: businesses.address,
-        phone: businesses.phone,
-        email: businesses.email,
-        rabbi: shuls.rabbi,
-        denomination: shuls.denomination,
-        nusach: shuls.nusach,
-        hasMinyan: shuls.hasMinyan,
-      })
-      .from(shuls)
-      .innerJoin(businesses, eq(shuls.businessId, businesses.id))
-      .$dynamic();
+    // Build conditions array
+    const conditions = [eq(shuls.isActive, true)];
 
-    // Filter by denomination
     if (denomination) {
-      query = query.where(eq(shuls.denomination, denomination));
+      conditions.push(eq(shuls.denomination, denomination));
     }
 
-    // Filter by nusach
     if (nusach) {
-      query = query.where(eq(shuls.nusach, nusach));
+      conditions.push(eq(shuls.nusach, nusach));
     }
 
-    // Order by name
-    query = query.orderBy(asc(businesses.name));
-
-    const results = await query;
+    const results = await db
+      .select()
+      .from(shuls)
+      .where(and(...conditions))
+      .orderBy(asc(shuls.name));
 
     return NextResponse.json(results);
   } catch (error) {

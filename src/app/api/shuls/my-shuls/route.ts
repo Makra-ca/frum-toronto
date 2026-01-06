@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { userShuls, shuls, businesses } from "@/lib/db/schema";
+import { userShuls, shuls } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 // GET user's assigned shuls
@@ -18,20 +18,9 @@ export async function GET() {
     // For admins, return all shuls
     if (session.user.role === "admin") {
       const allShuls = await db
-        .select({
-          id: shuls.id,
-          businessId: shuls.businessId,
-          rabbi: shuls.rabbi,
-          denomination: shuls.denomination,
-          nusach: shuls.nusach,
-          hasMinyan: shuls.hasMinyan,
-          businessName: businesses.name,
-          businessSlug: businesses.slug,
-          address: businesses.address,
-          phone: businesses.phone,
-        })
+        .select()
         .from(shuls)
-        .leftJoin(businesses, eq(shuls.businessId, businesses.id));
+        .where(eq(shuls.isActive, true));
 
       return NextResponse.json(allShuls);
     }
@@ -44,20 +33,23 @@ export async function GET() {
     const myShuls = await db
       .select({
         id: shuls.id,
-        businessId: shuls.businessId,
+        name: shuls.name,
+        slug: shuls.slug,
+        description: shuls.description,
+        address: shuls.address,
+        city: shuls.city,
+        postalCode: shuls.postalCode,
+        phone: shuls.phone,
+        email: shuls.email,
+        website: shuls.website,
         rabbi: shuls.rabbi,
         denomination: shuls.denomination,
         nusach: shuls.nusach,
         hasMinyan: shuls.hasMinyan,
-        businessName: businesses.name,
-        businessSlug: businesses.slug,
-        address: businesses.address,
-        phone: businesses.phone,
         assignedAt: userShuls.assignedAt,
       })
       .from(userShuls)
       .innerJoin(shuls, eq(userShuls.shulId, shuls.id))
-      .leftJoin(businesses, eq(shuls.businessId, businesses.id))
       .where(eq(userShuls.userId, userId));
 
     return NextResponse.json(myShuls);

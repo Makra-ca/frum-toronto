@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { daveningSchedules, shuls, businesses } from "@/lib/db/schema";
+import { daveningSchedules, shuls } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { Clock, MapPin, Phone, Mail, ArrowLeft, Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,18 +17,16 @@ async function getShul(id: number) {
   const [shul] = await db
     .select({
       id: shuls.id,
-      businessId: shuls.businessId,
-      name: businesses.name,
-      address: businesses.address,
-      phone: businesses.phone,
-      email: businesses.email,
+      name: shuls.name,
+      address: shuls.address,
+      phone: shuls.phone,
+      email: shuls.email,
       rabbi: shuls.rabbi,
       denomination: shuls.denomination,
       nusach: shuls.nusach,
       hasMinyan: shuls.hasMinyan,
     })
     .from(shuls)
-    .innerJoin(businesses, eq(shuls.businessId, businesses.id))
     .where(eq(shuls.id, id))
     .limit(1);
 

@@ -15,15 +15,15 @@ import { Pencil, Trash2, Calendar } from "lucide-react";
 
 interface Shul {
   id: number;
-  businessId: number | null;
+  name: string;
+  slug: string;
+  address: string | null;
+  city: string | null;
+  phone: string | null;
   rabbi: string | null;
   denomination: string | null;
   nusach: string | null;
   hasMinyan: boolean | null;
-  businessName: string | null;
-  businessSlug: string | null;
-  address: string | null;
-  phone: string | null;
 }
 
 interface ShulTableProps {
@@ -61,7 +61,7 @@ export function ShulTable({ shuls, onEdit, onDelete }: ShulTableProps) {
               <TableRow key={shul.id}>
                 <TableCell>
                   <div>
-                    <p className="font-medium">{shul.businessName || "Unknown"}</p>
+                    <p className="font-medium">{shul.name}</p>
                     {shul.address && (
                       <p className="text-sm text-gray-500">{shul.address}</p>
                     )}
@@ -129,7 +129,7 @@ export function ShulTable({ shuls, onEdit, onDelete }: ShulTableProps) {
         {shuls.map((shul) => (
           <div key={shul.id} className="bg-white rounded-lg shadow p-4">
             <div className="mb-3">
-              <p className="font-medium text-gray-900">{shul.businessName || "Unknown"}</p>
+              <p className="font-medium text-gray-900">{shul.name}</p>
               {shul.address && (
                 <p className="text-sm text-gray-500">{shul.address}</p>
               )}

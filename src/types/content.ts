@@ -73,16 +73,19 @@ export interface Shiur {
 
 export interface Shul {
   id: number;
-  businessId: number | null;
+  name: string;
+  slug: string;
+  description: string | null;
+  address: string | null;
+  city: string | null;
+  postalCode: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
   rabbi: string | null;
   denomination: string | null;
   nusach: string | null;
   hasMinyan: boolean | null;
-  businessName: string | null;
-  businessSlug: string | null;
-  address: string | null;
-  phone: string | null;
-  email?: string | null;
 }
 
 export interface DaveningSchedule {

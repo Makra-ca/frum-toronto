@@ -18,6 +18,7 @@ interface Category {
   id: number;
   name: string;
   slug: string;
+  imageUrl?: string | null;
   businessCount: number;
   subcategories: Subcategory[];
 }
@@ -33,8 +34,8 @@ interface AmazonStyleBrowserProps {
   topCategories?: TopCategory[];
 }
 
-// Placeholder images for categories (Unsplash)
-const categoryImages: Record<string, string> = {
+// Fallback placeholder images for categories (Unsplash) - used when no custom image is set
+const fallbackCategoryImages: Record<string, string> = {
   "restaurants-catering": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&h=300&fit=crop",
   "jewish-services": "https://images.unsplash.com/photo-1579017308347-e53e0d2fc5e9?w=600&h=300&fit=crop",
   "business-services": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&h=300&fit=crop",
@@ -50,12 +51,18 @@ const categoryImages: Record<string, string> = {
   "clothing-accessories": "https://images.unsplash.com/photo-1445205170230-053b83016050?w=600&h=300&fit=crop",
   "kosher-foods": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=300&fit=crop",
   "government-institutions": "https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=600&h=300&fit=crop",
-  "sport-leisure": "https://images.unsplash.com/photo-1461896836934- voices?w=600&h=300&fit=crop",
+  "sport-leisure": "https://images.unsplash.com/photo-1461896836934-df9aa02a7c84?w=600&h=300&fit=crop",
   "media-communications": "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=600&h=300&fit=crop",
   "travel": "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=600&h=300&fit=crop",
 };
 
 const defaultImage = "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&h=300&fit=crop";
+
+// Helper to get category image - database URL takes priority, then fallback map, then default
+function getCategoryImage(category: Category): string {
+  if (category.imageUrl) return category.imageUrl;
+  return fallbackCategoryImages[category.slug] || defaultImage;
+}
 
 export function AmazonStyleBrowser({ categories, topCategories = [] }: AmazonStyleBrowserProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -142,7 +149,7 @@ export function AmazonStyleBrowser({ categories, topCategories = [] }: AmazonSty
                 {/* Hero Image */}
                 <div className="relative h-40 rounded-xl overflow-hidden mb-6">
                   <img
-                    src={categoryImages[activeCategory.slug] || defaultImage}
+                    src={getCategoryImage(activeCategory)}
                     alt={activeCategory.name}
                     className="w-full h-full object-cover"
                   />
@@ -216,7 +223,7 @@ export function AmazonStyleBrowser({ categories, topCategories = [] }: AmazonSty
               {/* Hero image for selected category */}
               <div className="relative h-32 overflow-hidden">
                 <img
-                  src={categoryImages[mobileActiveCategory.slug] || defaultImage}
+                  src={getCategoryImage(mobileActiveCategory)}
                   alt={mobileActiveCategory.name}
                   className="w-full h-full object-cover"
                 />

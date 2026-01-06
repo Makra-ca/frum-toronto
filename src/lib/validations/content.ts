@@ -5,7 +5,19 @@ import { z } from "zod";
 // ============================================
 
 export const shulSchema = z.object({
-  businessId: z.number().int().positive("Business is required"),
+  // Core fields
+  name: z.string().min(1, "Shul name is required").max(200),
+  slug: z.string().max(200).optional(), // Auto-generated if not provided
+  description: z.string().optional().nullable(),
+  // Location
+  address: z.string().max(500).optional().nullable(),
+  city: z.string().max(100).optional().nullable(),
+  postalCode: z.string().max(20).optional().nullable(),
+  // Contact
+  phone: z.string().max(40).optional().nullable(),
+  email: z.string().email().max(255).optional().nullable().or(z.literal("")),
+  website: z.string().url().max(255).optional().nullable().or(z.literal("")),
+  // Shul-specific
   rabbi: z.string().max(200).optional().nullable(),
   denomination: z.string().max(50).optional().nullable(),
   nusach: z.string().max(50).optional().nullable(),
@@ -52,6 +64,57 @@ export const eventSchema = z.object({
 });
 
 export type EventFormData = z.infer<typeof eventSchema>;
+
+// ============================================
+// BUSINESSES
+// ============================================
+
+const businessHoursEntrySchema = z.object({
+  open: z.string(),
+  close: z.string(),
+}).nullable();
+
+export const businessSchema = z.object({
+  name: z.string().min(1, "Name is required").max(200),
+  categoryId: z.number().int().positive().optional().nullable(),
+  description: z.string().max(5000).optional().nullable(),
+  address: z.string().max(500).optional().nullable(),
+  city: z.string().max(100).default("Toronto"),
+  postalCode: z.string().max(20).optional().nullable(),
+  phone: z.string().max(40).optional().nullable(),
+  email: z.string().email().max(255).optional().nullable().or(z.literal("")),
+  website: z.string().max(255).optional().nullable(),
+  isKosher: z.boolean().default(false),
+  kosherCertification: z.string().max(100).optional().nullable(),
+  hours: z.object({
+    sunday: businessHoursEntrySchema.optional(),
+    monday: businessHoursEntrySchema.optional(),
+    tuesday: businessHoursEntrySchema.optional(),
+    wednesday: businessHoursEntrySchema.optional(),
+    thursday: businessHoursEntrySchema.optional(),
+    friday: businessHoursEntrySchema.optional(),
+    saturday: businessHoursEntrySchema.optional(),
+  }).optional().nullable(),
+  isFeatured: z.boolean().default(false),
+});
+
+export type BusinessFormData = z.infer<typeof businessSchema>;
+
+// ============================================
+// BUSINESS CATEGORIES
+// ============================================
+
+export const categorySchema = z.object({
+  name: z.string().min(1, "Name is required").max(150),
+  description: z.string().max(500).optional().nullable(),
+  icon: z.string().max(50).optional().nullable(),
+  imageUrl: z.string().url().max(500).optional().nullable().or(z.literal("")),
+  parentId: z.number().int().positive().optional().nullable(),
+  displayOrder: z.number().int().default(0),
+  isActive: z.boolean().default(true),
+});
+
+export type CategoryFormData = z.infer<typeof categorySchema>;
 
 // ============================================
 // SHIURIM

@@ -9,13 +9,12 @@ import { Landmark, MapPin, Phone, Clock, ArrowRight, Plus, Loader2 } from "lucid
 
 interface Shul {
   id: number;
-  businessId: number | null;
+  name: string;
+  slug: string;
   rabbi: string | null;
   denomination: string | null;
   nusach: string | null;
   hasMinyan: boolean | null;
-  businessName: string | null;
-  businessSlug: string | null;
   address: string | null;
   phone: string | null;
   assignedAt?: string | null;
@@ -92,7 +91,7 @@ export default function MyShulsPage() {
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <CardTitle className="text-lg">
-                      {shul.businessName || `Shul #${shul.id}`}
+                      {shul.name || `Shul #${shul.id}`}
                     </CardTitle>
                     {shul.hasMinyan && (
                       <Badge className="bg-green-100 text-green-800">

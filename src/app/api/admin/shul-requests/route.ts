@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { shulRegistrationRequests, users, shuls, businesses } from "@/lib/db/schema";
+import { shulRegistrationRequests, users, shuls } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 // GET all shul registration requests
@@ -32,14 +32,13 @@ export async function GET(request: Request) {
         },
         shul: {
           id: shuls.id,
-          businessId: shuls.businessId,
+          name: shuls.name,
         },
-        shulName: businesses.name,
+        shulName: shuls.name,
       })
       .from(shulRegistrationRequests)
       .leftJoin(users, eq(shulRegistrationRequests.userId, users.id))
       .leftJoin(shuls, eq(shulRegistrationRequests.shulId, shuls.id))
-      .leftJoin(businesses, eq(shuls.businessId, businesses.id))
       .where(eq(shulRegistrationRequests.status, status))
       .orderBy(desc(shulRegistrationRequests.createdAt));
 

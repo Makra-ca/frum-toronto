@@ -91,6 +91,7 @@ export const businessCategories = pgTable("business_categories", {
   parentId: integer("parent_id").references((): AnyPgColumn => businessCategories.id),
   description: text("description"),
   icon: varchar("icon", { length: 50 }),
+  imageUrl: varchar("image_url", { length: 500 }), // Category hero image URL
   displayOrder: integer("display_order").default(0),
   isActive: boolean("is_active").default(true),
   oldId: integer("old_id"), // migration mapping
@@ -134,6 +135,7 @@ export const businesses = pgTable("businesses", {
   approvalStatus: varchar("approval_status", { length: 20 }).default("pending"),
   isFeatured: boolean("is_featured").default(false),
   viewCount: integer("view_count").default(0),
+  displayOrder: integer("display_order").default(0),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -170,12 +172,33 @@ export const businessSubscriptions = pgTable("business_subscriptions", {
 
 export const shuls = pgTable("shuls", {
   id: serial("id").primaryKey(),
-  businessId: integer("business_id").references(() => businesses.id),
+  // Core fields (replaces businessId dependency)
+  name: varchar("name", { length: 200 }).notNull(),
+  slug: varchar("slug", { length: 200 }).notNull().unique(),
+  description: text("description"),
+  // Location
+  address: varchar("address", { length: 500 }),
+  city: varchar("city", { length: 100 }).default("Toronto"),
+  postalCode: varchar("postal_code", { length: 20 }),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  // Contact
+  phone: varchar("phone", { length: 40 }),
+  email: varchar("email", { length: 255 }),
+  website: varchar("website", { length: 255 }),
+  // Shul-specific
   rabbi: varchar("rabbi", { length: 200 }),
-  denomination: varchar("denomination", { length: 50 }),
-  nusach: varchar("nusach", { length: 50 }),
+  denomination: varchar("denomination", { length: 50 }), // Orthodox, Modern Orthodox, Chabad, etc.
+  nusach: varchar("nusach", { length: 50 }), // Ashkenaz, Sefard, Ari, etc.
   hasMinyan: boolean("has_minyan").default(true),
-});
+  logoUrl: varchar("logo_url", { length: 500 }),
+  // Status
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_shuls_slug").on(table.slug),
+]);
 
 export const daveningSchedules = pgTable("davening_schedules", {
   id: serial("id").primaryKey(),
@@ -433,11 +456,12 @@ export const kosherAlerts = pgTable("kosher_alerts", {
 export const tehillimList = pgTable("tehillim_list", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
-  hebrewName: varchar("hebrew_name", { length: 200 }).notNull(),
+  hebrewName: varchar("hebrew_name", { length: 200 }),
   englishName: varchar("english_name", { length: 200 }),
   motherHebrewName: varchar("mother_hebrew_name", { length: 200 }),
   reason: varchar("reason", { length: 200 }),
   isActive: boolean("is_active").default(true),
+  approvalStatus: varchar("approval_status", { length: 20 }).default("pending"),
   expiresAt: date("expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -523,11 +547,9 @@ export const businessesRelations = relations(businesses, ({ one, many }) => ({
   category: one(businessCategories, { fields: [businesses.categoryId], references: [businessCategories.id] }),
   photos: many(businessPhotos),
   subscriptions: many(businessSubscriptions),
-  shul: one(shuls),
 }));
 
-export const shulsRelations = relations(shuls, ({ one, many }) => ({
-  business: one(businesses, { fields: [shuls.businessId], references: [businesses.id] }),
+export const shulsRelations = relations(shuls, ({ many }) => ({
   daveningSchedules: many(daveningSchedules),
   shiurim: many(shiurim),
   events: many(events),

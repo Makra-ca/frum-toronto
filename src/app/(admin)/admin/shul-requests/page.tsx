@@ -21,7 +21,7 @@ interface ShulRequest {
   } | null;
   shul: {
     id: number;
-    businessId: number | null;
+    name: string | null;
   } | null;
   shulName: string | null;
 }

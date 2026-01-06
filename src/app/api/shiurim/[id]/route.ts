@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { shiurim, shuls, businesses } from "@/lib/db/schema";
+import { shiurim, shuls } from "@/lib/db/schema";
 import { eq, and, or, isNull } from "drizzle-orm";
 
 // GET /api/shiurim/[id] - Get single shiur for public view
@@ -29,8 +29,8 @@ export async function GET(
         description: shiurim.description,
         // Location
         shulId: shiurim.shulId,
-        shulName: businesses.name,
-        shulSlug: businesses.slug,
+        shulName: shuls.name,
+        shulSlug: shuls.slug,
         locationName: shiurim.locationName,
         locationAddress: shiurim.locationAddress,
         locationPostalCode: shiurim.locationPostalCode,
@@ -61,7 +61,6 @@ export async function GET(
       })
       .from(shiurim)
       .leftJoin(shuls, eq(shiurim.shulId, shuls.id))
-      .leftJoin(businesses, eq(shuls.businessId, businesses.id))
       .where(
         and(
           eq(shiurim.id, shiurId),

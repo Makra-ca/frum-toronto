@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { shiurim, shuls, businesses } from "@/lib/db/schema";
+import { shiurim, shuls } from "@/lib/db/schema";
 import { shiurSchema, TEACHER_TITLES } from "@/lib/validations/content";
 import { eq, asc } from "drizzle-orm";
 
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         description: shiurim.description,
         // Location
         shulId: shiurim.shulId,
-        shulName: businesses.name,
+        shulName: shuls.name,
         locationName: shiurim.locationName,
         locationAddress: shiurim.locationAddress,
         locationPostalCode: shiurim.locationPostalCode,
@@ -73,7 +73,6 @@ export async function GET(request: NextRequest) {
       })
       .from(shiurim)
       .leftJoin(shuls, eq(shiurim.shulId, shuls.id))
-      .leftJoin(businesses, eq(shuls.businessId, businesses.id))
       .orderBy(asc(shiurim.title));
 
     // Apply filters in memory (for flexibility)

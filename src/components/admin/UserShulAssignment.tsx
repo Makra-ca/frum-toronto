@@ -50,7 +50,7 @@ interface Assignment {
   } | null;
   shul: {
     id: number;
-    businessId: number | null;
+    name: string | null;
   } | null;
   shulName: string | null;
 }
@@ -64,7 +64,7 @@ interface User {
 
 interface Shul {
   id: number;
-  businessName: string | null;
+  name: string | null;
 }
 
 interface UserShulAssignmentProps {
@@ -269,7 +269,7 @@ export function UserShulAssignment({ assignments, onRefresh }: UserShulAssignmen
                     <SelectContent>
                       {shuls.map((shul) => (
                         <SelectItem key={shul.id} value={shul.id.toString()}>
-                          {shul.businessName || `Shul #${shul.id}`}
+                          {shul.name || `Shul #${shul.id}`}
                         </SelectItem>
                       ))}
                     </SelectContent>

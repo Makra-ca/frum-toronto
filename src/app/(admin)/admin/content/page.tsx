@@ -44,13 +44,14 @@ export default async function AdminContentPage() {
         id: tehillimList.id,
         hebrewName: tehillimList.hebrewName,
         englishName: tehillimList.englishName,
+        motherHebrewName: tehillimList.motherHebrewName,
         reason: tehillimList.reason,
+        approvalStatus: tehillimList.approvalStatus,
         createdAt: tehillimList.createdAt,
       })
       .from(tehillimList)
-      .where(eq(tehillimList.isActive, true))
-      .orderBy(desc(tehillimList.createdAt))
-      .limit(20),
+      .where(eq(tehillimList.approvalStatus, "pending"))
+      .orderBy(desc(tehillimList.createdAt)),
   ]);
 
   return (

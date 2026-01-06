@@ -47,8 +47,6 @@ export const mainNavigation: NavItem[] = [
     href: "/shuls",
     children: [
       { label: "Shul Directory", href: "/shuls" },
-      { label: "Davening Schedule", href: "/davening" },
-      { label: "Mincha/Maariv List", href: "/mincha" },
       { label: "Tehillim List", href: "/community/tehillim" },
     ],
   },

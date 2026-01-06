@@ -21,26 +21,19 @@ import { toast } from "sonner";
 
 interface ShulData {
   id: number;
-  businessId: number | null;
+  name: string;
+  slug: string;
+  description: string | null;
+  address: string | null;
+  city: string | null;
+  postalCode: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
   rabbi: string | null;
   denomination: string | null;
   nusach: string | null;
   hasMinyan: boolean | null;
-  business: {
-    id: number;
-    name: string;
-    slug: string;
-    description: string | null;
-    address: string | null;
-    city: string | null;
-    postalCode: string | null;
-    phone: string | null;
-    email: string | null;
-    website: string | null;
-    logoUrl: string | null;
-    hours: Record<string, unknown> | null;
-    socialLinks: Record<string, unknown> | null;
-  } | null;
 }
 
 const DENOMINATIONS = [
@@ -100,14 +93,14 @@ export default function EditShulPage({ params }: { params: Promise<{ id: string 
             denomination: data.denomination || "",
             nusach: data.nusach || "",
             hasMinyan: data.hasMinyan || false,
-            name: data.business?.name || "",
-            description: data.business?.description || "",
-            address: data.business?.address || "",
-            city: data.business?.city || "",
-            postalCode: data.business?.postalCode || "",
-            phone: data.business?.phone || "",
-            email: data.business?.email || "",
-            website: data.business?.website || "",
+            name: data.name || "",
+            description: data.description || "",
+            address: data.address || "",
+            city: data.city || "",
+            postalCode: data.postalCode || "",
+            phone: data.phone || "",
+            email: data.email || "",
+            website: data.website || "",
           });
         } else if (response.status === 403) {
           toast.error("You don't have permission to manage this shul");
@@ -135,22 +128,18 @@ export default function EditShulPage({ params }: { params: Promise<{ id: string 
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          shulData: {
-            rabbi: formData.rabbi || null,
-            denomination: formData.denomination || null,
-            nusach: formData.nusach || null,
-            hasMinyan: formData.hasMinyan,
-          },
-          businessData: {
-            name: formData.name,
-            description: formData.description || null,
-            address: formData.address || null,
-            city: formData.city || null,
-            postalCode: formData.postalCode || null,
-            phone: formData.phone || null,
-            email: formData.email || null,
-            website: formData.website || null,
-          },
+          name: formData.name,
+          description: formData.description || null,
+          address: formData.address || null,
+          city: formData.city || null,
+          postalCode: formData.postalCode || null,
+          phone: formData.phone || null,
+          email: formData.email || null,
+          website: formData.website || null,
+          rabbi: formData.rabbi || null,
+          denomination: formData.denomination || null,
+          nusach: formData.nusach || null,
+          hasMinyan: formData.hasMinyan,
         }),
       });
 
@@ -202,7 +191,7 @@ export default function EditShulPage({ params }: { params: Promise<{ id: string 
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                Edit {shul.business?.name || "Shul"}
+                Edit {shul.name || "Shul"}
               </h1>
               <p className="mt-2 text-gray-600">
                 Update your shul&apos;s profile information

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { userShuls, users, shuls, businesses } from "@/lib/db/schema";
+import { userShuls, users, shuls } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 // GET all user-shul assignments
@@ -26,14 +26,13 @@ export async function GET() {
         },
         shul: {
           id: shuls.id,
-          businessId: shuls.businessId,
+          name: shuls.name,
         },
-        shulName: businesses.name,
+        shulName: shuls.name,
       })
       .from(userShuls)
       .leftJoin(users, eq(userShuls.userId, users.id))
       .leftJoin(shuls, eq(userShuls.shulId, shuls.id))
-      .leftJoin(businesses, eq(shuls.businessId, businesses.id))
       .orderBy(desc(userShuls.assignedAt));
 
     return NextResponse.json(assignments);

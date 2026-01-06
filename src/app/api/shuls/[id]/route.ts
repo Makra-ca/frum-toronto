@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { shuls, businesses, daveningSchedules } from "@/lib/db/schema";
+import { shuls, daveningSchedules } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { canUserManageShul } from "@/lib/auth/permissions";
 
@@ -28,33 +28,10 @@ export async function GET(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get shul with business details
+    // Get shul
     const [shul] = await db
-      .select({
-        id: shuls.id,
-        businessId: shuls.businessId,
-        rabbi: shuls.rabbi,
-        denomination: shuls.denomination,
-        nusach: shuls.nusach,
-        hasMinyan: shuls.hasMinyan,
-        business: {
-          id: businesses.id,
-          name: businesses.name,
-          slug: businesses.slug,
-          description: businesses.description,
-          address: businesses.address,
-          city: businesses.city,
-          postalCode: businesses.postalCode,
-          phone: businesses.phone,
-          email: businesses.email,
-          website: businesses.website,
-          logoUrl: businesses.logoUrl,
-          hours: businesses.hours,
-          socialLinks: businesses.socialLinks,
-        },
-      })
+      .select()
       .from(shuls)
-      .leftJoin(businesses, eq(shuls.businessId, businesses.id))
       .where(eq(shuls.id, shulId))
       .limit(1);
 
@@ -98,49 +75,26 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { shulData, businessData } = body;
 
-    // Update shul
-    if (shulData) {
-      await db
-        .update(shuls)
-        .set({
-          rabbi: shulData.rabbi,
-          denomination: shulData.denomination,
-          nusach: shulData.nusach,
-          hasMinyan: shulData.hasMinyan,
-        })
-        .where(eq(shuls.id, shulId));
-    }
-
-    // Update business if provided
-    if (businessData) {
-      // First get the shul to find businessId
-      const [shul] = await db
-        .select({ businessId: shuls.businessId })
-        .from(shuls)
-        .where(eq(shuls.id, shulId))
-        .limit(1);
-
-      if (shul?.businessId) {
-        await db
-          .update(businesses)
-          .set({
-            name: businessData.name,
-            description: businessData.description,
-            address: businessData.address,
-            city: businessData.city,
-            postalCode: businessData.postalCode,
-            phone: businessData.phone,
-            email: businessData.email,
-            website: businessData.website,
-            hours: businessData.hours,
-            socialLinks: businessData.socialLinks,
-            updatedAt: new Date(),
-          })
-          .where(eq(businesses.id, shul.businessId));
-      }
-    }
+    // Update shul directly (no more business table)
+    await db
+      .update(shuls)
+      .set({
+        name: body.name,
+        description: body.description,
+        address: body.address,
+        city: body.city,
+        postalCode: body.postalCode,
+        phone: body.phone,
+        email: body.email,
+        website: body.website,
+        rabbi: body.rabbi,
+        denomination: body.denomination,
+        nusach: body.nusach,
+        hasMinyan: body.hasMinyan,
+        updatedAt: new Date(),
+      })
+      .where(eq(shuls.id, shulId));
 
     return NextResponse.json({ message: "Shul updated successfully" });
   } catch (error) {

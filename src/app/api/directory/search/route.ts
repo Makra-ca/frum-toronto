@@ -82,9 +82,10 @@ export async function GET(request: NextRequest) {
       orderBy = desc(businesses.viewCount);
       break;
     default:
-      // Relevance: featured first, then by view count
+      // Relevance: featured first, then by admin-defined order, then by view count
       orderBy = sql`
         CASE WHEN ${businesses.isFeatured} = true THEN 0 ELSE 1 END,
+        ${businesses.displayOrder} ASC NULLS LAST,
         ${businesses.viewCount} DESC NULLS LAST,
         ${businesses.name} ASC
       `;

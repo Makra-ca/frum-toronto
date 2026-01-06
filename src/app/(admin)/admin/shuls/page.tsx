@@ -26,15 +26,21 @@ import { toast } from "sonner";
 
 interface Shul {
   id: number;
-  businessId: number | null;
+  name: string;
+  slug: string;
+  description: string | null;
+  address: string | null;
+  city: string | null;
+  postalCode: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
   rabbi: string | null;
   denomination: string | null;
   nusach: string | null;
   hasMinyan: boolean | null;
-  businessName: string | null;
-  businessSlug: string | null;
-  address: string | null;
-  phone: string | null;
+  isActive: boolean | null;
+  createdAt: string | null;
 }
 
 export default function AdminShulsPage() {
@@ -168,7 +174,7 @@ export default function AdminShulsPage() {
       />
 
       <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingShul ? "Edit Shul" : "Add New Shul"}
@@ -179,7 +185,15 @@ export default function AdminShulsPage() {
               editingShul
                 ? {
                     id: editingShul.id,
-                    businessId: editingShul.businessId || 0,
+                    name: editingShul.name,
+                    slug: editingShul.slug,
+                    description: editingShul.description,
+                    address: editingShul.address,
+                    city: editingShul.city,
+                    postalCode: editingShul.postalCode,
+                    phone: editingShul.phone,
+                    email: editingShul.email,
+                    website: editingShul.website,
                     rabbi: editingShul.rabbi,
                     denomination: editingShul.denomination,
                     nusach: editingShul.nusach,
@@ -199,7 +213,7 @@ export default function AdminShulsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Shul</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deletingShul?.businessName}&quot;?
+              Are you sure you want to delete &quot;{deletingShul?.name}&quot;?
               This will also delete all associated davening schedules. This action
               cannot be undone.
             </AlertDialogDescription>

@@ -39,7 +39,7 @@ type FormData = z.infer<typeof formSchema>;
 
 interface Shul {
   id: number;
-  businessName: string | null;
+  name: string;
 }
 
 interface EventFormProps {
@@ -143,20 +143,32 @@ export function EventForm({
   }, []);
 
   async function handleFormSubmit(data: FormData) {
-    // Combine date and time into ISO string
-    let startDateTime = data.startDate;
+    // Create dates in local timezone (EST) - don't use Z suffix which means UTC
+    // Parse date parts and create Date object in local time
+    const [startYear, startMonth, startDay] = data.startDate.split("-").map(Number);
+
+    let startDateTime: string;
     if (!data.isAllDay && data.startTime) {
-      startDateTime = `${data.startDate}T${data.startTime}:00`;
+      const [startHour, startMinute] = data.startTime.split(":").map(Number);
+      const startDate = new Date(startYear, startMonth - 1, startDay, startHour, startMinute);
+      startDateTime = startDate.toISOString();
     } else {
-      startDateTime = `${data.startDate}T00:00:00`;
+      // For all-day events, use noon local time to avoid date shifting
+      const startDate = new Date(startYear, startMonth - 1, startDay, 12, 0, 0);
+      startDateTime = startDate.toISOString();
     }
 
     let endDateTime: string | null = null;
     if (data.endDate) {
+      const [endYear, endMonth, endDay] = data.endDate.split("-").map(Number);
       if (!data.isAllDay && data.endTime) {
-        endDateTime = `${data.endDate}T${data.endTime}:00`;
+        const [endHour, endMinute] = data.endTime.split(":").map(Number);
+        const endDate = new Date(endYear, endMonth - 1, endDay, endHour, endMinute);
+        endDateTime = endDate.toISOString();
       } else {
-        endDateTime = `${data.endDate}T23:59:59`;
+        // For all-day events, use end of day
+        const endDate = new Date(endYear, endMonth - 1, endDay, 23, 59, 59);
+        endDateTime = endDate.toISOString();
       }
     }
 
@@ -230,7 +242,7 @@ export function EventForm({
               <SelectItem value="none">None</SelectItem>
               {shuls.map((shul) => (
                 <SelectItem key={shul.id} value={shul.id.toString()}>
-                  {shul.businessName}
+                  {shul.name}
                 </SelectItem>
               ))}
             </SelectContent>

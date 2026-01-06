@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { shiurim, shuls, businesses } from "@/lib/db/schema";
+import { shiurim, shuls } from "@/lib/db/schema";
 import { eq, and, asc, isNull, or } from "drizzle-orm";
 
 interface ScheduleEntry {
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         description: shiurim.description,
         // Location
         shulId: shiurim.shulId,
-        shulName: businesses.name,
+        shulName: shuls.name,
         locationName: shiurim.locationName,
         locationAddress: shiurim.locationAddress,
         locationArea: shiurim.locationArea,
@@ -59,7 +59,6 @@ export async function GET(request: NextRequest) {
       })
       .from(shiurim)
       .leftJoin(shuls, eq(shiurim.shulId, shuls.id))
-      .leftJoin(businesses, eq(shuls.businessId, businesses.id))
       .where(
         and(
           eq(shiurim.isActive, true),

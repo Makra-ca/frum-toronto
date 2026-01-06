@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { events, shuls, businesses } from "@/lib/db/schema";
-import { eq, and, gte, lte, desc, asc, sql } from "drizzle-orm";
+import { events, shuls } from "@/lib/db/schema";
+import { eq, and, gte, lte, asc } from "drizzle-orm";
 
 export async function GET(request: Request) {
   try {
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
         isAllDay: events.isAllDay,
         eventType: events.eventType,
         shulId: events.shulId,
-        shulName: businesses.name,
+        shulName: shuls.name,
         contactName: events.contactName,
         contactEmail: events.contactEmail,
         contactPhone: events.contactPhone,
@@ -31,7 +31,6 @@ export async function GET(request: Request) {
       })
       .from(events)
       .leftJoin(shuls, eq(events.shulId, shuls.id))
-      .leftJoin(businesses, eq(shuls.businessId, businesses.id))
       .where(eq(events.approvalStatus, "approved"))
       .$dynamic();
 

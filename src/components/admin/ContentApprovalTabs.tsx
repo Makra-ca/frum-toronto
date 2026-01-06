@@ -28,9 +28,11 @@ interface Classified {
 
 interface Tehillim {
   id: number;
-  hebrewName: string;
+  hebrewName: string | null;
   englishName: string | null;
+  motherHebrewName: string | null;
   reason: string | null;
+  approvalStatus: string | null;
   createdAt: Date | null;
 }
 
@@ -43,14 +45,15 @@ interface ContentApprovalTabsProps {
 export function ContentApprovalTabs({
   simchas: initialSimchas,
   classifieds: initialClassifieds,
-  tehillim,
+  tehillim: initialTehillim,
 }: ContentApprovalTabsProps) {
   const [simchas, setSimchas] = useState(initialSimchas);
   const [classifieds, setClassifieds] = useState(initialClassifieds);
+  const [tehillimList, setTehillimList] = useState(initialTehillim);
   const [loading, setLoading] = useState<{ type: string; id: number; action: string } | null>(null);
 
   const handleAction = async (
-    type: "simchas" | "classifieds",
+    type: "simchas" | "classifieds" | "tehillim",
     id: number,
     action: "approve" | "reject"
   ) => {
@@ -62,20 +65,23 @@ export function ContentApprovalTabs({
       });
 
       if (response.ok) {
+        const newStatus = action === "approve" ? "approved" : "rejected";
         if (type === "simchas") {
           setSimchas((prev) =>
             prev.map((item) =>
-              item.id === id
-                ? { ...item, approvalStatus: action === "approve" ? "approved" : "rejected" }
-                : item
+              item.id === id ? { ...item, approvalStatus: newStatus } : item
             )
           );
-        } else {
+        } else if (type === "classifieds") {
           setClassifieds((prev) =>
             prev.map((item) =>
-              item.id === id
-                ? { ...item, approvalStatus: action === "approve" ? "approved" : "rejected" }
-                : item
+              item.id === id ? { ...item, approvalStatus: newStatus } : item
+            )
+          );
+        } else if (type === "tehillim") {
+          setTehillimList((prev) =>
+            prev.map((item) =>
+              item.id === id ? { ...item, approvalStatus: newStatus } : item
             )
           );
         }
@@ -96,7 +102,9 @@ export function ContentApprovalTabs({
         <TabsTrigger value="classifieds">
           Classifieds ({classifieds.filter((c) => c.approvalStatus === "pending").length})
         </TabsTrigger>
-        <TabsTrigger value="tehillim">Tehillim ({tehillim.length})</TabsTrigger>
+        <TabsTrigger value="tehillim">
+          Tehillim ({tehillimList.filter((t) => t.approvalStatus === "pending").length})
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="simchas">
@@ -271,35 +279,93 @@ export function ContentApprovalTabs({
       </TabsContent>
 
       <TabsContent value="tehillim">
-        <Card>
-          <CardHeader>
-            <CardTitle>Active Tehillim List</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {tehillim.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No tehillim entries</p>
-            ) : (
-              <div className="divide-y">
-                {tehillim.map((item) => (
-                  <div key={item.id} className="py-3 flex items-center justify-between">
+        {tehillimList.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+            <p className="text-gray-500">No tehillim entries</p>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {tehillimList.map((item) => (
+              <Card key={item.id}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-medium">{item.hebrewName}</p>
-                      {item.englishName && (
-                        <p className="text-sm text-gray-500">{item.englishName}</p>
+                      {item.hebrewName ? (
+                        <>
+                          <CardTitle className="text-lg" dir="rtl">{item.hebrewName}</CardTitle>
+                          {item.englishName && (
+                            <p className="text-sm text-gray-500">{item.englishName}</p>
+                          )}
+                        </>
+                      ) : (
+                        <CardTitle className="text-lg">{item.englishName}</CardTitle>
                       )}
-                      {item.reason && (
-                        <p className="text-xs text-gray-400 mt-1">{item.reason}</p>
+                      {item.motherHebrewName && (
+                        <p className="text-sm text-gray-400">ben/bat {item.motherHebrewName}</p>
                       )}
                     </div>
+                    <Badge
+                      className={
+                        item.approvalStatus === "approved"
+                          ? "bg-green-100 text-green-800"
+                          : item.approvalStatus === "rejected"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-yellow-100 text-yellow-800"
+                      }
+                    >
+                      {item.approvalStatus}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {item.reason && (
+                    <p className="text-sm text-gray-600 mb-4">{item.reason}</p>
+                  )}
+                  <div className="flex items-center justify-between pt-4 border-t">
                     <span className="text-xs text-gray-400">
                       {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "N/A"}
                     </span>
+                    {item.approvalStatus === "pending" && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAction("tehillim", item.id, "reject")}
+                          disabled={loading?.id === item.id}
+                          className="text-red-600 hover:bg-red-50"
+                        >
+                          {loading?.id === item.id && loading?.action === "reject" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <X className="h-4 w-4 mr-1" />
+                              Reject
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleAction("tehillim", item.id, "approve")}
+                          disabled={loading?.id === item.id}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {loading?.id === item.id && loading?.action === "approve" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Check className="h-4 w-4 mr-1" />
+                              Approve
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </TabsContent>
     </Tabs>
   );

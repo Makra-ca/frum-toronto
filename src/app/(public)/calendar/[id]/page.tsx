@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { events, shuls, businesses } from "@/lib/db/schema";
+import { events, shuls } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { Calendar, MapPin, Clock, User, Mail, Phone, DollarSign, ArrowLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,7 +25,7 @@ async function getEvent(id: number) {
       isAllDay: events.isAllDay,
       eventType: events.eventType,
       shulId: events.shulId,
-      shulName: businesses.name,
+      shulName: shuls.name,
       contactName: events.contactName,
       contactEmail: events.contactEmail,
       contactPhone: events.contactPhone,
@@ -34,7 +34,6 @@ async function getEvent(id: number) {
     })
     .from(events)
     .leftJoin(shuls, eq(events.shulId, shuls.id))
-    .leftJoin(businesses, eq(shuls.businessId, businesses.id))
     .where(eq(events.id, id))
     .limit(1);
 

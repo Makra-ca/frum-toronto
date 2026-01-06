@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { simchas, classifieds, events } from "@/lib/db/schema";
+import { simchas, classifieds, events, tehillimList } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 const tableMap = {
   simchas,
   classifieds,
   events,
+  tehillim: tehillimList,
 } as const;
 
 export async function POST(

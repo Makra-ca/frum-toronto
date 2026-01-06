@@ -50,28 +50,30 @@ async function getCategoryData(slug: string) {
 
   // If this is a parent category, get its subcategories with business counts
   if (category.parentId === null) {
-    const subcategories = await db
-      .select({
-        id: businessCategories.id,
-        name: businessCategories.name,
-        slug: businessCategories.slug,
-        businessCount: sql<number>`(
-          SELECT COUNT(*) FROM businesses
-          WHERE businesses.category_id = ${businessCategories.id}
-          AND businesses.is_active = true
-          AND businesses.approval_status = 'approved'
-        )`.as("business_count"),
-      })
-      .from(businessCategories)
-      .where(eq(businessCategories.parentId, category.id))
-      .orderBy(businessCategories.name);
+    // Use raw SQL with JOIN for accurate business counts
+    const subcategoriesRaw = await db.execute(sql`
+      SELECT
+        bc.id,
+        bc.name,
+        bc.slug,
+        COALESCE(COUNT(b.id), 0) as business_count
+      FROM business_categories bc
+      LEFT JOIN businesses b ON b.category_id = bc.id AND b.is_active = true AND b.approval_status = 'approved'
+      WHERE bc.parent_id = ${category.id}
+        AND bc.is_active = true
+        AND bc.name IS NOT NULL
+        AND bc.name != ''
+      GROUP BY bc.id, bc.name, bc.slug
+      ORDER BY bc.name
+    `);
 
-    // Filter and transform - exclude empty names and 0 business count
-    const validSubcategories = subcategories
-      .filter((sub) => sub.name && sub.name.trim() !== "")
-      .map((sub) => ({
-        ...sub,
-        businessCount: Number(sub.businessCount || 0),
+    // Transform and filter - exclude 0 business count
+    const validSubcategories = subcategoriesRaw.rows
+      .map((row: Record<string, unknown>) => ({
+        id: Number(row.id),
+        name: String(row.name),
+        slug: String(row.slug),
+        businessCount: Number(row.business_count),
       }))
       .filter((sub) => sub.businessCount > 0);
 
