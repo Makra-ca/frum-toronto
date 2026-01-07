@@ -5,10 +5,8 @@ export default NextAuth(authConfig).auth;
 
 export const config = {
   matcher: [
-    // Protect admin and dashboard routes
+    // Only protect admin and dashboard routes - everything else is public
     "/admin/:path*",
     "/dashboard/:path*",
-    // Skip API routes, static files, and images
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)",
   ],
 };
