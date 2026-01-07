@@ -41,6 +41,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return true;
     },
     async jwt({ token, user, trigger, session }) {
+      console.log("[AUTH DEBUG] jwt callback - trigger:", trigger, "user:", user?.email, "token.role before:", token.role);
       if (user) {
         token.id = user.id as string;
         // For OAuth users, fetch role from database since profile() always returns "member"
@@ -51,6 +52,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             .from(users)
             .where(eq(users.email, user.email))
             .limit(1);
+          console.log("[AUTH DEBUG] jwt callback - dbUser fetched:", dbUser);
           if (dbUser) {
             token.role = dbUser.role;
             token.isTrusted = dbUser.isTrusted ?? false;
@@ -68,14 +70,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = session.role;
         token.isTrusted = session.isTrusted;
       }
+      console.log("[AUTH DEBUG] jwt callback - token.role after:", token.role);
       return token;
     },
     async session({ session, token }) {
+      console.log("[AUTH DEBUG] session callback - token.role:", token.role);
       if (token && session.user) {
         session.user.id = token.id;
         session.user.role = token.role;
         session.user.isTrusted = token.isTrusted;
       }
+      console.log("[AUTH DEBUG] session callback - session.user.role:", session.user?.role);
       return session;
     },
     ...authConfig.callbacks,

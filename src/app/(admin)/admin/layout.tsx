@@ -11,11 +11,16 @@ export default async function AdminLayout({
 }) {
   const session = await auth();
 
+  console.log("[AUTH DEBUG] admin layout - session:", JSON.stringify(session));
+  console.log("[AUTH DEBUG] admin layout - session.user.role:", session?.user?.role);
+
   if (!session) {
+    console.log("[AUTH DEBUG] admin layout - no session, redirecting to login");
     redirect("/login?callbackUrl=/admin");
   }
 
   if (session.user.role !== "admin") {
+    console.log("[AUTH DEBUG] admin layout - user role is not admin:", session.user.role);
     redirect("/");
   }
 
