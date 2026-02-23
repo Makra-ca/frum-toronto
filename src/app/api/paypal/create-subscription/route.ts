@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Check ownership (user must own the business or be admin)
     const isAdmin = session.user.role === "admin";
-    const isOwner = business.userId === session.user.id;
+    const isOwner = business.userId === parseInt(session.user.id);
 
     if (!isAdmin && !isOwner) {
       return NextResponse.json(

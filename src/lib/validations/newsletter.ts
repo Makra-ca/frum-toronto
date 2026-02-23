@@ -16,7 +16,7 @@ export const newsletterSchema = z.object({
   previewText: z.string().max(200, "Preview text is too long").optional().nullable(),
   content: z.string().min(1, "Content is required"),
   contentJson: z.any().optional().nullable(),
-  status: z.enum(["draft", "scheduled", "sending", "sent", "failed"]).default("draft"),
+  status: z.enum(["draft", "scheduled", "sending", "sent", "failed"]),
   scheduledAt: z.string().datetime().optional().nullable(),
 });
 

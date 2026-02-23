@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       : [null];
 
     // Validate against plan limits
-    if (plan) {
+    if (plan && plan.maxCategories !== null) {
       // Check category limit
       const categoryCount = 1 + (data.additionalCategoryIds?.length || 0);
       if (categoryCount > plan.maxCategories) {

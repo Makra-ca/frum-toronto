@@ -14,7 +14,7 @@ const baseSpecialSchema = z.object({
   description: z.string().max(1000).optional().nullable(),
   fileUrl: z.string().url("Valid file URL is required"),
   fileType: z.enum(["pdf", "png", "jpg", "jpeg"], {
-    required_error: "File type is required",
+    message: "File type is required",
   }),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
@@ -29,7 +29,7 @@ const dateRefinement = (data: { startDate: string; endDate: string }) => {
 
 const dateRefinementMessage = {
   message: "End date must be after or equal to start date",
-  path: ["endDate"] as const,
+  path: ["endDate"],
 };
 
 // Public schema with refinement

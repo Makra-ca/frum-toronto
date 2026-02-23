@@ -173,12 +173,12 @@ async function handleSubscriptionActivated(resource: {
   }
 
   // Calculate subscription period
-  const startDate = new Date();
-  const endDate = new Date();
+  const currentPeriodStart = new Date();
+  const currentPeriodEnd = new Date();
   if (billingCycle === "yearly") {
-    endDate.setFullYear(endDate.getFullYear() + 1);
+    currentPeriodEnd.setFullYear(currentPeriodEnd.getFullYear() + 1);
   } else {
-    endDate.setMonth(endDate.getMonth() + 1);
+    currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
   }
 
   // Create or update business subscription
@@ -198,8 +198,8 @@ async function handleSubscriptionActivated(resource: {
         paypalSubscriptionId: subscriptionId,
         paypalPayerId: resource.subscriber?.payer_id,
         billingCycle: billingCycle || "monthly",
-        startDate,
-        endDate,
+        currentPeriodStart,
+        currentPeriodEnd,
         updatedAt: new Date(),
       })
       .where(eq(businessSubscriptions.businessId, businessId));
@@ -212,8 +212,8 @@ async function handleSubscriptionActivated(resource: {
       paypalSubscriptionId: subscriptionId,
       paypalPayerId: resource.subscriber?.payer_id,
       billingCycle: billingCycle || "monthly",
-      startDate,
-      endDate,
+      currentPeriodStart,
+      currentPeriodEnd,
     });
   }
 
@@ -266,19 +266,21 @@ async function handleSubscriptionCancelled(resource: { id: string }) {
     .where(eq(businessSubscriptions.id, subscription.id));
 
   // Downgrade business to free plan
-  const [freePlan] = await db
-    .select()
-    .from(subscriptionPlans)
-    .where(eq(subscriptionPlans.slug, "free"))
-    .limit(1);
+  if (subscription.businessId) {
+    const [freePlan] = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.slug, "free"))
+      .limit(1);
 
-  if (freePlan) {
-    await db
-      .update(businesses)
-      .set({
-        subscriptionPlanId: freePlan.id,
-      })
-      .where(eq(businesses.id, subscription.businessId));
+    if (freePlan) {
+      await db
+        .update(businesses)
+        .set({
+          subscriptionPlanId: freePlan.id,
+        })
+        .where(eq(businesses.id, subscription.businessId));
+    }
   }
 
   console.log(`[PayPal Webhook] Subscription cancelled for business ${subscription.businessId}`);
@@ -325,19 +327,21 @@ async function handleSubscriptionExpired(resource: { id: string }) {
     .where(eq(businessSubscriptions.id, subscription.id));
 
   // Downgrade business to free plan
-  const [freePlan] = await db
-    .select()
-    .from(subscriptionPlans)
-    .where(eq(subscriptionPlans.slug, "free"))
-    .limit(1);
+  if (subscription.businessId) {
+    const [freePlan] = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.slug, "free"))
+      .limit(1);
 
-  if (freePlan) {
-    await db
-      .update(businesses)
-      .set({
-        subscriptionPlanId: freePlan.id,
-      })
-      .where(eq(businesses.id, subscription.businessId));
+    if (freePlan) {
+      await db
+        .update(businesses)
+        .set({
+          subscriptionPlanId: freePlan.id,
+        })
+        .where(eq(businesses.id, subscription.businessId));
+    }
   }
 
   console.log(`[PayPal Webhook] Subscription expired for business ${subscription.businessId}`);
@@ -375,7 +379,7 @@ async function handlePaymentCompleted(resource: {
 
   // Extend subscription end date
   const billingCycle = subscription.billingCycle || "monthly";
-  const newEndDate = new Date(subscription.endDate || new Date());
+  const newEndDate = new Date(subscription.currentPeriodEnd || new Date());
 
   if (billingCycle === "yearly") {
     newEndDate.setFullYear(newEndDate.getFullYear() + 1);
@@ -387,7 +391,7 @@ async function handlePaymentCompleted(resource: {
     .update(businessSubscriptions)
     .set({
       status: "active",
-      endDate: newEndDate,
+      currentPeriodEnd: newEndDate,
       updatedAt: new Date(),
     })
     .where(eq(businessSubscriptions.id, subscription.id));
@@ -499,10 +503,12 @@ async function handleSubscriptionUpdated(resource: {
           .where(eq(businessSubscriptions.id, subscription.id));
 
         // Also update the business's plan
-        await db
-          .update(businesses)
-          .set({ subscriptionPlanId: yearlyPlan.id })
-          .where(eq(businesses.id, subscription.businessId));
+        if (subscription.businessId) {
+          await db
+            .update(businesses)
+            .set({ subscriptionPlanId: yearlyPlan.id })
+            .where(eq(businesses.id, subscription.businessId));
+        }
       }
     } else {
       await db
@@ -515,10 +521,12 @@ async function handleSubscriptionUpdated(resource: {
         .where(eq(businessSubscriptions.id, subscription.id));
 
       // Also update the business's plan
-      await db
-        .update(businesses)
-        .set({ subscriptionPlanId: plan.id })
-        .where(eq(businesses.id, subscription.businessId));
+      if (subscription.businessId) {
+        await db
+          .update(businesses)
+          .set({ subscriptionPlanId: plan.id })
+          .where(eq(businesses.id, subscription.businessId));
+      }
     }
   }
 

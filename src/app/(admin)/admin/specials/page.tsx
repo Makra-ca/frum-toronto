@@ -130,12 +130,12 @@ export default function AdminSpecialsPage() {
   async function handleSubmit(data: {
     businessId: number;
     title: string;
-    description: string | null;
+    description?: string | null;
     fileUrl: string;
-    fileType: string;
+    fileType: "pdf" | "png" | "jpg" | "jpeg";
     startDate: string;
     endDate: string;
-    approvalStatus?: string;
+    approvalStatus?: "pending" | "approved" | "rejected";
     isActive?: boolean;
   }) {
     setIsSubmitting(true);

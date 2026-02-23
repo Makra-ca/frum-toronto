@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     // Check ownership
     const isAdmin = session.user.role === "admin";
-    const isOwner = business.userId === session.user.id;
+    const isOwner = business.userId === parseInt(session.user.id);
 
     if (!isAdmin && !isOwner) {
       return NextResponse.json(
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: "Subscription cancelled successfully",
-      endDate: subscription.endDate, // They keep access until this date
+      endDate: subscription.currentPeriodEnd, // They keep access until this date
     });
   } catch (error) {
     console.error("[PayPal] Error cancelling subscription:", error);

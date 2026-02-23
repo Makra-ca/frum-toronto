@@ -128,7 +128,7 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
 
     const updates: Record<string, boolean> = {};
     PERMISSION_LABELS.forEach(({ key }) => {
-      updates[key] = permissionsDialogUser[key] ?? false;
+      updates[key] = Boolean(permissionsDialogUser[key]);
     });
 
     try {
@@ -204,7 +204,7 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
                   </Label>
                   <Checkbox
                     id={key}
-                    checked={permissionsDialogUser?.[key] ?? false}
+                    checked={Boolean(permissionsDialogUser?.[key])}
                     onCheckedChange={(checked) => handlePermissionChange(key, !!checked)}
                   />
                 </div>
@@ -301,7 +301,7 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => updateUser(user.id, { emailVerified: true } as Partial<User>)}
+                              onClick={() => updateUser(user.id, { emailVerified: new Date() })}
                               disabled={updating === user.id}
                             >
                               Verify
@@ -441,7 +441,7 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
                     size="sm"
                     variant="outline"
                     className="w-full"
-                    onClick={() => updateUser(user.id, { emailVerified: true } as Partial<User>)}
+                    onClick={() => updateUser(user.id, { emailVerified: new Date() })}
                     disabled={updating === user.id}
                   >
                     {updating === user.id ? (

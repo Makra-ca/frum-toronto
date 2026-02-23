@@ -773,8 +773,8 @@ export default function NewBusinessPage() {
                       <span>
                         {formatPrice(
                           billingCycle === "monthly"
-                            ? selectedPlan?.priceMonthly
-                            : selectedPlan?.priceYearly
+                            ? selectedPlan?.priceMonthly ?? null
+                            : selectedPlan?.priceYearly ?? null
                         )}
                         <span className="text-sm font-normal text-gray-500">
                           /{billingCycle === "monthly" ? "mo" : "yr"}

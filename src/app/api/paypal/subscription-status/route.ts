@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     // Check ownership
     const isAdmin = session.user.role === "admin";
-    const isOwner = business.userId === session.user.id;
+    const isOwner = business.userId === parseInt(session.user.id);
 
     if (!isAdmin && !isOwner) {
       return NextResponse.json(
@@ -90,8 +90,8 @@ export async function GET(request: NextRequest) {
         id: subscription.id,
         status: subscription.status,
         billingCycle: subscription.billingCycle,
-        startDate: subscription.startDate,
-        endDate: subscription.endDate,
+        startDate: subscription.currentPeriodStart,
+        endDate: subscription.currentPeriodEnd,
         cancelledAt: subscription.cancelledAt,
       },
       paypalStatus,
