@@ -1,10 +1,17 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { HDate, months } from "@hebcal/core";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Event {
@@ -57,6 +64,8 @@ function getHebrewMonthName(date: Date): string {
 
 export function ShulEventsCalendar({ events }: ShulEventsCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDayEvents, setSelectedDayEvents] = useState<Event[] | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
@@ -203,18 +212,25 @@ export function ShulEventsCalendar({ events }: ShulEventsCalendarProps) {
                 {/* Events */}
                 <div className="space-y-1">
                   {dayEvents.slice(0, 2).map((event) => (
-                    <div
+                    <Link
                       key={event.id}
-                      className="text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 truncate cursor-pointer hover:bg-blue-200"
+                      href={`/community/calendar/${event.id}`}
+                      className="block text-xs bg-blue-100 text-blue-800 rounded px-1 py-0.5 truncate cursor-pointer hover:bg-blue-200"
                       title={event.title}
                     >
                       {event.title}
-                    </div>
+                    </Link>
                   ))}
                   {dayEvents.length > 2 && (
-                    <div className="text-xs text-gray-500 pl-1">
+                    <button
+                      onClick={() => {
+                        setSelectedDayEvents(dayEvents);
+                        setSelectedDate(date);
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-800 pl-1 hover:underline"
+                    >
                       +{dayEvents.length - 2} more
-                    </div>
+                    </button>
                   )}
                 </div>
               </div>
@@ -229,12 +245,12 @@ export function ShulEventsCalendar({ events }: ShulEventsCalendarProps) {
           <h4 className="font-medium text-gray-700">Upcoming Events</h4>
           {events.slice(0, 5).map((event) => {
             const startDate = new Date(event.startTime);
-            const hDate = new HDate(startDate);
 
             return (
-              <div
+              <Link
                 key={event.id}
-                className="flex gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                href={`/community/calendar/${event.id}`}
+                className="flex gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
               >
                 <div className="text-center min-w-[60px]">
                   <div className="text-2xl font-bold text-blue-600">
@@ -259,7 +275,7 @@ export function ShulEventsCalendar({ events }: ShulEventsCalendarProps) {
                     </p>
                   )}
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
@@ -270,6 +286,46 @@ export function ShulEventsCalendar({ events }: ShulEventsCalendarProps) {
           <p className="text-sm text-gray-400">Check back later for updates.</p>
         </div>
       )}
+
+      {/* Day Events Dialog */}
+      <Dialog open={!!selectedDayEvents} onOpenChange={() => setSelectedDayEvents(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Events on {selectedDate?.toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                year: "numeric"
+              })}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+            {selectedDayEvents?.map((event) => (
+              <Link
+                key={event.id}
+                href={`/community/calendar/${event.id}`}
+                className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                onClick={() => setSelectedDayEvents(null)}
+              >
+                <h5 className="font-medium text-gray-900">{event.title}</h5>
+                <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    {formatEventTime(event.startTime, event.isAllDay)}
+                  </span>
+                  {event.location && (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {event.location}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

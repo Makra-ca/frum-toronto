@@ -17,9 +17,9 @@ export const mainNavigation: NavItem[] = [
   },
   {
     label: "Calendar",
-    href: "/calendar",
+    href: "/community/calendar",
     children: [
-      { label: "Events Calendar", href: "/calendar" },
+      { label: "Events Calendar", href: "/community/calendar" },
       { label: "Weekly Shiurim", href: "/shiurim" },
       { label: "Zmanim", href: "/zmanim" },
     ],
@@ -31,6 +31,7 @@ export const mainNavigation: NavItem[] = [
       { label: "Bulletins & Alerts", href: "/alerts" },
       { label: "Kosher Alerts", href: "/kosher-alerts" },
       { label: "Shiva Notifications", href: "/shiva" },
+      { label: "Tehillim List", href: "/community/tehillim" },
     ],
   },
   {
@@ -38,7 +39,7 @@ export const mainNavigation: NavItem[] = [
     href: "/classifieds",
     children: [
       { label: "All Classifieds", href: "/classifieds" },
-      { label: "Weekly Specials", href: "/classifieds/specials" },
+      { label: "Weekly Specials", href: "/specials" },
       { label: "Post a Classified", href: "/classifieds/new" },
     ],
   },
@@ -50,13 +51,14 @@ export const mainNavigation: NavItem[] = [
       { label: "Tehillim List", href: "/community/tehillim" },
     ],
   },
+  { label: "Ask The Rabbi", href: "/ask-the-rabbi" },
   {
     label: "Community",
     href: "/community",
     children: [
-      { label: "Ask The Rabbi", href: "/ask-the-rabbi" },
       { label: "Simchas", href: "/simchas" },
       { label: "Shiva Notices", href: "/shiva" },
+      { label: "Tehillim List", href: "/community/tehillim" },
     ],
   },
   {

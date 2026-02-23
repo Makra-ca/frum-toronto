@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { businesses, businessCategories } from "@/lib/db/schema";
+import { businesses, businessCategories, subscriptionPlans } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function GET() {
@@ -31,9 +31,13 @@ export async function GET() {
       createdAt: businesses.createdAt,
       categoryName: businessCategories.name,
       categorySlug: businessCategories.slug,
+      planId: subscriptionPlans.id,
+      planName: subscriptionPlans.name,
+      planSlug: subscriptionPlans.slug,
     })
     .from(businesses)
     .leftJoin(businessCategories, eq(businesses.categoryId, businessCategories.id))
+    .leftJoin(subscriptionPlans, eq(businesses.subscriptionPlanId, subscriptionPlans.id))
     .where(eq(businesses.userId, userId));
 
   return NextResponse.json(userBusinesses);

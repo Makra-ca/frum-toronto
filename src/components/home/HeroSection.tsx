@@ -71,7 +71,7 @@ export function HeroSection() {
               variant="outline"
               className="bg-white/10 border-white/30 text-white hover:bg-white/20 hover:text-white"
             >
-              <Link href="/calendar">View Events</Link>
+              <Link href="/community/calendar">View Events</Link>
             </Button>
             <Button
               asChild

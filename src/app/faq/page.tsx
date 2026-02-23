@@ -80,8 +80,16 @@ const faqs = [
     category: "Newsletter & Updates",
     questions: [
       {
-        q: "I don't have full access to the internet from home. Is there a way for me to keep in touch with community events and Simchas through e-mail?",
-        a: "Yes. You can subscribe to our newsletter and receive e-mails on upcoming events and notifications on Kashruth alerts, engagements and other related announcements.",
+        q: "How do I subscribe to the FrumToronto newsletter?",
+        a: "Create a free account on FrumToronto and choose your notification preferences during registration. You can also update your preferences anytime from your Dashboard under Settings.",
+      },
+      {
+        q: "What types of email notifications can I receive?",
+        a: "You can choose to receive: Weekly Newsletter (community updates), Simchas (mazel tov announcements), Shiva Notices, Kosher Alerts, Tehillim updates, Community Events, and Eruv Status notifications.",
+      },
+      {
+        q: "How do I change my email notification preferences?",
+        a: "Log in to your account and go to Dashboard > Settings to update your notification preferences at any time.",
       },
     ],
   },

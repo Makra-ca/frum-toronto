@@ -45,7 +45,7 @@ export async function UpcomingEvents() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Upcoming Events</h2>
         <Button asChild variant="ghost" size="sm">
-          <Link href="/calendar">
+          <Link href="/community/calendar">
             View Calendar <ArrowRight className="h-4 w-4 ml-1" />
           </Link>
         </Button>
@@ -113,7 +113,7 @@ export async function UpcomingEvents() {
           <CardContent className="py-8 text-center">
             <p className="text-gray-500">No upcoming events scheduled.</p>
             <Button asChild variant="link" className="mt-2">
-              <Link href="/calendar">View Calendar</Link>
+              <Link href="/community/calendar">View Calendar</Link>
             </Button>
           </CardContent>
         </Card>
@@ -121,7 +121,7 @@ export async function UpcomingEvents() {
 
       <div className="mt-6 text-center">
         <Button asChild variant="outline">
-          <Link href="/calendar/new">Submit an Event</Link>
+          <Link href="/community/calendar/new">Submit an Event</Link>
         </Button>
       </div>
     </section>

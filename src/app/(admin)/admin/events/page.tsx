@@ -1,7 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -21,23 +29,46 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventForm } from "@/components/admin/EventForm";
 import { EventTable } from "@/components/admin/EventTable";
-import { Plus } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
+import { EVENT_TYPES } from "@/lib/validations/content";
 import type { CalendarEvent } from "@/types/content";
 
 export default function AdminEventsPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [deletingEvent, setDeletingEvent] = useState<CalendarEvent | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("upcoming");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
 
-  async function fetchEvents() {
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const fetchEvents = useCallback(async () => {
     try {
-      const response = await fetch(`/api/admin/events?status=${statusFilter}`);
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.set("status", statusFilter);
+      if (typeFilter !== "all") {
+        params.set("type", typeFilter);
+      }
+      if (debouncedSearch.trim()) {
+        params.set("search", debouncedSearch.trim());
+      }
+
+      const response = await fetch(`/api/admin/events?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
         setEvents(data);
@@ -47,12 +78,13 @@ export default function AdminEventsPage() {
       toast.error("Failed to fetch events");
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
-  }
+  }, [statusFilter, typeFilter, debouncedSearch]);
 
   useEffect(() => {
     fetchEvents();
-  }, [statusFilter]);
+  }, [fetchEvents]);
 
   async function handleSubmit(data: {
     title: string;
@@ -140,7 +172,7 @@ export default function AdminEventsPage() {
     setEditingEvent(null);
   }
 
-  if (loading) {
+  if (initialLoad) {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">
@@ -164,19 +196,74 @@ export default function AdminEventsPage() {
         </Button>
       </div>
 
-      <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-        <TabsList>
-          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-          <TabsTrigger value="past">Past</TabsTrigger>
-          <TabsTrigger value="all">All</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Filters Row */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+          <TabsList>
+            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+            <TabsTrigger value="past">Past</TabsTrigger>
+            <TabsTrigger value="all">All</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-      <EventTable
-        events={events}
-        onEdit={handleEdit}
-        onDelete={handleDeleteClick}
-      />
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search events..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 w-full sm:w-64"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Type Filter */}
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {EVENT_TYPES.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Results count */}
+      {(searchQuery || typeFilter !== "all") && (
+        <div className="text-sm text-gray-500">
+          Found {events.length} event{events.length !== 1 ? "s" : ""}
+          {searchQuery && ` matching "${searchQuery}"`}
+          {typeFilter !== "all" && ` of type "${EVENT_TYPES.find(t => t.value === typeFilter)?.label}"`}
+        </div>
+      )}
+
+      <div className="relative">
+        {loading && !initialLoad && (
+          <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">
+            <div className="h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+        <EventTable
+          events={events}
+          onEdit={handleEdit}
+          onDelete={handleDeleteClick}
+        />
+      </div>
 
       <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

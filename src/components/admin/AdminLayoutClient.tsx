@@ -21,20 +21,28 @@ import {
   ClipboardList,
   UserCog,
   MessageSquare,
+  Mail,
+  HelpCircle,
+  CreditCard,
+  Tag,
 } from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/businesses", label: "Businesses", icon: Building2 },
+  { href: "/admin/subscription-plans", label: "Subscription Plans", icon: CreditCard },
   { href: "/admin/categories", label: "Categories", icon: FolderTree },
   { href: "/admin/shuls", label: "Shuls", icon: Landmark },
   { href: "/admin/shul-requests", label: "Shul Requests", icon: ClipboardList },
   { href: "/admin/user-shuls", label: "Shul Managers", icon: UserCog },
   { href: "/admin/content", label: "Content", icon: FileText },
   { href: "/admin/contacts", label: "Contact Messages", icon: MessageSquare },
+  { href: "/admin/rabbi-submissions", label: "Rabbi Questions", icon: HelpCircle },
+  { href: "/admin/newsletters", label: "Newsletters", icon: Mail },
   { href: "/admin/events", label: "Events", icon: Calendar },
   { href: "/admin/shiurim", label: "Shiurim", icon: BookOpen },
+  { href: "/admin/specials", label: "Specials", icon: Tag },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

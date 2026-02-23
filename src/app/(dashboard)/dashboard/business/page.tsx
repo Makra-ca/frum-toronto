@@ -15,6 +15,9 @@ import {
   Plus,
   Loader2,
   ExternalLink,
+  Sparkles,
+  ArrowUpRight,
+  CreditCard,
 } from "lucide-react";
 
 interface Business {
@@ -34,6 +37,9 @@ interface Business {
   createdAt: string | null;
   categoryName: string | null;
   categorySlug: string | null;
+  planId: number | null;
+  planName: string | null;
+  planSlug: string | null;
 }
 
 export default function MyBusinessesPage() {
@@ -79,6 +85,20 @@ export default function MyBusinessesPage() {
     }
   };
 
+  const getPlanBadge = (planSlug: string | null, planName: string | null) => {
+    if (!planSlug || planSlug === "free") {
+      return <Badge variant="outline" className="text-gray-600">Free</Badge>;
+    }
+    if (planSlug === "premium") {
+      return <Badge className="bg-blue-100 text-blue-700">{planName}</Badge>;
+    }
+    return <Badge className="bg-green-100 text-green-700">{planName}</Badge>;
+  };
+
+  const hasFreePlanBusinesses = businesses.some(
+    (b) => !b.planSlug || b.planSlug === "free"
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
@@ -89,13 +109,43 @@ export default function MyBusinessesPage() {
               Manage your business listings on FrumToronto
             </p>
           </div>
-          <Link href="/register-business">
+          <Link href="/dashboard/business/new">
             <Button>
               <Plus className="h-4 w-4 mr-2" />
               Add New Business
             </Button>
           </Link>
         </div>
+
+        {/* Upgrade Prompt for Free Plan Users */}
+        {hasFreePlanBusinesses && businesses.length > 0 && (
+          <Card className="mb-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0">
+            <CardContent className="py-6">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="bg-white/20 rounded-lg p-3">
+                    <Sparkles className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      Boost Your Business Visibility
+                    </h3>
+                    <p className="text-blue-100 mt-1">
+                      Upgrade to a paid plan for featured placement, full contact details,
+                      business hours, social links, and priority search ranking.
+                    </p>
+                  </div>
+                </div>
+                <Link href="/dashboard/business/new">
+                  <Button className="bg-white text-blue-600 hover:bg-blue-50">
+                    View Plans
+                    <ArrowUpRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {businesses.length === 0 ? (
           <Card>
@@ -108,7 +158,7 @@ export default function MyBusinessesPage() {
                 You haven&apos;t registered any businesses yet.
                 Register your business to get listed in our directory.
               </p>
-              <Link href="/register-business">
+              <Link href="/dashboard/business/new">
                 <Button>Register Your Business</Button>
               </Link>
             </CardContent>
@@ -124,9 +174,16 @@ export default function MyBusinessesPage() {
                     </CardTitle>
                     {getStatusBadge(business.approvalStatus)}
                   </div>
-                  {business.categoryName && (
-                    <p className="text-sm text-gray-500">{business.categoryName}</p>
-                  )}
+                  <div className="flex items-center gap-2 mt-1">
+                    {business.categoryName && (
+                      <p className="text-sm text-gray-500">{business.categoryName}</p>
+                    )}
+                    <span className="text-gray-300">•</span>
+                    <div className="flex items-center gap-1">
+                      <CreditCard className="h-3 w-3 text-gray-400" />
+                      {getPlanBadge(business.planSlug, business.planName)}
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 mb-4">
@@ -182,6 +239,13 @@ export default function MyBusinessesPage() {
                         <ExternalLink className="h-4 w-4 ml-2" />
                       </Button>
                     </Link>
+                    {(!business.planSlug || business.planSlug === "free") && (
+                      <Link href="/dashboard/business/new">
+                        <Button variant="default" size="icon" title="Upgrade Plan">
+                          <ArrowUpRight className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 </CardContent>
               </Card>

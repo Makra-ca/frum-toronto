@@ -9,9 +9,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { GoogleSignInButton } from "./GoogleSignInButton";
 import { registerSchema, RegisterInput } from "@/lib/validations/auth";
-import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, Bell } from "lucide-react";
+
+const notificationOptions = [
+  { id: "newsletter", label: "Weekly Newsletter", description: "Community updates and announcements" },
+  { id: "simchas", label: "Simchas", description: "Mazel tov announcements" },
+  { id: "shiva", label: "Shiva Notices", description: "Community bereavement notifications" },
+  { id: "kosherAlerts", label: "Kosher Alerts", description: "Product recalls and certification updates" },
+  { id: "tehillim", label: "Tehillim Updates", description: "Prayer list updates" },
+  { id: "communityEvents", label: "Community Events", description: "Upcoming events and gatherings" },
+  { id: "eruvStatus", label: "Eruv Status", description: "Weekly eruv status updates" },
+] as const;
 
 export function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
@@ -21,10 +32,25 @@ export function RegisterForm() {
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      notifications: {
+        newsletter: true,
+        simchas: false,
+        shiva: false,
+        kosherAlerts: false,
+        tehillim: false,
+        communityEvents: false,
+        eruvStatus: false,
+      },
+    },
   });
+
+  const notifications = watch("notifications");
 
   const onSubmit = async (data: RegisterInput) => {
     setIsLoading(true);
@@ -164,6 +190,35 @@ export function RegisterForm() {
           {errors.confirmPassword && (
             <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>
           )}
+        </div>
+
+        {/* Notification Preferences */}
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center gap-2">
+            <Bell className="h-4 w-4 text-blue-600" />
+            <Label className="text-sm font-medium">Email Notifications</Label>
+          </div>
+          <p className="text-xs text-gray-500 -mt-1">
+            Choose which notifications you&apos;d like to receive
+          </p>
+          <div className="grid grid-cols-1 gap-2 p-3 bg-gray-50 rounded-lg border">
+            {notificationOptions.map((option) => (
+              <div key={option.id} className="flex items-start gap-3">
+                <Checkbox
+                  id={option.id}
+                  checked={notifications?.[option.id] ?? false}
+                  onCheckedChange={(checked) =>
+                    setValue(`notifications.${option.id}`, checked === true)
+                  }
+                  className="mt-0.5"
+                />
+                <label htmlFor={option.id} className="flex-1 cursor-pointer">
+                  <span className="text-sm font-medium">{option.label}</span>
+                  <span className="block text-xs text-gray-500">{option.description}</span>
+                </label>
+              </div>
+            ))}
+          </div>
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>

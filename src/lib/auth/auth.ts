@@ -30,7 +30,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const [existingUser] = await db
           .select({ isActive: users.isActive })
           .from(users)
-          .where(eq(users.email, user.email))
+          .where(eq(users.email, user.email.toLowerCase()))
           .limit(1);
 
         // Block if user exists and is banned
@@ -41,7 +41,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return true;
     },
     async jwt({ token, user, trigger, session }) {
-      console.log("[AUTH DEBUG] jwt callback - trigger:", trigger, "user:", user?.email, "token.role before:", token.role);
       if (user) {
         token.id = user.id as string;
         // For OAuth users, fetch role from database since profile() always returns "member"
@@ -50,9 +49,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const [dbUser] = await db
             .select({ role: users.role, isTrusted: users.isTrusted })
             .from(users)
-            .where(eq(users.email, user.email))
+            .where(eq(users.email, user.email.toLowerCase()))
             .limit(1);
-          console.log("[AUTH DEBUG] jwt callback - dbUser fetched:", dbUser);
           if (dbUser) {
             token.role = dbUser.role;
             token.isTrusted = dbUser.isTrusted ?? false;
@@ -70,17 +68,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = session.role;
         token.isTrusted = session.isTrusted;
       }
-      console.log("[AUTH DEBUG] jwt callback - token.role after:", token.role);
       return token;
     },
     async session({ session, token }) {
-      console.log("[AUTH DEBUG] session callback - token.role:", token.role);
       if (token && session.user) {
         session.user.id = token.id;
         session.user.role = token.role;
         session.user.isTrusted = token.isTrusted;
       }
-      console.log("[AUTH DEBUG] session callback - session.user.role:", session.user?.role);
       return session;
     },
     ...authConfig.callbacks,
@@ -112,10 +107,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        // Normalize email to lowercase for case-insensitive login
+        const normalizedEmail = (credentials.email as string).toLowerCase().trim();
+
         const [user] = await db
           .select()
           .from(users)
-          .where(eq(users.email, credentials.email as string))
+          .where(eq(users.email, normalizedEmail))
           .limit(1);
 
         if (!user || !user.passwordHash) {

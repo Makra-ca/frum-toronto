@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { events, shuls } from "@/lib/db/schema";
 import { eventSchema } from "@/lib/validations/content";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, ilike, or, and, gte, lt } from "drizzle-orm";
 
 // GET /api/admin/events - List all events
 export async function GET(request: NextRequest) {
@@ -16,8 +16,40 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status"); // upcoming, past, all
     const eventType = searchParams.get("type");
+    const search = searchParams.get("search");
 
-    const query = db
+    // Build conditions array for SQL filtering
+    const conditions = [];
+    const now = new Date();
+
+    // Filter by status (time-based)
+    if (status === "upcoming") {
+      conditions.push(gte(events.startTime, now));
+    } else if (status === "past") {
+      conditions.push(lt(events.startTime, now));
+    }
+
+    // Filter by event type
+    if (eventType && eventType !== "all") {
+      conditions.push(eq(events.eventType, eventType));
+    }
+
+    // Filter by search term
+    if (search?.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      conditions.push(
+        or(
+          ilike(events.title, searchTerm),
+          ilike(events.location, searchTerm),
+          ilike(events.description, searchTerm),
+          ilike(events.contactName, searchTerm)
+        )
+      );
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const allEvents = await db
       .select({
         id: events.id,
         title: events.title,
@@ -40,30 +72,10 @@ export async function GET(request: NextRequest) {
       })
       .from(events)
       .leftJoin(shuls, eq(events.shulId, shuls.id))
+      .where(whereClause)
       .orderBy(desc(events.startTime));
 
-    const allEvents = await query;
-
-    // Filter by status
-    let filteredEvents = allEvents;
-    const now = new Date();
-
-    if (status === "upcoming") {
-      filteredEvents = allEvents.filter(
-        (e) => new Date(e.startTime) >= now
-      );
-    } else if (status === "past") {
-      filteredEvents = allEvents.filter(
-        (e) => new Date(e.startTime) < now
-      );
-    }
-
-    // Filter by event type
-    if (eventType) {
-      filteredEvents = filteredEvents.filter((e) => e.eventType === eventType);
-    }
-
-    return NextResponse.json(filteredEvents);
+    return NextResponse.json(allEvents);
   } catch (error) {
     console.error("Error fetching events:", error);
     return NextResponse.json(

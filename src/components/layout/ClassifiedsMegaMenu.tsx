@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ChevronRight, Plus, Clock } from "lucide-react";
+import { ChevronRight, Plus, Clock, Tag } from "lucide-react";
 
 export interface ClassifiedCategory {
   id: number;
@@ -118,6 +118,13 @@ export function ClassifiedsMegaMenu({ data: prefetchedData }: ClassifiedsMegaMen
         >
           Post a Classified
         </Link>
+        <Link
+          href="/specials"
+          className="flex items-center gap-2 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-md"
+        >
+          <Tag className="h-4 w-4" />
+          Weekly Specials
+        </Link>
       </div>
     );
   }
@@ -157,6 +164,13 @@ export function ClassifiedsMegaMenu({ data: prefetchedData }: ClassifiedsMegaMen
           >
             <Plus className="h-4 w-4" />
             Post a Classified
+          </Link>
+          <Link
+            href="/specials"
+            className="flex items-center gap-2 px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 rounded-md mb-1"
+          >
+            <Tag className="h-4 w-4" />
+            Weekly Specials
           </Link>
           <div className="border-t border-gray-200 my-2" />
         </div>

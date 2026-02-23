@@ -29,7 +29,7 @@ const quickLinks = [
   {
     title: "Events Calendar",
     description: "Community events & shiurim",
-    href: "/calendar",
+    href: "/community/calendar",
     icon: Calendar,
     color: "bg-green-500",
   },

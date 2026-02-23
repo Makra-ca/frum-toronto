@@ -10,7 +10,7 @@ export const metadata = {
 export default function AboutPage() {
   const features = [
     { icon: Building2, label: "Business Directory", description: "Find local Jewish businesses", href: "/directory" },
-    { icon: Calendar, label: "Events Calendar", description: "Community happenings", href: "/calendar" },
+    { icon: Calendar, label: "Events Calendar", description: "Community happenings", href: "/community/calendar" },
     { icon: ShoppingBag, label: "Classifieds", description: "Buy, sell & trade", href: "/classifieds" },
     { icon: BookOpen, label: "Ask The Rabbi", description: "Torah insights & advice", href: "/ask-the-rabbi" },
     { icon: MapPin, label: "Shul Listings", description: "Find your minyan", href: "/shuls" },

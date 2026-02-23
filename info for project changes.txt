@@ -1,0 +1,23 @@
+basic info about bsuissnes you can put in, 
+
+✅add ask the rabbi nav 
+✅	add submit question and it goes to admin
+✅tehillim gets deleted every 2 weeks, button that asks how long do you want it on for and automatically deletes after 30 days
+in classified's calendar
+in calendar community school, vacation, simchas and classified calendar is for deals, weekly specials, so it might be calnedar classified should only have option to put pdf
+notified when classified is updated
+once a week a digest of weekly 
+✅shiva for all who checkmarked immediately get notified when there is update
+get contacts for general alert
+so for shiurim it should show all the shiurs and filter by area and org given by Up
+upciming events on homepage
+schools
+gemach
+hospitality
+❎payment wall for businesses to post thier ads and website and email
+
+calendar from original frumtoronto info nees to be fetched
+
+
+http://www.frumtoronto.com/TellAFriend.asp?path_id=7259&path_type=Calendar it emails peple who they choose this is for the event, try getting statisistics of when somebody shares link
+	

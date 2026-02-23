@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/newsletter-send",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/tehillim-cleanup",
+      "schedule": "0 5 * * *"
+    }
+  ]
+}

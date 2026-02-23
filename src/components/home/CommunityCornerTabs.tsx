@@ -73,10 +73,15 @@ async function getTehillimNames() {
     .select({
       id: tehillimList.id,
       hebrewName: tehillimList.hebrewName,
+      englishName: tehillimList.englishName,
+      motherHebrewName: tehillimList.motherHebrewName,
       reason: tehillimList.reason,
     })
     .from(tehillimList)
-    .where(eq(tehillimList.isActive, true))
+    .where(and(
+      eq(tehillimList.isActive, true),
+      eq(tehillimList.approvalStatus, "approved")
+    ))
     .orderBy(desc(tehillimList.createdAt))
     .limit(4);
 
@@ -229,7 +234,17 @@ export async function CommunityCornerTabs() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {tehillimNames.map((t) => (
                     <div key={t.id} className="p-3 rounded-lg bg-blue-50">
-                      <p className="font-medium text-gray-900 text-sm">{t.hebrewName}</p>
+                      {t.hebrewName ? (
+                        <p className="font-medium text-gray-900 text-sm" dir="rtl">
+                          {t.hebrewName}
+                          {t.motherHebrewName && <span className="text-gray-600"> בן/בת {t.motherHebrewName}</span>}
+                        </p>
+                      ) : (
+                        <p className="font-medium text-gray-900 text-sm">
+                          {t.englishName}
+                          {t.motherHebrewName && <span className="text-gray-600"> ben/bat {t.motherHebrewName}</span>}
+                        </p>
+                      )}
                       {t.reason && <p className="text-xs text-gray-500">{t.reason}</p>}
                     </div>
                   ))}

@@ -8,13 +8,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { AlertCircle, CheckCircle, Loader2, Clock } from "lucide-react";
+
+const QUICK_DURATIONS = [
+  { label: "1 Week", days: 7 },
+  { label: "1.5 Weeks", days: 11 },
+  { label: "2 Weeks", days: 14 },
+  { label: "3 Weeks", days: 21 },
+  { label: "1 Month", days: 30 },
+];
 
 export default function AddTehillimPage() {
   const { data: session, status } = useSession();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [duration, setDuration] = useState(14); // Default 2 weeks
 
   const [formData, setFormData] = useState({
     hebrewName: "",
@@ -38,7 +48,7 @@ export default function AddTehillimPage() {
       const response = await fetch("/api/community/tehillim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, durationDays: duration }),
       });
 
       const result = await response.json();
@@ -203,6 +213,53 @@ export default function AddTehillimPage() {
               />
               <p className="text-xs text-gray-500">
                 Brief note about the reason for the prayer request
+              </p>
+            </div>
+
+            {/* Duration Selection */}
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-gray-500" />
+                <Label>How long should this name stay on the list?</Label>
+              </div>
+
+              {/* Quick Duration Buttons */}
+              <div className="flex flex-wrap gap-2">
+                {QUICK_DURATIONS.map((d) => (
+                  <Button
+                    key={d.days}
+                    type="button"
+                    variant={duration === d.days ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setDuration(d.days)}
+                    className="text-xs"
+                  >
+                    {d.label}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Slider for custom duration */}
+              <div className="space-y-2">
+                <Slider
+                  value={[duration]}
+                  onValueChange={(value) => setDuration(value[0])}
+                  min={1}
+                  max={30}
+                  step={1}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>1 day</span>
+                  <span className="font-medium text-gray-700">
+                    {duration} {duration === 1 ? "day" : "days"}
+                  </span>
+                  <span>30 days</span>
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-500">
+                After this period, the name will be automatically removed. You can manage your submissions in your dashboard.
               </p>
             </div>
 

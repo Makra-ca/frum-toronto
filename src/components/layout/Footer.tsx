@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Facebook, Twitter, Mail, Phone } from "lucide-react";
+import { Facebook, Twitter, Mail, Phone, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
@@ -79,7 +79,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/calendar" className="text-blue-200 hover:text-white transition-colors">
+                <Link href="/community/calendar" className="text-blue-200 hover:text-white transition-colors">
                   Events Calendar
                 </Link>
               </li>
@@ -160,7 +160,7 @@ export function Footer() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-blue-200">
             <p>&copy; {currentYear} FrumToronto. All rights reserved.</p>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap items-center justify-center gap-4">
               <button
                 onClick={() => setPrivacyOpen(true)}
                 className="hover:text-white transition-colors"
@@ -177,6 +177,22 @@ export function Footer() {
                 FAQ
               </Link>
             </div>
+          </div>
+          {/* Makra.ca Badge - Centered */}
+          <div className="flex justify-center mt-4 pt-4 border-t border-blue-800">
+            <a
+              href="https://makra.ca"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-opacity hover:opacity-90"
+              style={{ backgroundColor: '#1a1a2e' }}
+            >
+              <span className="text-gray-400 text-xs">Website by</span>
+              <span className="text-xs font-semibold bg-gradient-to-r from-amber-400 to-yellow-500 bg-clip-text text-transparent">
+                Makra.ca
+              </span>
+              <ExternalLink className="h-3 w-3 text-amber-400" />
+            </a>
           </div>
         </div>
       </div>

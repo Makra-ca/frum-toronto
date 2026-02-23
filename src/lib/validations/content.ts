@@ -54,7 +54,7 @@ export const eventSchema = z.object({
   startTime: z.string().datetime({ message: "Valid start time is required" }),
   endTime: z.string().datetime().optional().nullable(),
   isAllDay: z.boolean(),
-  eventType: z.enum(["community", "shul", "shiur"]).optional().nullable(),
+  eventType: z.enum(["community", "fundraising", "school", "wedding"]).optional().nullable(),
   shulId: z.number().int().positive().optional().nullable(),
   contactName: z.string().max(100).optional().nullable(),
   contactEmail: z.string().email().max(255).optional().nullable(),
@@ -186,8 +186,9 @@ export const TEFILAH_TYPES = [
 
 export const EVENT_TYPES = [
   { value: "community", label: "Community Event" },
-  { value: "shul", label: "Shul Event" },
-  { value: "shiur", label: "Shiur/Class" },
+  { value: "fundraising", label: "Fundraising Event" },
+  { value: "school", label: "School Information" },
+  { value: "wedding", label: "Wedding" },
 ];
 
 export const SHIUR_LEVELS = [

@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Loader2 } from "lucide-react";
+import { Check, X, Loader2, Infinity, Trash2 } from "lucide-react";
 
 interface Simcha {
   id: number;
@@ -33,6 +33,8 @@ interface Tehillim {
   motherHebrewName: string | null;
   reason: string | null;
   approvalStatus: string | null;
+  expiresAt: string | null;
+  isPermanent: boolean | null;
   createdAt: Date | null;
 }
 
@@ -51,6 +53,7 @@ export function ContentApprovalTabs({
   const [classifieds, setClassifieds] = useState(initialClassifieds);
   const [tehillimList, setTehillimList] = useState(initialTehillim);
   const [loading, setLoading] = useState<{ type: string; id: number; action: string } | null>(null);
+  const [permanentChecked, setPermanentChecked] = useState<Record<number, boolean>>({});
 
   const handleAction = async (
     type: "simchas" | "classifieds" | "tehillim",
@@ -60,8 +63,12 @@ export function ContentApprovalTabs({
     setLoading({ type, id, action });
 
     try {
+      const isPermanent = type === "tehillim" && action === "approve" ? permanentChecked[id] || false : undefined;
+
       const response = await fetch(`/api/admin/content/${type}/${id}/${action}`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPermanent }),
       });
 
       if (response.ok) {
@@ -81,13 +88,32 @@ export function ContentApprovalTabs({
         } else if (type === "tehillim") {
           setTehillimList((prev) =>
             prev.map((item) =>
-              item.id === id ? { ...item, approvalStatus: newStatus } : item
+              item.id === id ? { ...item, approvalStatus: newStatus, isPermanent: isPermanent || item.isPermanent } : item
             )
           );
         }
       }
     } catch (error) {
       console.error("Failed to update content:", error);
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleDeleteTehillim = async (id: number) => {
+    if (!confirm("Are you sure you want to permanently delete this tehillim entry?")) return;
+
+    setLoading({ type: "tehillim", id, action: "delete" });
+    try {
+      const response = await fetch(`/api/admin/tehillim/${id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        setTehillimList((prev) => prev.filter((item) => item.id !== id));
+      }
+    } catch (error) {
+      console.error("Failed to delete tehillim:", error);
     } finally {
       setLoading(null);
     }
@@ -103,7 +129,7 @@ export function ContentApprovalTabs({
           Classifieds ({classifieds.filter((c) => c.approvalStatus === "pending").length})
         </TabsTrigger>
         <TabsTrigger value="tehillim">
-          Tehillim ({tehillimList.filter((t) => t.approvalStatus === "pending").length})
+          Tehillim ({tehillimList.filter((t) => t.approvalStatus === "pending").length} pending / {tehillimList.length} total)
         </TabsTrigger>
       </TabsList>
 
@@ -281,7 +307,7 @@ export function ContentApprovalTabs({
       <TabsContent value="tehillim">
         {tehillimList.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-gray-500">No tehillim entries</p>
+            <p className="text-gray-500">No tehillim entries on the list</p>
           </div>
         ) : (
           <div className="grid gap-4">
@@ -319,47 +345,83 @@ export function ContentApprovalTabs({
                 </CardHeader>
                 <CardContent>
                   {item.reason && (
-                    <p className="text-sm text-gray-600 mb-4">{item.reason}</p>
+                    <p className="text-sm text-gray-600 mb-2">{item.reason}</p>
+                  )}
+                  {item.expiresAt && (
+                    <p className="text-xs text-gray-500 mb-4">
+                      Expires: {new Date(item.expiresAt).toLocaleDateString()}
+                    </p>
                   )}
                   <div className="flex items-center justify-between pt-4 border-t">
                     <span className="text-xs text-gray-400">
                       {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "N/A"}
                     </span>
-                    {item.approvalStatus === "pending" && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAction("tehillim", item.id, "reject")}
-                          disabled={loading?.id === item.id}
-                          className="text-red-600 hover:bg-red-50"
-                        >
-                          {loading?.id === item.id && loading?.action === "reject" ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <X className="h-4 w-4 mr-1" />
-                              Reject
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleAction("tehillim", item.id, "approve")}
-                          disabled={loading?.id === item.id}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          {loading?.id === item.id && loading?.action === "approve" ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Check className="h-4 w-4 mr-1" />
-                              Approve
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    )}
+                    <div className="flex flex-col items-end gap-2">
+                      {item.approvalStatus === "pending" && (
+                        <>
+                          <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={permanentChecked[item.id] || false}
+                              onChange={(e) => setPermanentChecked(prev => ({ ...prev, [item.id]: e.target.checked }))}
+                              className="h-3.5 w-3.5 rounded border-gray-300"
+                            />
+                            <Infinity className="h-3 w-3" />
+                            Make Permanent
+                          </label>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAction("tehillim", item.id, "reject")}
+                              disabled={loading?.id === item.id}
+                              className="text-red-600 hover:bg-red-50"
+                            >
+                              {loading?.id === item.id && loading?.action === "reject" ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <X className="h-4 w-4 mr-1" />
+                                  Reject
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleAction("tehillim", item.id, "approve")}
+                              disabled={loading?.id === item.id}
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              {loading?.id === item.id && loading?.action === "approve" ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <Check className="h-4 w-4 mr-1" />
+                                  Approve
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                      {/* Delete button - always visible */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteTehillim(item.id)}
+                        disabled={loading?.id === item.id}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        {loading?.id === item.id && loading?.action === "delete" ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Delete
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

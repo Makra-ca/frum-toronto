@@ -24,16 +24,36 @@ export async function POST(
 
     const { type, id } = await params;
 
+    // Parse request body for additional options (like isPermanent for tehillim)
+    let body = {};
+    try {
+      body = await request.json();
+    } catch {
+      // No body provided, which is fine
+    }
+
     const table = tableMap[type as keyof typeof tableMap];
     if (!table) {
       return NextResponse.json({ error: "Invalid content type" }, { status: 400 });
     }
 
+    // Base update object
+    const updateData: Record<string, unknown> = {
+      approvalStatus: "approved",
+    };
+
+    // For tehillim, handle isPermanent flag
+    if (type === "tehillim" && "isPermanent" in body) {
+      updateData.isPermanent = body.isPermanent;
+      // If making permanent, clear the expiration date
+      if (body.isPermanent) {
+        updateData.expiresAt = null;
+      }
+    }
+
     await db
       .update(table)
-      .set({
-        approvalStatus: "approved",
-      })
+      .set(updateData)
       .where(eq(table.id, parseInt(id)));
 
     return NextResponse.json({ message: `${type} approved successfully` });

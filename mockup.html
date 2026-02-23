@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Specials Page Design Mockups</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .section-divider {
+      background: linear-gradient(90deg, transparent, #e5e7eb, transparent);
+      height: 1px;
+      margin: 4rem 0;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <!-- Navigation -->
+  <nav class="sticky top-0 bg-white shadow-sm z-50 p-4">
+    <div class="max-w-7xl mx-auto flex gap-4 flex-wrap justify-center">
+      <a href="#option1" class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition">1. Magazine</a>
+      <a href="#option2" class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition">2. Masonry</a>
+      <a href="#option3" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">3. Carousel</a>
+      <a href="#option4" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">4. Newspaper</a>
+      <a href="#option5" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition">5. Full-Bleed</a>
+    </div>
+  </nav>
+
+  <!-- ======================= -->
+  <!-- OPTION 1: MAGAZINE STYLE -->
+  <!-- ======================= -->
+  <section id="option1" class="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 py-12">
+    <div class="max-w-7xl mx-auto px-4">
+      <div class="text-center mb-8">
+        <span class="inline-block px-4 py-1 bg-orange-500 text-white text-sm font-semibold rounded-full mb-4">Option 1</span>
+        <h2 class="text-4xl font-bold text-gray-900 mb-2">Magazine-Style Layout</h2>
+        <p class="text-gray-600">Featured large card with smaller grid - editorial feel</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Featured Large Card -->
+        <div class="lg:row-span-2 group cursor-pointer">
+          <div class="relative h-full min-h-[500px] rounded-2xl overflow-hidden shadow-2xl">
+            <img src="https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=800" alt="Featured" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+            <div class="absolute bottom-0 left-0 right-0 p-8">
+              <span class="inline-block px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full mb-3">HOT DEAL</span>
+              <h3 class="text-3xl font-bold text-white mb-2">Weekend Super Sale</h3>
+              <p class="text-white/80 mb-4">Save up to 50% on selected items this weekend only!</p>
+              <div class="flex items-center gap-4">
+                <span class="text-white/60 text-sm">Kosher Market</span>
+                <span class="text-white/60 text-sm">|</span>
+                <span class="text-white/60 text-sm">Ends Feb 28</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Smaller Cards Grid -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="group cursor-pointer bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
+            <div class="relative h-40 overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400" alt="Challah" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="p-4">
+              <h4 class="font-semibold text-gray-900 mb-1">Shabbos Challah Special</h4>
+              <p class="text-sm text-gray-500">Bakery Plus</p>
+            </div>
+          </div>
+
+          <div class="group cursor-pointer bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
+            <div class="relative h-40 overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400" alt="Store" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="p-4">
+              <h4 class="font-semibold text-gray-900 mb-1">Grand Opening</h4>
+              <p class="text-sm text-gray-500">New Store</p>
+            </div>
+          </div>
+
+          <div class="group cursor-pointer bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
+            <div class="relative h-40 overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=400" alt="Fruit" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="p-4">
+              <h4 class="font-semibold text-gray-900 mb-1">Fresh Produce Sale</h4>
+              <p class="text-sm text-gray-500">Green Grocer</p>
+            </div>
+          </div>
+
+          <div class="group cursor-pointer bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
+            <div class="relative h-40 overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400" alt="Meat" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <div class="p-4">
+              <h4 class="font-semibold text-gray-900 mb-1">Meat Specials</h4>
+              <p class="text-sm text-gray-500">Kosher Butcher</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ======================= -->
+  <!-- OPTION 2: MASONRY/PINTEREST -->
+  <!-- ======================= -->
+  <section id="option2" class="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 py-12">
+    <div class="max-w-7xl mx-auto px-4">
+      <div class="text-center mb-8">
+        <span class="inline-block px-4 py-1 bg-purple-500 text-white text-sm font-semibold rounded-full mb-4">Option 2</span>
+        <h2 class="text-4xl font-bold text-gray-900 mb-2">Masonry / Pinterest Style</h2>
+        <p class="text-gray-600">Varied card sizes based on content - dynamic and interesting</p>
+      </div>
+
+      <div class="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
+        <!-- Tall Card -->
+        <div class="break-inside-avoid group cursor-pointer">
+          <div class="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+            <div class="relative h-80">
+              <img src="https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=400" alt="Special" class="w-full h-full object-cover">
+              <div class="absolute top-3 left-3">
+                <span class="px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full">50% OFF</span>
+              </div>
+            </div>
+            <div class="p-4">
+              <h4 class="font-bold text-lg text-gray-900 mb-1">Weekend Super Sale</h4>
+              <p class="text-gray-500 text-sm mb-2">Save big on all items!</p>
+              <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-400">Kosher Market</span>
+                <span class="text-xs text-orange-500 font-medium">2 days left</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Short Card -->
+        <div class="break-inside-avoid group cursor-pointer">
+          <div class="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+            <div class="relative h-40">
+              <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400" alt="Challah" class="w-full h-full object-cover">
+            </div>
+            <div class="p-4">
+              <h4 class="font-bold text-gray-900">Challah Special</h4>
+              <span class="text-xs text-gray-400">Bakery Plus</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Medium Card with Text -->
+        <div class="break-inside-avoid group cursor-pointer">
+          <div class="bg-gradient-to-br from-orange-400 to-red-500 rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 p-6 text-white">
+            <span class="text-6xl font-black">30%</span>
+            <p class="text-2xl font-bold mt-2">OFF</p>
+            <p class="text-white/80 mt-4">All produce this week</p>
+            <p class="text-sm text-white/60 mt-2">Green Grocer</p>
+          </div>
+        </div>
+
+        <!-- Tall Card -->
+        <div class="break-inside-avoid group cursor-pointer">
+          <div class="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+            <div class="relative h-72">
+              <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400" alt="Store" class="w-full h-full object-cover">
+            </div>
+            <div class="p-4">
+              <h4 class="font-bold text-lg text-gray-900">Grand Opening!</h4>
+              <p class="text-gray-500 text-sm">Free samples & prizes</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Short Card -->
+        <div class="break-inside-avoid group cursor-pointer">
+          <div class="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+            <div class="relative h-48">
+              <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400" alt="Meat" class="w-full h-full object-cover">
+              <div class="absolute top-3 right-3">
+                <span class="px-2 py-1 bg-green-500 text-white text-xs font-bold rounded-full">NEW</span>
+              </div>
+            </div>
+            <div class="p-4">
+              <h4 class="font-bold text-gray-900">Premium Meat Cuts</h4>
+              <span class="text-xs text-gray-400">Kosher Butcher</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Text Only Card -->
+        <div class="break-inside-avoid group cursor-pointer">
+          <div class="bg-blue-900 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+            <p class="text-sm text-blue-300 mb-2">PDF FLYER</p>
+            <h4 class="font-bold text-xl mb-2">Weekly Circular</h4>
+            <p class="text-blue-200 text-sm">Click to view full flyer</p>
+            <div class="mt-4 flex items-center gap-2">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M4 18h12V6H4v12zm8-11h2V5H6v2h2v2h4V7z"/></svg>
+              <span class="text-sm">Super Save</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Medium Card -->
+        <div class="break-inside-avoid group cursor-pointer">
+          <div class="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+            <div class="relative h-56">
+              <img src="https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=400" alt="Fruit" class="w-full h-full object-cover">
+            </div>
+            <div class="p-4">
+              <h4 class="font-bold text-gray-900">Fresh Fruit Basket</h4>
+              <p class="text-sm text-gray-500">Perfect for Tu B'Shvat</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ======================= -->
+  <!-- OPTION 3: CAROUSEL/SLIDER -->
+  <!-- ======================= -->
+  <section id="option3" class="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 py-12">
+    <div class="max-w-7xl mx-auto px-4">
+      <div class="text-center mb-8">
+        <span class="inline-block px-4 py-1 bg-blue-500 text-white text-sm font-semibold rounded-full mb-4">Option 3</span>
+        <h2 class="text-4xl font-bold text-gray-900 mb-2">Carousel / Slider Style</h2>
+        <p class="text-gray-600">Featured carousel at top + grid below - highlights best deals</p>
+      </div>
+
+      <!-- Featured Carousel -->
+      <div class="relative mb-12">
+        <div class="overflow-hidden rounded-3xl shadow-2xl">
+          <div class="relative h-[400px]">
+            <img src="https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=1200" alt="Featured" class="w-full h-full object-cover">
+            <div class="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent"></div>
+            <div class="absolute left-0 top-0 bottom-0 flex items-center p-12">
+              <div class="max-w-lg">
+                <span class="inline-block px-4 py-1 bg-yellow-400 text-black text-sm font-bold rounded-full mb-4">FEATURED DEAL</span>
+                <h3 class="text-4xl font-black text-white mb-4">Weekend Super Sale</h3>
+                <p class="text-xl text-white/80 mb-6">Save up to 50% on all items. Limited time only!</p>
+                <div class="flex items-center gap-6">
+                  <button class="px-6 py-3 bg-white text-gray-900 font-bold rounded-full hover:bg-gray-100 transition">View Deal</button>
+                  <span class="text-white/60">Kosher Market • Ends Feb 28</span>
+                </div>
+              </div>
+            </div>
+            <!-- Carousel Dots -->
+            <div class="absolute bottom-6 right-6 flex gap-2">
+              <span class="w-3 h-3 rounded-full bg-white"></span>
+              <span class="w-3 h-3 rounded-full bg-white/40"></span>
+              <span class="w-3 h-3 rounded-full bg-white/40"></span>
+            </div>
+            <!-- Arrows -->
+            <button class="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center transition">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <button class="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center transition">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid Below -->
+      <h3 class="text-2xl font-bold text-gray-900 mb-6">More Deals</h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="group cursor-pointer bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition">
+          <div class="relative h-36">
+            <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300" alt="Challah" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+          </div>
+          <div class="p-3">
+            <h4 class="font-semibold text-gray-900 text-sm">Challah Special</h4>
+            <p class="text-xs text-gray-500">Bakery Plus</p>
+          </div>
+        </div>
+        <div class="group cursor-pointer bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition">
+          <div class="relative h-36">
+            <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=300" alt="Store" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+          </div>
+          <div class="p-3">
+            <h4 class="font-semibold text-gray-900 text-sm">Grand Opening</h4>
+            <p class="text-xs text-gray-500">New Store</p>
+          </div>
+        </div>
+        <div class="group cursor-pointer bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition">
+          <div class="relative h-36">
+            <img src="https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=300" alt="Fruit" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+          </div>
+          <div class="p-3">
+            <h4 class="font-semibold text-gray-900 text-sm">Fresh Produce</h4>
+            <p class="text-xs text-gray-500">Green Grocer</p>
+          </div>
+        </div>
+        <div class="group cursor-pointer bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition">
+          <div class="relative h-36">
+            <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300" alt="Meat" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+          </div>
+          <div class="p-3">
+            <h4 class="font-semibold text-gray-900 text-sm">Meat Specials</h4>
+            <p class="text-xs text-gray-500">Kosher Butcher</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ======================= -->
+  <!-- OPTION 4: NEWSPAPER AD STYLE -->
+  <!-- ======================= -->
+  <section id="option4" class="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 py-12">
+    <div class="max-w-7xl mx-auto px-4">
+      <div class="text-center mb-8">
+        <span class="inline-block px-4 py-1 bg-red-500 text-white text-sm font-semibold rounded-full mb-4">Option 4</span>
+        <h2 class="text-4xl font-bold text-gray-900 mb-2">Newspaper Ad Style</h2>
+        <p class="text-gray-600">Bold typography, prices highlighted - classic retail feel</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Price-focused Card -->
+        <div class="bg-white rounded-lg overflow-hidden shadow-lg border-4 border-red-500 hover:shadow-xl transition cursor-pointer">
+          <div class="bg-red-500 text-white text-center py-2">
+            <span class="text-sm font-bold tracking-wider">LIMITED TIME OFFER</span>
+          </div>
+          <div class="relative h-48">
+            <img src="https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=400" alt="Sale" class="w-full h-full object-cover">
+          </div>
+          <div class="p-4 text-center">
+            <h4 class="text-2xl font-black text-gray-900 mb-2">WEEKEND SALE</h4>
+            <div class="flex items-center justify-center gap-2 mb-2">
+              <span class="text-gray-400 line-through text-lg">$49.99</span>
+              <span class="text-4xl font-black text-red-500">$24.99</span>
+            </div>
+            <p class="text-gray-600 text-sm">Save 50% on selected items</p>
+            <div class="mt-4 pt-4 border-t border-dashed border-gray-300">
+              <span class="text-xs text-gray-500">KOSHER MARKET • Valid thru Feb 28</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- BOGO Card -->
+        <div class="bg-yellow-400 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition cursor-pointer">
+          <div class="p-6 text-center">
+            <span class="text-sm font-bold text-yellow-800">SPECIAL OFFER</span>
+            <div class="my-4">
+              <span class="text-6xl font-black text-black">BOGO</span>
+            </div>
+            <p class="text-2xl font-bold text-black mb-2">BUY ONE GET ONE</p>
+            <p class="text-yellow-800 font-medium">FREE</p>
+          </div>
+          <div class="relative h-40">
+            <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400" alt="Challah" class="w-full h-full object-cover">
+          </div>
+          <div class="bg-black text-white p-4 text-center">
+            <p class="font-bold">Fresh Challahs</p>
+            <p class="text-sm text-gray-400">Bakery Plus</p>
+          </div>
+        </div>
+
+        <!-- Percentage Off Card -->
+        <div class="bg-white rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition cursor-pointer">
+          <div class="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-center text-white">
+            <span class="text-7xl font-black">30%</span>
+            <p class="text-2xl font-bold">OFF</p>
+          </div>
+          <div class="relative h-40">
+            <img src="https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=400" alt="Produce" class="w-full h-full object-cover">
+          </div>
+          <div class="p-4 text-center">
+            <h4 class="text-xl font-bold text-gray-900">ALL PRODUCE</h4>
+            <p class="text-gray-500 text-sm">This week only at Green Grocer</p>
+            <div class="mt-3 inline-block px-4 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">
+              SAVE BIG
+            </div>
+          </div>
+        </div>
+
+        <!-- Coupon Style Card -->
+        <div class="bg-white rounded-lg overflow-hidden shadow-lg border-2 border-dashed border-gray-300 hover:shadow-xl transition cursor-pointer relative">
+          <div class="absolute -left-3 top-1/2 w-6 h-6 bg-red-50 rounded-full"></div>
+          <div class="absolute -right-3 top-1/2 w-6 h-6 bg-red-50 rounded-full"></div>
+          <div class="p-6 text-center">
+            <span class="text-xs text-gray-500 tracking-widest">COUPON</span>
+            <div class="my-4 py-4 border-y border-dashed border-gray-300">
+              <span class="text-5xl font-black text-red-500">$10 OFF</span>
+            </div>
+            <p class="text-gray-700 font-medium">Any purchase of $50 or more</p>
+            <p class="text-xs text-gray-400 mt-2">New Store • Grand Opening Special</p>
+            <div class="mt-4 text-xs text-gray-400">CODE: GRAND10</div>
+          </div>
+        </div>
+
+        <!-- Flash Sale Card -->
+        <div class="bg-gradient-to-br from-purple-600 to-pink-500 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition cursor-pointer text-white">
+          <div class="p-4 text-center">
+            <span class="inline-block px-3 py-1 bg-white/20 rounded-full text-xs font-bold mb-2">⚡ FLASH SALE</span>
+            <h4 class="text-2xl font-black mb-1">MEAT SPECIALS</h4>
+            <p class="text-white/80 text-sm">Premium cuts at unbeatable prices</p>
+          </div>
+          <div class="relative h-40">
+            <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400" alt="Meat" class="w-full h-full object-cover">
+          </div>
+          <div class="p-4 text-center">
+            <div class="text-3xl font-black">UP TO 40% OFF</div>
+            <p class="text-white/60 text-sm mt-1">Kosher Butcher • Today Only</p>
+          </div>
+        </div>
+
+        <!-- Simple Price Card -->
+        <div class="bg-white rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition cursor-pointer">
+          <div class="relative h-48">
+            <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400" alt="Store" class="w-full h-full object-cover">
+            <div class="absolute top-0 right-0 bg-red-500 text-white px-4 py-2">
+              <span class="text-2xl font-black">NEW!</span>
+            </div>
+          </div>
+          <div class="p-4">
+            <h4 class="text-xl font-bold text-gray-900 mb-2">GRAND OPENING</h4>
+            <p class="text-gray-600 mb-3">Free samples & door prizes all week!</p>
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-500">New Store Location</span>
+              <span class="px-3 py-1 bg-gray-900 text-white text-xs font-bold rounded">VISIT US</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ======================= -->
+  <!-- OPTION 5: FULL-BLEED IMAGES -->
+  <!-- ======================= -->
+  <section id="option5" class="min-h-screen bg-black py-12">
+    <div class="max-w-7xl mx-auto px-4">
+      <div class="text-center mb-8">
+        <span class="inline-block px-4 py-1 bg-green-500 text-white text-sm font-semibold rounded-full mb-4">Option 5</span>
+        <h2 class="text-4xl font-bold text-white mb-2">Full-Bleed Images</h2>
+        <p class="text-gray-400">Edge-to-edge images, minimal chrome - immersive gallery</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <!-- Large Full-bleed Card -->
+        <div class="md:col-span-2 group cursor-pointer relative overflow-hidden">
+          <div class="relative h-[500px]">
+            <img src="https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=1200" alt="Featured" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
+            <div class="absolute bottom-0 left-0 right-0 p-8">
+              <span class="inline-block px-3 py-1 bg-white text-black text-xs font-bold rounded mb-3">HOT DEAL</span>
+              <h3 class="text-4xl font-bold text-white mb-2">Weekend Super Sale</h3>
+              <div class="flex items-center gap-4 text-white/70">
+                <span>Kosher Market</span>
+                <span>•</span>
+                <span>Feb 23 - Feb 28</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Smaller Full-bleed Cards -->
+        <div class="group cursor-pointer relative overflow-hidden">
+          <div class="relative h-80">
+            <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600" alt="Challah" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div class="absolute bottom-0 left-0 right-0 p-6 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+              <h4 class="text-xl font-bold text-white">Shabbos Challah Special</h4>
+              <p class="text-white/70 text-sm">Bakery Plus</p>
+            </div>
+            <div class="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              <span class="px-2 py-1 bg-white text-black text-xs font-bold rounded">VIEW</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="group cursor-pointer relative overflow-hidden">
+          <div class="relative h-80">
+            <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600" alt="Store" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div class="absolute bottom-0 left-0 right-0 p-6 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+              <h4 class="text-xl font-bold text-white">Grand Opening</h4>
+              <p class="text-white/70 text-sm">New Store</p>
+            </div>
+            <div class="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              <span class="px-2 py-1 bg-white text-black text-xs font-bold rounded">VIEW</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="group cursor-pointer relative overflow-hidden">
+          <div class="relative h-80">
+            <img src="https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=600" alt="Fruit" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div class="absolute bottom-0 left-0 right-0 p-6 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+              <h4 class="text-xl font-bold text-white">Fresh Produce Sale</h4>
+              <p class="text-white/70 text-sm">Green Grocer</p>
+            </div>
+            <div class="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              <span class="px-2 py-1 bg-white text-black text-xs font-bold rounded">VIEW</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="group cursor-pointer relative overflow-hidden">
+          <div class="relative h-80">
+            <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600" alt="Meat" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div class="absolute bottom-0 left-0 right-0 p-6 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+              <h4 class="text-xl font-bold text-white">Meat Specials</h4>
+              <p class="text-white/70 text-sm">Kosher Butcher</p>
+            </div>
+            <div class="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              <span class="px-2 py-1 bg-white text-black text-xs font-bold rounded">VIEW</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-gray-900 text-white py-8 text-center">
+    <p class="text-gray-400">Open this file in your browser to preview all 5 design options</p>
+    <p class="text-gray-500 text-sm mt-2">mockup.html - FrumToronto Specials Page Design</p>
+  </footer>
+
+</body>
+</html>

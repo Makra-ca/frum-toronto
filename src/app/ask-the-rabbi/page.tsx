@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { askTheRabbi } from "@/lib/db/schema";
-import { desc, sql, and, eq, isNotNull } from "drizzle-orm";
+import { desc, sql, and, eq } from "drizzle-orm";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, MessageSquare, ChevronRight } from "lucide-react";
+import { MessageSquare, ChevronRight } from "lucide-react";
+import { AskTheRabbiSearch } from "@/components/ask-the-rabbi/AskTheRabbiSearch";
+import { SubmitQuestionModal } from "@/components/ask-the-rabbi/SubmitQuestionModal";
 
 export const metadata = {
   title: "Ask The Rabbi - FrumToronto",
@@ -24,15 +25,46 @@ async function getQuestions(searchParams: SearchParams) {
   const pageSize = 20;
   const offset = (page - 1) * pageSize;
 
-  const conditions = [
-    eq(askTheRabbi.isPublished, true),
-  ];
+  // Split query into individual words for multi-word matching
+  const words = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length >= 2)
+    .slice(0, 5);
 
-  if (query) {
-    conditions.push(
-      sql`(${askTheRabbi.title} ILIKE ${"%" + query + "%"} OR ${askTheRabbi.question} ILIKE ${"%" + query + "%"})`
+  const baseConditions = [eq(askTheRabbi.isPublished, true)];
+
+  // Build word-based conditions if searching
+  let wordConditions: ReturnType<typeof sql>[] = [];
+  if (words.length > 0) {
+    wordConditions = words.map(
+      (word) => sql`(
+        ${askTheRabbi.title} ILIKE ${"%" + word + "%"}
+        OR ${askTheRabbi.question} ILIKE ${"%" + word + "%"}
+        OR word_similarity(${word}, ${askTheRabbi.title}) > 0.4
+        OR word_similarity(${word}, ${askTheRabbi.question}) > 0.35
+      )`
     );
   }
+
+  const allConditions = [...baseConditions, ...wordConditions];
+
+  // Build ranking expressions for multi-word search
+  const exactTitleMatches = words.map(
+    (word) =>
+      sql`CASE WHEN ${askTheRabbi.title} ILIKE ${"%" + word + "%"} THEN 1 ELSE 0 END`
+  );
+  const exactQuestionMatches = words.map(
+    (word) =>
+      sql`CASE WHEN ${askTheRabbi.question} ILIKE ${"%" + word + "%"} THEN 1 ELSE 0 END`
+  );
+  const fuzzySimilarities = words.map(
+    (word) =>
+      sql`GREATEST(
+        word_similarity(${word}, ${askTheRabbi.title}),
+        word_similarity(${word}, ${askTheRabbi.question}) * 0.9
+      )`
+  );
 
   const questions = await db
     .select({
@@ -43,15 +75,27 @@ async function getQuestions(searchParams: SearchParams) {
       publishedAt: askTheRabbi.publishedAt,
     })
     .from(askTheRabbi)
-    .where(and(...conditions))
-    .orderBy(desc(askTheRabbi.questionNumber))
+    .where(and(...allConditions))
+    .orderBy(
+      // When searching, order by relevance; otherwise by question number
+      words.length > 0
+        ? sql`(${sql.join(exactTitleMatches, sql` + `)}) DESC`
+        : sql`1`,
+      words.length > 0
+        ? sql`(${sql.join(exactQuestionMatches, sql` + `)}) DESC`
+        : sql`1`,
+      words.length > 0
+        ? sql`(${sql.join(fuzzySimilarities, sql` + `)}) DESC`
+        : sql`1`,
+      desc(askTheRabbi.questionNumber)
+    )
     .limit(pageSize)
     .offset(offset);
 
   const countResult = await db
     .select({ count: sql<number>`count(*)` })
     .from(askTheRabbi)
-    .where(and(...conditions));
+    .where(and(...allConditions));
 
   const totalCount = Number(countResult[0]?.count) || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -73,9 +117,12 @@ export default async function AskTheRabbiPage({
       {/* Header */}
       <div className="bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 text-white py-12">
         <div className="container mx-auto px-4">
-          <div className="flex items-center gap-3 mb-4">
-            <MessageSquare className="h-8 w-8" />
-            <h1 className="text-3xl md:text-4xl font-bold">Ask The Rabbi</h1>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+            <div className="flex items-center gap-3">
+              <MessageSquare className="h-8 w-8" />
+              <h1 className="text-3xl md:text-4xl font-bold">Ask The Rabbi</h1>
+            </div>
+            <SubmitQuestionModal />
           </div>
           <p className="text-purple-200 text-lg mb-2">
             Halachic questions answered by Hagaon Rav Shlomo Miller Shlit&apos;a
@@ -85,22 +132,8 @@ export default async function AskTheRabbiPage({
           </p>
 
           {/* Search */}
-          <div className="max-w-2xl mt-8">
-            <form className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <Input
-                  type="search"
-                  name="q"
-                  defaultValue={query}
-                  placeholder="Search questions..."
-                  className="pl-12 h-14 bg-white text-gray-900 border-0 text-base rounded-xl"
-                />
-              </div>
-              <Button type="submit" size="lg" className="h-14 px-8 rounded-xl bg-purple-600 hover:bg-purple-700">
-                Search
-              </Button>
-            </form>
+          <div className="mt-8">
+            <AskTheRabbiSearch initialQuery={query} />
           </div>
         </div>
       </div>

@@ -31,7 +31,19 @@ export const users = pgTable("users", {
   role: varchar("role", { length: 20 }).default("member").notNull(), // admin, business, content_contributor, member
   emailVerified: timestamp("email_verified"), // Changed to timestamp for NextAuth
   isActive: boolean("is_active").default(true),
-  isTrusted: boolean("is_trusted").default(false), // Trusted users skip approval queue
+  isTrusted: boolean("is_trusted").default(false), // Legacy - kept for backwards compatibility
+  // Per-field auto-approve permissions
+  canAutoApproveShiva: boolean("can_auto_approve_shiva").default(false),
+  canAutoApproveTehillim: boolean("can_auto_approve_tehillim").default(false),
+  canAutoApproveBusinesses: boolean("can_auto_approve_businesses").default(false),
+  canAutoApproveAskTheRabbi: boolean("can_auto_approve_ask_the_rabbi").default(false),
+  canAutoApproveKosherAlerts: boolean("can_auto_approve_kosher_alerts").default(false),
+  canAutoApproveShuls: boolean("can_auto_approve_shuls").default(false),
+  canAutoApproveSimchas: boolean("can_auto_approve_simchas").default(false),
+  canAutoApproveEvents: boolean("can_auto_approve_events").default(false),
+  canAutoApproveClassifieds: boolean("can_auto_approve_classifieds").default(false),
+  canAutoApproveShiurim: boolean("can_auto_approve_shiurim").default(false),
+  canPostSpecials: boolean("can_post_specials").default(false), // Verified businesses can post specials/deals
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -104,21 +116,43 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   description: text("description"),
   priceMonthly: decimal("price_monthly", { precision: 10, scale: 2 }),
   priceYearly: decimal("price_yearly", { precision: 10, scale: 2 }),
-  maxListings: integer("max_listings").default(1),
-  maxPhotos: integer("max_photos").default(5),
+  // Feature limits
+  maxCategories: integer("max_categories").default(1),
+  maxPhotos: integer("max_photos").default(0),
+  // Feature toggles - what this plan allows
+  showDescription: boolean("show_description").default(false),
+  showContactName: boolean("show_contact_name").default(false),
+  showEmail: boolean("show_email").default(false),
+  showWebsite: boolean("show_website").default(false),
+  showHours: boolean("show_hours").default(false),
+  showMap: boolean("show_map").default(false),
+  showLogo: boolean("show_logo").default(false),
+  showSocialLinks: boolean("show_social_links").default(false),
+  showKosherBadge: boolean("show_kosher_badge").default(false),
   isFeatured: boolean("is_featured").default(false),
-  stripePriceMonthly: varchar("stripe_price_monthly", { length: 100 }),
-  stripePriceYearly: varchar("stripe_price_yearly", { length: 100 }),
+  priorityInSearch: boolean("priority_in_search").default(false),
+  // PayPal integration - Live
+  paypalPlanIdMonthly: varchar("paypal_plan_id_monthly", { length: 100 }),
+  paypalPlanIdYearly: varchar("paypal_plan_id_yearly", { length: 100 }),
+  // PayPal integration - Sandbox
+  paypalPlanIdMonthlySandbox: varchar("paypal_plan_id_monthly_sandbox", { length: 100 }),
+  paypalPlanIdYearlySandbox: varchar("paypal_plan_id_yearly_sandbox", { length: 100 }),
+  // Display order for pricing page
+  displayOrder: integer("display_order").default(0),
   isActive: boolean("is_active").default(true),
 });
 
 export const businesses = pgTable("businesses", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
+  subscriptionPlanId: integer("subscription_plan_id").references(() => subscriptionPlans.id),
   name: varchar("name", { length: 200 }).notNull(),
   slug: varchar("slug", { length: 200 }).notNull().unique(),
   categoryId: integer("category_id").references(() => businessCategories.id),
+  // Additional categories for paid plans (JSONB array of category IDs)
+  additionalCategoryIds: jsonb("additional_category_ids"),
   description: text("description"),
+  contactName: varchar("contact_name", { length: 100 }),
   address: varchar("address", { length: 500 }),
   city: varchar("city", { length: 100 }).default("Toronto"),
   postalCode: varchar("postal_code", { length: 20 }),
@@ -143,6 +177,7 @@ export const businesses = pgTable("businesses", {
 }, (table) => [
   index("idx_businesses_category").on(table.categoryId),
   index("idx_businesses_approval").on(table.approvalStatus),
+  index("idx_businesses_subscription").on(table.subscriptionPlanId),
   uniqueIndex("idx_businesses_slug").on(table.slug),
 ]);
 
@@ -156,14 +191,19 @@ export const businessPhotos = pgTable("business_photos", {
 
 export const businessSubscriptions = pgTable("business_subscriptions", {
   id: serial("id").primaryKey(),
-  businessId: integer("business_id").references(() => businesses.id),
+  businessId: integer("business_id").references(() => businesses.id, { onDelete: "cascade" }),
   planId: integer("plan_id").references(() => subscriptionPlans.id),
-  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 100 }),
-  stripeCustomerId: varchar("stripe_customer_id", { length: 100 }),
-  status: varchar("status", { length: 20 }).default("active"),
+  // PayPal subscription details
+  paypalSubscriptionId: varchar("paypal_subscription_id", { length: 100 }),
+  paypalPayerId: varchar("paypal_payer_id", { length: 100 }),
+  billingCycle: varchar("billing_cycle", { length: 20 }).default("monthly"), // monthly or yearly
+  // Subscription status
+  status: varchar("status", { length: 20 }).default("pending"), // pending, active, cancelled, expired
   currentPeriodStart: timestamp("current_period_start"),
   currentPeriodEnd: timestamp("current_period_end"),
+  cancelledAt: timestamp("cancelled_at"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // ============================================
@@ -281,6 +321,31 @@ export const classifieds = pgTable("classifieds", {
 ]);
 
 // ============================================
+// SPECIALS / DEALS (Business Flyers)
+// ============================================
+
+export const specials = pgTable("specials", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id), // Who submitted
+  businessId: integer("business_id").references(() => businesses.id, { onDelete: "cascade" }), // Associated business
+  title: varchar("title", { length: 255 }).notNull(), // e.g., "Weekly Flyer Feb 20-27"
+  description: text("description"), // Optional description
+  fileUrl: varchar("file_url", { length: 500 }).notNull(), // PDF or image URL
+  fileType: varchar("file_type", { length: 20 }).notNull(), // pdf, png, jpg, jpeg
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  approvalStatus: varchar("approval_status", { length: 20 }).default("pending"), // pending, approved, rejected
+  viewCount: integer("view_count").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_specials_business").on(table.businessId),
+  index("idx_specials_dates").on(table.startDate, table.endDate),
+  index("idx_specials_approval").on(table.approvalStatus),
+]);
+
+// ============================================
 // EVENTS & SHIURIM
 // ============================================
 
@@ -366,6 +431,7 @@ export const askTheRabbi = pgTable("ask_the_rabbi", {
   answer: text("answer"),
   category: varchar("category", { length: 100 }),
   answeredBy: varchar("answered_by", { length: 200 }).default("Hagaon Rav Shlomo Miller Shlit'a"),
+  imageUrl: varchar("image_url", { length: 500 }),
   isPublished: boolean("is_published").default(false),
   publishedAt: timestamp("published_at"),
   viewCount: integer("view_count").default(0),
@@ -463,6 +529,7 @@ export const tehillimList = pgTable("tehillim_list", {
   isActive: boolean("is_active").default(true),
   approvalStatus: varchar("approval_status", { length: 20 }).default("pending"),
   expiresAt: date("expires_at"),
+  isPermanent: boolean("is_permanent").default(false), // Admin can set to never expire
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -491,6 +558,7 @@ export const importantNumbers = pgTable("important_numbers", {
 
 export const emailSubscribers = pgTable("email_subscribers", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }), // Link to user account
   email: varchar("email", { length: 255 }).notNull().unique(),
   firstName: varchar("first_name", { length: 50 }),
   lastName: varchar("last_name", { length: 50 }),
@@ -498,7 +566,12 @@ export const emailSubscribers = pgTable("email_subscribers", {
   eruvStatus: boolean("eruv_status").default(false),
   simchas: boolean("simchas").default(false),
   shiva: boolean("shiva").default(false),
+  tehillim: boolean("tehillim").default(false),
+  communityEvents: boolean("community_events").default(false),
+  newsletter: boolean("newsletter").default(true), // General newsletter subscription
   isActive: boolean("is_active").default(true),
+  unsubscribeToken: varchar("unsubscribe_token", { length: 64 }),
+  unsubscribedAt: timestamp("unsubscribed_at"),
   createdAt: timestamp("created_at").defaultNow(),
   oldMemberId: integer("old_member_id"),
 });
@@ -516,6 +589,121 @@ export const contactSubmissions = pgTable("contact_submissions", {
 });
 
 // ============================================
+// NEWSLETTERS
+// ============================================
+
+export const newsletters = pgTable("newsletters", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  previewText: varchar("preview_text", { length: 200 }),
+  content: text("content").notNull(), // HTML content
+  contentJson: jsonb("content_json"), // TipTap JSON for editing
+  status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, scheduled, sending, sent, failed
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_newsletters_status").on(table.status),
+  index("idx_newsletters_scheduled").on(table.scheduledAt),
+]);
+
+export const newsletterSegments = pgTable("newsletter_segments", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  filterCriteria: jsonb("filter_criteria"), // {kosherAlerts: true, simchas: false, ...}
+  isDefault: boolean("is_default").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const newsletterSends = pgTable("newsletter_sends", {
+  id: serial("id").primaryKey(),
+  newsletterId: integer("newsletter_id").notNull().references(() => newsletters.id, { onDelete: "cascade" }),
+  segmentId: integer("segment_id").references(() => newsletterSegments.id),
+  totalRecipients: integer("total_recipients").default(0),
+  sentCount: integer("sent_count").default(0),
+  failedCount: integer("failed_count").default(0),
+  openCount: integer("open_count").default(0),
+  clickCount: integer("click_count").default(0),
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, processing, completed, failed
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  errorMessage: text("error_message"),
+}, (table) => [
+  index("idx_newsletter_sends_newsletter").on(table.newsletterId),
+  index("idx_newsletter_sends_status").on(table.status),
+]);
+
+export const newsletterRecipientLogs = pgTable("newsletter_recipient_logs", {
+  id: serial("id").primaryKey(),
+  sendId: integer("send_id").notNull().references(() => newsletterSends.id, { onDelete: "cascade" }),
+  subscriberId: integer("subscriber_id").references(() => emailSubscribers.id),
+  email: varchar("email", { length: 255 }).notNull(),
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, sent, failed, bounced
+  resendMessageId: varchar("resend_message_id", { length: 100 }),
+  openedAt: timestamp("opened_at"),
+  clickedAt: timestamp("clicked_at"),
+  errorMessage: text("error_message"),
+  sentAt: timestamp("sent_at"),
+}, (table) => [
+  index("idx_recipient_logs_send").on(table.sendId),
+  index("idx_recipient_logs_subscriber").on(table.subscriberId),
+]);
+
+// ============================================
+// FORM EMAIL RECIPIENTS (Admin Config)
+// ============================================
+
+export const formEmailRecipients = pgTable("form_email_recipients", {
+  id: serial("id").primaryKey(),
+  formType: varchar("form_type", { length: 50 }).notNull(), // ask_the_rabbi, contact_form, business_registration, etc.
+  email: varchar("email", { length: 255 }).notNull(),
+  name: varchar("name", { length: 200 }), // Optional display name
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_form_recipients_type").on(table.formType),
+]);
+
+// ============================================
+// ASK THE RABBI SUBMISSIONS (Pending questions from users)
+// ============================================
+
+export const askTheRabbiSubmissions = pgTable("ask_the_rabbi_submissions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  name: varchar("name", { length: 200 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  question: text("question").notNull(),
+  imageUrl: varchar("image_url", { length: 500 }),
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, reviewed, answered, rejected
+  adminNotes: text("admin_notes"),
+  publishedQuestionId: integer("published_question_id").references(() => askTheRabbi.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedBy: integer("reviewed_by").references(() => users.id),
+}, (table) => [
+  index("idx_rabbi_submissions_status").on(table.status),
+  index("idx_rabbi_submissions_user").on(table.userId),
+]);
+
+// ============================================
+// SITE SETTINGS
+// ============================================
+
+export const siteSettings = pgTable("site_settings", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  value: text("value"),
+  description: varchar("description", { length: 255 }),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ============================================
 // RELATIONS
 // ============================================
 
@@ -524,6 +712,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   classifieds: many(classifieds),
   events: many(events),
   simchas: many(simchas),
+  specials: many(specials),
   accounts: many(accounts),
   sessions: many(sessions),
   managedShuls: many(userShuls),
@@ -547,6 +736,12 @@ export const businessesRelations = relations(businesses, ({ one, many }) => ({
   category: one(businessCategories, { fields: [businesses.categoryId], references: [businessCategories.id] }),
   photos: many(businessPhotos),
   subscriptions: many(businessSubscriptions),
+  specials: many(specials),
+}));
+
+export const specialsRelations = relations(specials, ({ one }) => ({
+  user: one(users, { fields: [specials.userId], references: [users.id] }),
+  business: one(businesses, { fields: [specials.businessId], references: [businesses.id] }),
 }));
 
 export const shulsRelations = relations(shuls, ({ many }) => ({
@@ -567,4 +762,29 @@ export const shulRegistrationRequestsRelations = relations(shulRegistrationReque
   user: one(users, { fields: [shulRegistrationRequests.userId], references: [users.id] }),
   shul: one(shuls, { fields: [shulRegistrationRequests.shulId], references: [shuls.id] }),
   reviewer: one(users, { fields: [shulRegistrationRequests.reviewedBy], references: [users.id] }),
+}));
+
+// Newsletter relations
+export const newslettersRelations = relations(newsletters, ({ one, many }) => ({
+  createdByUser: one(users, { fields: [newsletters.createdBy], references: [users.id] }),
+  sends: many(newsletterSends),
+}));
+
+export const newsletterSegmentsRelations = relations(newsletterSegments, ({ many }) => ({
+  sends: many(newsletterSends),
+}));
+
+export const newsletterSendsRelations = relations(newsletterSends, ({ one, many }) => ({
+  newsletter: one(newsletters, { fields: [newsletterSends.newsletterId], references: [newsletters.id] }),
+  segment: one(newsletterSegments, { fields: [newsletterSends.segmentId], references: [newsletterSegments.id] }),
+  recipientLogs: many(newsletterRecipientLogs),
+}));
+
+export const newsletterRecipientLogsRelations = relations(newsletterRecipientLogs, ({ one }) => ({
+  send: one(newsletterSends, { fields: [newsletterRecipientLogs.sendId], references: [newsletterSends.id] }),
+  subscriber: one(emailSubscribers, { fields: [newsletterRecipientLogs.subscriberId], references: [emailSubscribers.id] }),
+}));
+
+export const emailSubscribersRelations = relations(emailSubscribers, ({ many }) => ({
+  recipientLogs: many(newsletterRecipientLogs),
 }));

@@ -72,13 +72,24 @@ export default async function TehillimPage() {
                         <>
                           <p className="text-lg font-medium" dir="rtl">
                             {name.hebrewName}
+                            {name.motherHebrewName && (
+                              <span className="text-gray-600"> בן/בת {name.motherHebrewName}</span>
+                            )}
                           </p>
                           {name.englishName && (
-                            <p className="text-sm text-gray-500">{name.englishName}</p>
+                            <p className="text-sm text-gray-500">
+                              {name.englishName}
+                              {name.motherHebrewName && ` ben/bat ${name.motherHebrewName}`}
+                            </p>
                           )}
                         </>
                       ) : (
-                        <p className="text-lg font-medium">{name.englishName}</p>
+                        <p className="text-lg font-medium">
+                          {name.englishName}
+                          {name.motherHebrewName && (
+                            <span className="text-gray-600"> ben/bat {name.motherHebrewName}</span>
+                          )}
+                        </p>
                       )}
                       {name.reason && (
                         <p className="text-sm text-gray-400 mt-1">{name.reason}</p>

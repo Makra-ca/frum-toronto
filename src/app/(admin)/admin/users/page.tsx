@@ -20,6 +20,17 @@ export default async function AdminUsersPage() {
       isTrusted: users.isTrusted,
       emailVerified: users.emailVerified,
       createdAt: users.createdAt,
+      canAutoApproveShiva: users.canAutoApproveShiva,
+      canAutoApproveTehillim: users.canAutoApproveTehillim,
+      canAutoApproveBusinesses: users.canAutoApproveBusinesses,
+      canAutoApproveAskTheRabbi: users.canAutoApproveAskTheRabbi,
+      canAutoApproveKosherAlerts: users.canAutoApproveKosherAlerts,
+      canAutoApproveShuls: users.canAutoApproveShuls,
+      canAutoApproveSimchas: users.canAutoApproveSimchas,
+      canAutoApproveEvents: users.canAutoApproveEvents,
+      canAutoApproveClassifieds: users.canAutoApproveClassifieds,
+      canAutoApproveShiurim: users.canAutoApproveShiurim,
+      canPostSpecials: users.canPostSpecials,
     })
     .from(users)
     .orderBy(desc(users.createdAt));

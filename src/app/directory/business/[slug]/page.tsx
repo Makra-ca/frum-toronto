@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { businesses, businessCategories } from "@/lib/db/schema";
+import { businesses, businessCategories, subscriptionPlans } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,21 @@ interface BusinessHours {
   [key: string]: { open: string; close: string } | null;
 }
 
+interface SubscriptionPlanData {
+  id: number;
+  showDescription: boolean | null;
+  showContactName: boolean | null;
+  showEmail: boolean | null;
+  showWebsite: boolean | null;
+  showHours: boolean | null;
+  showMap: boolean | null;
+  showLogo: boolean | null;
+  showSocialLinks: boolean | null;
+  showKosherBadge: boolean | null;
+  isFeatured: boolean | null;
+  priorityInSearch: boolean | null;
+}
+
 interface BusinessData {
   id: number;
   name: string;
@@ -45,6 +60,9 @@ interface BusinessData {
   isKosher: boolean | null;
   kosherCertification: string | null;
   categoryId: number | null;
+  contactName: string | null;
+  socialLinks: Record<string, string> | null;
+  subscriptionPlan: SubscriptionPlanData | null;
 }
 
 export async function generateMetadata({ params }: PageProps) {
@@ -83,6 +101,9 @@ async function getBusinessData(slug: string) {
       isKosher: businesses.isKosher,
       kosherCertification: businesses.kosherCertification,
       categoryId: businesses.categoryId,
+      contactName: businesses.contactName,
+      socialLinks: businesses.socialLinks,
+      subscriptionPlanId: businesses.subscriptionPlanId,
     })
     .from(businesses)
     .where(eq(businesses.slug, slug))
@@ -93,9 +114,51 @@ async function getBusinessData(slug: string) {
   }
 
   const rawBusiness = businessResult[0];
+
+  // Fetch subscription plan if exists
+  let subscriptionPlan: SubscriptionPlanData | null = null;
+  if (rawBusiness.subscriptionPlanId) {
+    const planResult = await db
+      .select({
+        id: subscriptionPlans.id,
+        showDescription: subscriptionPlans.showDescription,
+        showContactName: subscriptionPlans.showContactName,
+        showEmail: subscriptionPlans.showEmail,
+        showWebsite: subscriptionPlans.showWebsite,
+        showHours: subscriptionPlans.showHours,
+        showMap: subscriptionPlans.showMap,
+        showLogo: subscriptionPlans.showLogo,
+        showSocialLinks: subscriptionPlans.showSocialLinks,
+        showKosherBadge: subscriptionPlans.showKosherBadge,
+        isFeatured: subscriptionPlans.isFeatured,
+        priorityInSearch: subscriptionPlans.priorityInSearch,
+      })
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.id, rawBusiness.subscriptionPlanId))
+      .limit(1);
+
+    subscriptionPlan = planResult[0] || null;
+  }
+
   const business: BusinessData = {
-    ...rawBusiness,
+    id: rawBusiness.id,
+    name: rawBusiness.name,
+    slug: rawBusiness.slug,
+    description: rawBusiness.description,
+    address: rawBusiness.address,
+    city: rawBusiness.city,
+    postalCode: rawBusiness.postalCode,
+    phone: rawBusiness.phone,
+    email: rawBusiness.email,
+    website: rawBusiness.website,
+    logoUrl: rawBusiness.logoUrl,
     hours: rawBusiness.hours as BusinessHours | null,
+    isKosher: rawBusiness.isKosher,
+    kosherCertification: rawBusiness.kosherCertification,
+    categoryId: rawBusiness.categoryId,
+    contactName: rawBusiness.contactName,
+    socialLinks: rawBusiness.socialLinks as Record<string, string> | null,
+    subscriptionPlan,
   };
 
   // Get category info
@@ -167,6 +230,16 @@ async function getBusinessData(slug: string) {
   };
 }
 
+// Helper to check if a feature is allowed by the subscription plan
+function canShowFeature(plan: SubscriptionPlanData | null, feature: keyof SubscriptionPlanData): boolean {
+  // If no plan, default to free tier (very limited features)
+  if (!plan) {
+    // Free tier: only name, address, phone are shown
+    return false;
+  }
+  return plan[feature] === true;
+}
+
 export default async function BusinessPage({ params }: PageProps) {
   const { slug } = await params;
   const data = await getBusinessData(slug);
@@ -176,16 +249,26 @@ export default async function BusinessPage({ params }: PageProps) {
   }
 
   const { business, category, parentCategory, relatedBusinesses } = data;
+  const plan = business.subscriptionPlan;
+
+  // Feature visibility based on subscription plan
+  const showDescription = canShowFeature(plan, "showDescription");
+  const showEmail = canShowFeature(plan, "showEmail");
+  const showWebsite = canShowFeature(plan, "showWebsite");
+  const showHours = canShowFeature(plan, "showHours");
+  const showMap = canShowFeature(plan, "showMap");
+  const showLogo = canShowFeature(plan, "showLogo");
+  const showKosherBadge = canShowFeature(plan, "showKosherBadge");
 
   const fullAddress = [business.address, business.city, business.postalCode]
     .filter(Boolean)
     .join(", ");
 
-  const googleMapsUrl = business.address
+  const googleMapsUrl = business.address && showMap
     ? getDirectionsUrl(business.address, business.city ?? undefined)
     : null;
 
-  const websiteUrl = business.website
+  const websiteUrl = business.website && showWebsite
     ? business.website.startsWith("http")
       ? business.website
       : `https://${business.website}`
@@ -229,27 +312,29 @@ export default async function BusinessPage({ params }: PageProps) {
 
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
             <div className="flex gap-4">
-              {/* Logo */}
-              <div className="w-20 h-20 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {business.logoUrl ? (
-                  <img
-                    src={business.logoUrl}
-                    alt={business.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-3xl font-bold text-white/50">
-                    {business.name.charAt(0)}
-                  </span>
-                )}
-              </div>
+              {/* Logo - only shown for paid plans */}
+              {showLogo && (
+                <div className="w-20 h-20 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {business.logoUrl ? (
+                    <img
+                      src={business.logoUrl}
+                      alt={business.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-3xl font-bold text-white/50">
+                      {business.name.charAt(0)}
+                    </span>
+                  )}
+                </div>
+              )}
 
               <div>
                 <div className="flex items-center gap-3 flex-wrap mb-2">
                   <h1 className="text-2xl md:text-3xl font-bold">
                     {business.name}
                   </h1>
-                  {business.isKosher && (
+                  {showKosherBadge && business.isKosher && (
                     <Badge className="bg-green-500 hover:bg-green-600">
                       {business.kosherCertification || "Kosher"}
                     </Badge>
@@ -263,7 +348,7 @@ export default async function BusinessPage({ params }: PageProps) {
                       <span>{business.city}</span>
                     </>
                   )}
-                  {business.hours && (
+                  {showHours && business.hours && (
                     <>
                       <span>•</span>
                       <OpenNowBadge hours={business.hours} variant="light" />
@@ -283,7 +368,7 @@ export default async function BusinessPage({ params }: PageProps) {
                   </a>
                 </Button>
               )}
-              {googleMapsUrl && (
+              {showMap && googleMapsUrl && (
                 <Button asChild variant="secondary" className="bg-white/20 hover:bg-white/30 text-white">
                   <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">
                     <Navigation className="h-4 w-4 mr-2" />
@@ -305,8 +390,8 @@ export default async function BusinessPage({ params }: PageProps) {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Main Content */}
           <main className="flex-1 space-y-6">
-            {/* About */}
-            {business.description && (
+            {/* About - only shown for paid plans */}
+            {showDescription && business.description && (
               <Card className="border-0 shadow-sm">
                 <CardHeader>
                   <CardTitle>About</CardTitle>
@@ -366,7 +451,7 @@ export default async function BusinessPage({ params }: PageProps) {
                     </div>
                   )}
 
-                  {business.email && (
+                  {showEmail && business.email && (
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
                         <Mail className="h-5 w-5 text-purple-600" />
@@ -383,7 +468,7 @@ export default async function BusinessPage({ params }: PageProps) {
                     </div>
                   )}
 
-                  {websiteUrl && (
+                  {showWebsite && websiteUrl && (
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
                         <Globe className="h-5 w-5 text-orange-600" />
@@ -406,8 +491,8 @@ export default async function BusinessPage({ params }: PageProps) {
               </CardContent>
             </Card>
 
-            {/* Business Hours */}
-            {business.hours && (
+            {/* Business Hours - only shown for paid plans */}
+            {showHours && business.hours && (
               <Card className="border-0 shadow-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -448,8 +533,8 @@ export default async function BusinessPage({ params }: PageProps) {
               </Card>
             )}
 
-            {/* Map */}
-            {fullAddress && (
+            {/* Map - only shown for paid plans */}
+            {showMap && fullAddress && (
               <Card className="border-0 shadow-sm overflow-hidden">
                 <CardContent className="p-0">
                   <div className="aspect-video w-full bg-gray-100">
@@ -485,7 +570,7 @@ export default async function BusinessPage({ params }: PageProps) {
                     </a>
                   </Button>
                 )}
-                {business.email && (
+                {showEmail && business.email && (
                   <Button asChild variant="outline" className="w-full">
                     <a href={`mailto:${business.email}`}>
                       <Mail className="h-4 w-4 mr-2" />
@@ -493,7 +578,7 @@ export default async function BusinessPage({ params }: PageProps) {
                     </a>
                   </Button>
                 )}
-                {websiteUrl && (
+                {showWebsite && websiteUrl && (
                   <Button asChild variant="outline" className="w-full">
                     <a href={websiteUrl} target="_blank" rel="noopener noreferrer">
                       <Globe className="h-4 w-4 mr-2" />
@@ -501,7 +586,7 @@ export default async function BusinessPage({ params }: PageProps) {
                     </a>
                   </Button>
                 )}
-                {googleMapsUrl && (
+                {showMap && googleMapsUrl && (
                   <Button asChild variant="outline" className="w-full">
                     <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">
                       <Navigation className="h-4 w-4 mr-2" />

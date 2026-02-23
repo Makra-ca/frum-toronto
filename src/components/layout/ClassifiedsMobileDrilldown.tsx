@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ChevronRight, Search, Loader2, Plus } from "lucide-react";
+import { ChevronRight, Search, Loader2, Plus, Tag } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ClassifiedsData } from "./ClassifiedsMegaMenu";
 
@@ -87,6 +87,15 @@ export function ClassifiedsMobileDrilldown({ onClose, data: prefetchedData }: Cl
         >
           <Plus className="h-5 w-5" />
           <span className="flex-1 ml-2">Post a Classified</span>
+          <ChevronRight className="h-5 w-5" />
+        </Link>
+        <Link
+          href="/specials"
+          onClick={onClose}
+          className="flex items-center justify-between py-2 text-orange-600 font-medium"
+        >
+          <Tag className="h-5 w-5" />
+          <span className="flex-1 ml-2">Weekly Specials</span>
           <ChevronRight className="h-5 w-5" />
         </Link>
       </div>

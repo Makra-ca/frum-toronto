@@ -7,7 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { EVENT_TYPES } from "@/lib/validations/content";
+import { HDate, gematriya } from "@hebcal/core";
 
 interface CalendarEvent {
   id: number;
@@ -34,6 +42,52 @@ const MONTHS = [
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+// Hebrew month names
+const HEBREW_MONTHS: Record<string, string> = {
+  "Nisan": "ניסן",
+  "Iyyar": "אייר",
+  "Sivan": "סיון",
+  "Tamuz": "תמוז",
+  "Av": "אב",
+  "Elul": "אלול",
+  "Tishrei": "תשרי",
+  "Cheshvan": "חשון",
+  "Kislev": "כסלו",
+  "Tevet": "טבת",
+  "Sh'vat": "שבט",
+  "Adar": "אדר",
+  "Adar I": "אדר א׳",
+  "Adar II": "אדר ב׳",
+};
+
+function getHebrewDate(year: number, month: number, day: number): { hebrewDay: string; hebrewMonth: string } {
+  const hdate = new HDate(new Date(year, month, day));
+  const hebrewDay = gematriya(hdate.getDate());
+  const monthName = hdate.getMonthName();
+  const hebrewMonth = HEBREW_MONTHS[monthName] || monthName;
+  return { hebrewDay, hebrewMonth };
+}
+
+function getHebrewMonthsForGregorianMonth(year: number, month: number): string {
+  // Get Hebrew month at start and end of the Gregorian month
+  const startDate = new HDate(new Date(year, month, 1));
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const endDate = new HDate(new Date(year, month, daysInMonth));
+
+  const startMonthName = startDate.getMonthName();
+  const endMonthName = endDate.getMonthName();
+
+  const startHebrew = HEBREW_MONTHS[startMonthName] || startMonthName;
+  const endHebrew = HEBREW_MONTHS[endMonthName] || endMonthName;
+
+  // If the month spans two Hebrew months, show both
+  if (startMonthName !== endMonthName) {
+    return `${startHebrew} / ${endHebrew}`;
+  }
+
+  return startHebrew;
+}
+
 function formatDate(date: string): string {
   const d = new Date(date);
   return d.toLocaleDateString("en-US", {
@@ -59,10 +113,13 @@ function getEventTypeLabel(type: string | null): string {
 export default function EventsPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar");
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [showHebrewDates, setShowHebrewDates] = useState(true);
+  const [selectedDayEvents, setSelectedDayEvents] = useState<CalendarEvent[] | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   useEffect(() => {
     async function fetchEvents() {
@@ -148,6 +205,8 @@ export default function EventsPage() {
         currentMonth === new Date().getMonth() &&
         currentYear === new Date().getFullYear();
 
+      const hebrewDate = showHebrewDates ? getHebrewDate(currentYear, currentMonth, day) : null;
+
       days.push(
         <div
           key={day}
@@ -155,25 +214,38 @@ export default function EventsPage() {
             isToday ? "bg-blue-50" : "bg-white"
           }`}
         >
-          <div
-            className={`text-sm font-medium mb-1 ${
-              isToday ? "text-blue-600" : "text-gray-900"
-            }`}
-          >
-            {day}
+          <div className="flex justify-between items-start mb-1">
+            <div
+              className={`text-sm font-medium ${
+                isToday ? "text-blue-600" : "text-gray-900"
+              }`}
+            >
+              {day}
+            </div>
+            {hebrewDate && (
+              <div className="text-xs text-blue-500" dir="rtl">
+                {hebrewDate.hebrewDay}
+              </div>
+            )}
           </div>
           <div className="space-y-1">
             {dayEvents.slice(0, 2).map((event) => (
-              <Link key={event.id} href={`/calendar/${event.id}`}>
+              <Link key={event.id} href={`/community/calendar/${event.id}`}>
                 <div className="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded truncate hover:bg-blue-200 cursor-pointer">
                   {event.title}
                 </div>
               </Link>
             ))}
             {dayEvents.length > 2 && (
-              <div className="text-xs text-gray-500">
+              <button
+                onClick={() => {
+                  setSelectedDayEvents(dayEvents);
+                  setSelectedDate(new Date(currentYear, currentMonth, day));
+                }}
+                className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+              >
                 +{dayEvents.length - 2} more
-              </div>
+              </button>
             )}
           </div>
         </div>
@@ -248,13 +320,31 @@ export default function EventsPage() {
 
         {viewMode === "calendar" && (
           <div className="mb-8">
+            {/* Hebrew dates toggle */}
+            <div className="flex justify-end mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  checked={showHebrewDates}
+                  onCheckedChange={(checked) => setShowHebrewDates(checked === true)}
+                />
+                <span className="text-sm text-gray-600">Show Hebrew Dates</span>
+              </label>
+            </div>
+
             <div className="flex justify-between items-center mb-4">
               <Button variant="outline" size="sm" onClick={previousMonth}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <h2 className="text-xl font-bold">
-                {MONTHS[currentMonth]} {currentYear}
-              </h2>
+              <div className="text-center">
+                <h2 className="text-xl font-bold">
+                  {MONTHS[currentMonth]} {currentYear}
+                </h2>
+                {showHebrewDates && (
+                  <p className="text-sm text-gray-500" dir="rtl">
+                    {getHebrewMonthsForGregorianMonth(currentYear, currentMonth)}
+                  </p>
+                )}
+              </div>
               <Button variant="outline" size="sm" onClick={nextMonth}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -298,7 +388,7 @@ export default function EventsPage() {
               </Card>
             ) : (
               events.map((event) => (
-                <Link key={event.id} href={`/calendar/${event.id}`}>
+                <Link key={event.id} href={`/community/calendar/${event.id}`}>
                   <Card className="hover:shadow-md transition-shadow cursor-pointer">
                     <CardContent className="p-6">
                       <div className="flex flex-col md:flex-row gap-4">
@@ -367,6 +457,51 @@ export default function EventsPage() {
             )}
           </div>
         )}
+
+        {/* Day Events Dialog */}
+        <Dialog open={!!selectedDayEvents} onOpenChange={() => setSelectedDayEvents(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                Events on {selectedDate?.toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric"
+                })}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {selectedDayEvents?.map((event) => (
+                <Link
+                  key={event.id}
+                  href={`/community/calendar/${event.id}`}
+                  className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  onClick={() => setSelectedDayEvents(null)}
+                >
+                  <h5 className="font-medium text-gray-900">{event.title}</h5>
+                  <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      {event.isAllDay ? "All Day" : formatTime(event.startTime)}
+                    </span>
+                    {event.location && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {event.location}
+                      </span>
+                    )}
+                  </div>
+                  {event.shulName && (
+                    <Badge variant="outline" className="mt-2 text-xs">
+                      {event.shulName}
+                    </Badge>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

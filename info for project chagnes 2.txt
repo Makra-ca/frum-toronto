@@ -1,0 +1,4 @@
+The filter All Events
+Community Event
+Shul Event
+Shiur/Class dont' work in /calendar

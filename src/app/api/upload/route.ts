@@ -16,9 +16,9 @@ const ALLOWED_TYPES = [
 // POST /api/upload - Upload an image to Vercel Blob
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
+    // Check authentication - any logged in user can upload
     const session = await auth();
-    if (!session?.user || session.user.role !== "admin") {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
