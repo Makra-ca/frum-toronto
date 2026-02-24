@@ -13,6 +13,7 @@ const updateSchema = z.object({
   kosherAlerts: z.boolean().optional(),
   tehillim: z.boolean().optional(),
   communityEvents: z.boolean().optional(),
+  communityAlerts: z.boolean().optional(),
   eruvStatus: z.boolean().optional(),
 });
 
@@ -35,6 +36,7 @@ export async function GET() {
         kosherAlerts: emailSubscribers.kosherAlerts,
         tehillim: emailSubscribers.tehillim,
         communityEvents: emailSubscribers.communityEvents,
+        communityAlerts: emailSubscribers.communityAlerts,
         eruvStatus: emailSubscribers.eruvStatus,
       })
       .from(emailSubscribers)
@@ -50,6 +52,7 @@ export async function GET() {
         kosherAlerts: false,
         tehillim: false,
         communityEvents: false,
+        communityAlerts: false,
         eruvStatus: false,
       });
     }
@@ -111,6 +114,7 @@ export async function PATCH(request: NextRequest) {
           kosherAlerts: result.data.kosherAlerts ?? false,
           tehillim: result.data.tehillim ?? false,
           communityEvents: result.data.communityEvents ?? false,
+          communityAlerts: result.data.communityAlerts ?? false,
           eruvStatus: result.data.eruvStatus ?? false,
           isActive: true,
           unsubscribeToken,

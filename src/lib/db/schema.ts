@@ -505,12 +505,15 @@ export const alerts = pgTable("alerts", {
 
 export const kosherAlerts = pgTable("kosher_alerts", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id), // Who submitted (null for admin-created)
   productName: varchar("product_name", { length: 200 }).notNull(),
   brand: varchar("brand", { length: 200 }),
-  alertType: varchar("alert_type", { length: 50 }), // recall, status_change
+  alertType: varchar("alert_type", { length: 50 }), // recall, status_change, warning, update
   description: text("description").notNull(),
   certifyingAgency: varchar("certifying_agency", { length: 200 }),
   effectiveDate: date("effective_date"),
+  issueDate: date("issue_date"), // When the issue began
+  approvalStatus: varchar("approval_status", { length: 20 }).default("pending"), // pending, approved, rejected
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -563,6 +566,7 @@ export const emailSubscribers = pgTable("email_subscribers", {
   firstName: varchar("first_name", { length: 50 }),
   lastName: varchar("last_name", { length: 50 }),
   kosherAlerts: boolean("kosher_alerts").default(false),
+  communityAlerts: boolean("community_alerts").default(false), // General community alerts
   eruvStatus: boolean("eruv_status").default(false),
   simchas: boolean("simchas").default(false),
   shiva: boolean("shiva").default(false),

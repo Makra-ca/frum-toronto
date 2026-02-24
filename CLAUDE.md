@@ -1097,3 +1097,114 @@ Created `src/components/calendar/EventActions.tsx` - Client component for event 
 | `src/app/(public)/community/calendar/page.tsx` | Fixed event links to `/community/calendar/[id]` |
 | `src/app/(public)/community/calendar/[id]/page.tsx` | Complete redesign |
 | `src/components/calendar/EventActions.tsx` | New - Add to calendar + share buttons |
+
+---
+
+## Session: 2026-02-24 - Community & Kosher Alerts System
+
+### Newsletter Form Select Fix
+
+Fixed Radix UI Select component crash on newsletter send page (`/admin/newsletters/[id]?send=true`).
+
+**Issue:** Radix UI `<SelectItem>` cannot have `value=""` (empty string).
+
+**Fix in `NewsletterForm.tsx`:**
+```typescript
+// Changed from value="" to value="all" and convert back in onChange
+<Select value={selectedSegmentId || "all"} onValueChange={(val) => setSelectedSegmentId(val === "all" ? "" : val)}>
+  <SelectItem value="all">All newsletter subscribers</SelectItem>
+  ...
+</Select>
+```
+
+### Community Alerts Notification Preference
+
+Added `communityAlerts` boolean field to `emailSubscribers` table for general community alert notifications.
+
+**Files Updated:**
+- `src/lib/db/schema.ts` - Added `communityAlerts` column
+- `src/lib/validations/auth.ts` - Added to notification schema
+- `src/components/auth/RegisterForm.tsx` - Added checkbox option
+- `src/app/api/auth/register/route.ts` - Save preference on registration
+- `src/app/(dashboard)/dashboard/settings/page.tsx` - Toggle in settings
+- `src/app/api/user/notification-preferences/route.ts` - GET/PATCH handlers
+
+### Admin Alerts Page (`/admin/alerts`)
+
+Full CRUD for general community alerts with email notification capability.
+
+**Features:**
+- Create/edit/delete alerts
+- Alert types: general, bulletin, announcement, warning
+- Urgency levels: normal, high, urgent
+- Pin to top option
+- Expiration date
+- "Save" vs "Save & Notify" buttons
+- Sends emails to subscribers with `communityAlerts: true`
+
+**Files Created:**
+- `src/app/(admin)/admin/alerts/page.tsx` - Admin UI
+- `src/app/api/admin/alerts/route.ts` - GET (list) + POST (create)
+- `src/app/api/admin/alerts/[id]/route.ts` - GET/PATCH/DELETE
+
+### Admin Kosher Alerts Page (`/admin/kosher-alerts`)
+
+Full CRUD with approval queue for user-submitted kosher alerts.
+
+**Features:**
+- Create/edit/delete kosher alerts
+- Alert types: recall, status_change, warning, update
+- Certifying agencies dropdown: COR, OU, OK, Star-K, Kof-K, cRc, MK, other (custom)
+- Approval workflow: pending → approved/rejected
+- Quick approve/reject buttons for pending items
+- Sends emails when approving user submissions
+- "Save & Notify" button sends to subscribers with `kosherAlerts: true`
+
+**Files Created:**
+- `src/app/(admin)/admin/kosher-alerts/page.tsx` - Admin UI
+- `src/app/api/admin/kosher-alerts/route.ts` - GET (list) + POST (create)
+- `src/app/api/admin/kosher-alerts/[id]/route.ts` - GET/PATCH/DELETE
+
+### Public Kosher Alerts User Submission
+
+Users can submit kosher alerts from the public `/kosher-alerts` page.
+
+**Features:**
+- "Report Kosher Alert" button opens modal
+- Requires login (shows sign in prompt if not authenticated)
+- Form fields: product name, brand, alert type, agency, description, effective date
+- Submissions go to pending queue for admin review
+- Auto-approves if user has `canAutoApproveKosherAlerts` permission
+
+**Files Created:**
+- `src/components/kosher-alerts/KosherAlertSubmitModal.tsx` - Client component modal
+- `src/app/api/community/kosher-alerts/route.ts` - GET (public list) + POST (submit)
+- Updated `src/app/(public)/kosher-alerts/page.tsx` - Added submit button, improved styling
+
+### Database Schema Updates
+
+**Migration:** `migrations/2026-02-24-alerts-schema-update.sql`
+
+```sql
+-- Add columns to kosher_alerts table
+ALTER TABLE kosher_alerts
+ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id),
+ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) DEFAULT 'approved',
+ADD COLUMN IF NOT EXISTS issue_date DATE;
+
+-- Add community_alerts notification preference
+ALTER TABLE email_subscribers
+ADD COLUMN IF NOT EXISTS community_alerts BOOLEAN DEFAULT false;
+```
+
+### Key Files Summary
+
+| File | Purpose |
+|------|---------|
+| `src/app/(admin)/admin/alerts/page.tsx` | Admin alerts management UI |
+| `src/app/(admin)/admin/kosher-alerts/page.tsx` | Admin kosher alerts with approval queue |
+| `src/app/api/admin/alerts/route.ts` | Admin alerts API |
+| `src/app/api/admin/kosher-alerts/route.ts` | Admin kosher alerts API |
+| `src/app/api/community/kosher-alerts/route.ts` | Public submission API |
+| `src/components/kosher-alerts/KosherAlertSubmitModal.tsx` | User submission modal |
+| `src/components/admin/NewsletterForm.tsx` | Fixed Select component |

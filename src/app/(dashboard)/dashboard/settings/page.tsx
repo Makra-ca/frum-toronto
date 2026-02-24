@@ -16,6 +16,7 @@ interface NotificationPreferences {
   kosherAlerts: boolean;
   tehillim: boolean;
   communityEvents: boolean;
+  communityAlerts: boolean;
   eruvStatus: boolean;
 }
 
@@ -51,6 +52,11 @@ const notificationOptions = [
     description: "Notifications about upcoming events and gatherings"
   },
   {
+    id: "communityAlerts" as const,
+    label: "Community Alerts",
+    description: "Important community announcements and urgent notices"
+  },
+  {
     id: "eruvStatus" as const,
     label: "Eruv Status",
     description: "Weekly eruv status updates before Shabbos"
@@ -65,6 +71,7 @@ export default function SettingsPage() {
     kosherAlerts: false,
     tehillim: false,
     communityEvents: false,
+    communityAlerts: false,
     eruvStatus: false,
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -141,6 +148,7 @@ export default function SettingsPage() {
       kosherAlerts: true,
       tehillim: true,
       communityEvents: true,
+      communityAlerts: true,
       eruvStatus: true,
     });
   };
@@ -153,6 +161,7 @@ export default function SettingsPage() {
       kosherAlerts: false,
       tehillim: false,
       communityEvents: false,
+      communityAlerts: false,
       eruvStatus: false,
     });
   };

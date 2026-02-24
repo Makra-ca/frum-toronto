@@ -320,12 +320,12 @@ export function NewsletterForm({ newsletter, isNew = false }: NewsletterFormProp
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Send To</Label>
-              <Select value={selectedSegmentId} onValueChange={setSelectedSegmentId}>
+              <Select value={selectedSegmentId || "all"} onValueChange={(val) => setSelectedSegmentId(val === "all" ? "" : val)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All newsletter subscribers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All newsletter subscribers</SelectItem>
+                  <SelectItem value="all">All newsletter subscribers</SelectItem>
                   {segments.map((segment) => (
                     <SelectItem key={segment.id} value={segment.id.toString()}>
                       {segment.name} ({segment.subscriberCount} subscribers)
@@ -363,12 +363,12 @@ export function NewsletterForm({ newsletter, isNew = false }: NewsletterFormProp
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Send To</Label>
-              <Select value={selectedSegmentId} onValueChange={setSelectedSegmentId}>
+              <Select value={selectedSegmentId || "all"} onValueChange={(val) => setSelectedSegmentId(val === "all" ? "" : val)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All newsletter subscribers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All newsletter subscribers</SelectItem>
+                  <SelectItem value="all">All newsletter subscribers</SelectItem>
                   {segments.map((segment) => (
                     <SelectItem key={segment.id} value={segment.id.toString()}>
                       {segment.name} ({segment.subscriberCount} subscribers)

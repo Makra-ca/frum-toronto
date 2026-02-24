@@ -25,6 +25,7 @@ export const registerSchema = z
       kosherAlerts: z.boolean(),
       tehillim: z.boolean(),
       communityEvents: z.boolean(),
+      communityAlerts: z.boolean(),
       eruvStatus: z.boolean(),
     }),
   })

@@ -21,6 +21,7 @@ const notificationOptions = [
   { id: "kosherAlerts", label: "Kosher Alerts", description: "Product recalls and certification updates" },
   { id: "tehillim", label: "Tehillim Updates", description: "Prayer list updates" },
   { id: "communityEvents", label: "Community Events", description: "Upcoming events and gatherings" },
+  { id: "communityAlerts", label: "Community Alerts", description: "Important community announcements and urgent notices" },
   { id: "eruvStatus", label: "Eruv Status", description: "Weekly eruv status updates" },
 ] as const;
 
@@ -45,6 +46,7 @@ export function RegisterForm() {
         kosherAlerts: false,
         tehillim: false,
         communityEvents: false,
+        communityAlerts: false,
         eruvStatus: false,
       },
     },

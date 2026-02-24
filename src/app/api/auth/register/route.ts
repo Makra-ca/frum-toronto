@@ -69,6 +69,7 @@ export async function POST(request: Request) {
       kosherAlerts: notifications?.kosherAlerts ?? false,
       tehillim: notifications?.tehillim ?? false,
       communityEvents: notifications?.communityEvents ?? false,
+      communityAlerts: notifications?.communityAlerts ?? false,
       eruvStatus: notifications?.eruvStatus ?? false,
       isActive: true,
       unsubscribeToken,
