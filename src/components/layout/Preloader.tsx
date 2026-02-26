@@ -25,27 +25,32 @@ const particleData = [
 
 export default function Preloader() {
   const pathname = usePathname();
-  const [isLoading, setIsLoading] = useState(true);
+  const [shouldShow, setShouldShow] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
 
   // Skip preloader on admin/dashboard routes
   const isAdminRoute = pathname?.startsWith('/admin') || pathname?.startsWith('/dashboard');
 
   useEffect(() => {
-    // Don't show preloader on admin/dashboard routes
-    if (isAdminRoute) {
-      setIsLoading(false);
-      return;
-    }
+    // Skip on admin routes
+    if (isAdminRoute) return;
+
+    // Check if preloader was already shown this session
+    const hasSeenPreloader = sessionStorage.getItem('preloaderShown');
+    if (hasSeenPreloader) return;
+
+    // Show preloader and mark as shown
+    setShouldShow(true);
+    sessionStorage.setItem('preloaderShown', 'true');
 
     // Start fade out after animation completes
     const timer = setTimeout(() => {
       setFadeOut(true);
     }, 3200);
 
-    // Remove preloader after fade
+    // Hide preloader after fade
     const removeTimer = setTimeout(() => {
-      setIsLoading(false);
+      setShouldShow(false);
     }, 3900);
 
     return () => {
@@ -54,7 +59,7 @@ export default function Preloader() {
     };
   }, [isAdminRoute]);
 
-  if (!isLoading || isAdminRoute) return null;
+  if (!shouldShow) return null;
 
   return (
     <div
