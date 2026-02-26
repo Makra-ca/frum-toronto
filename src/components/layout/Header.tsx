@@ -136,7 +136,7 @@ export function Header() {
           </Link>
 
           {/* Desktop Navigation */}
-          <NavigationMenu className="hidden lg:flex" viewport={false}>
+          <NavigationMenu className="hidden xl:flex" viewport={false}>
             <NavigationMenuList>
               {mainNavigation.map((item) => (
                 <NavigationMenuItem key={item.label}>
@@ -255,7 +255,7 @@ export function Header() {
             {/* Mobile menu */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="lg:hidden">
+                <Button variant="ghost" size="icon" className="xl:hidden">
                   <Menu className="h-6 w-6" />
                 </Button>
               </SheetTrigger>

@@ -6,7 +6,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-urbanist);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -122,4 +122,291 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* ===========================================
+   PRELOADER ANIMATIONS
+   =========================================== */
+
+/* Ground line draws first */
+.skyline-ground {
+  stroke-dasharray: 180;
+  stroke-dashoffset: 180;
+  animation: draw-line 0.6s ease-out 0.2s forwards;
+}
+
+/* CN Tower components - draw sequentially */
+.cn-tower-shaft {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: draw-line 0.5s ease-out 0.5s forwards;
+}
+
+.cn-tower-pod {
+  stroke-dasharray: 60;
+  stroke-dashoffset: 60;
+  animation: draw-line 0.4s ease-out 0.9s forwards;
+}
+
+.cn-tower-spire {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  animation: draw-line 0.3s ease-out 1.2s forwards;
+}
+
+.cn-tower-top {
+  stroke-dasharray: 15;
+  stroke-dashoffset: 15;
+  animation: draw-line 0.2s ease-out 1.4s forwards;
+}
+
+/* Buildings - draw together */
+.building-1, .building-2, .building-3 {
+  stroke-dasharray: 80;
+  stroke-dashoffset: 80;
+  animation: draw-line 0.5s ease-out 0.6s forwards;
+}
+
+.building-4, .building-5, .building-6 {
+  stroke-dasharray: 80;
+  stroke-dashoffset: 80;
+  animation: draw-line 0.5s ease-out 0.7s forwards;
+}
+
+/* Star of David - draws after skyline */
+.star-triangle-up {
+  stroke-dasharray: 120;
+  stroke-dashoffset: 120;
+  animation: draw-line 0.6s ease-out 1.5s forwards;
+}
+
+.star-triangle-down {
+  stroke-dasharray: 120;
+  stroke-dashoffset: 120;
+  animation: draw-line 0.6s ease-out 1.7s forwards;
+}
+
+/* Draw line animation */
+@keyframes draw-line {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Glow effect - pulses after star is drawn */
+.preloader-glow {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.5);
+  animation: glow-pulse 1.4s ease-out 2.0s forwards;
+}
+
+@keyframes glow-pulse {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  100% {
+    opacity: 0.3;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Particles float up and fade */
+.particle {
+  opacity: 0;
+  animation: particle-float 1.2s ease-out forwards;
+}
+
+@keyframes particle-float {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--tx), var(--ty)) scale(0);
+  }
+}
+
+/* Text fade in */
+.preloader-text {
+  opacity: 0;
+  transform: translateY(15px);
+  animation: preloader-fade-up 0.6s ease-out 2.4s forwards;
+}
+
+.preloader-subtext {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: preloader-fade-up 0.6s ease-out 2.6s forwards;
+}
+
+@keyframes preloader-fade-up {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Page content fade-in (after preloader) */
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-page-fade-in {
+  opacity: 0;
+  animation: page-fade-in 0.7s ease-out 3.2s forwards;
+}
+
+/* Skip animation on admin routes */
+.animate-page-fade-in-instant {
+  opacity: 1;
+}
+
+/* ===========================================
+   HERO SECTION ANIMATIONS
+   =========================================== */
+
+/* Floating animation for community nodes */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* Pulse travel animation for connection dots */
+@keyframes pulse-travel {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+
+.animate-pulse-travel {
+  animation: pulse-travel 1s ease-out forwards;
+}
+
+/* Star twinkle animation */
+@keyframes star-twinkle {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+.star-twinkle {
+  animation: star-twinkle 3s ease-in-out infinite;
+}
+
+/* Glowing pulse rings */
+@keyframes pulse-ring {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.05);
+    opacity: 0.5;
+  }
+}
+
+@keyframes pulse-ring-expand {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0;
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 2s ease-in-out infinite;
+}
+
+.animate-pulse-ring-delayed {
+  animation: pulse-ring 2s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+.animate-pulse-ring-slow {
+  animation: pulse-ring 3s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+/* Shimmer effect for nodes */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(200%) rotate(45deg);
+  }
+}
+
+.shimmer-effect {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    45deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.15) 50%,
+    transparent 70%
+  );
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Gradient shift animation for text */
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient-shift {
+  animation: gradient-shift 3s ease-in-out infinite;
+}
+
+/* Slow bounce for scroll indicator */
+@keyframes bounce-slow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(8px);
+  }
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 2s ease-in-out infinite;
 }

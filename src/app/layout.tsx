@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Urbanist } from "next/font/google";
 import "./globals.css";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 
-const inter = Inter({
-  variable: "--font-inter",
+const urbanist = Urbanist({
+  variable: "--font-urbanist",
   subsets: ["latin"],
 });
 
@@ -36,7 +36,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${urbanist.variable} font-sans antialiased`}>
         <SessionProvider>
           <LayoutWrapper>{children}</LayoutWrapper>
         </SessionProvider>
