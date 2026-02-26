@@ -250,7 +250,7 @@ export function HeroSection() {
 
   return (
     <section
-      className="relative overflow-hidden bg-gradient-to-b from-blue-950 via-blue-900 to-slate-900 text-white pt-8 pb-16 md:pt-6 md:pb-20 lg:pt-0 lg:pb-20 min-h-[80vh] flex flex-col"
+      className="relative overflow-x-clip overflow-y-visible bg-gradient-to-b from-blue-950 via-blue-900 to-slate-900 text-white pt-8 pb-16 md:pt-6 md:pb-20 lg:pt-0 lg:pb-20 min-h-[80vh] flex flex-col"
     >
       {/* Star particles background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -310,7 +310,7 @@ export function HeroSection() {
 
             {/* Search Bar */}
             <form onSubmit={handleSearch} className="mb-8">
-              <div ref={searchContainerRef} className="relative max-w-md mx-auto xl:mx-0">
+              <div ref={searchContainerRef} className="relative max-w-md mx-auto xl:mx-0 z-[100]">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
@@ -338,7 +338,7 @@ export function HeroSection() {
 
                 {/* Search Dropdown */}
                 {showDropdown && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-50">
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[100]">
                     {searchResults.length > 0 ? (
                       <>
                         {searchResults.map((result) => {
