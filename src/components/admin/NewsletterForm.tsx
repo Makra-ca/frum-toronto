@@ -151,7 +151,7 @@ export function NewsletterForm({ newsletter, isNew = false }: NewsletterFormProp
       }
 
       const result = await res.json();
-      toast.success(`Newsletter sending to ${result.totalRecipients} recipients`);
+      toast.success(`Newsletter sent to ${result.sent ?? result.totalRecipients} recipients${result.failed ? ` (${result.failed} failed)` : ""}`);
       setShowSendDialog(false);
       router.push("/admin/newsletters");
     } catch (error) {
