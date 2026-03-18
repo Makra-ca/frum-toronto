@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { BookOpen, MapPin, Clock, User, Tag, CalendarDays, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DAYS_OF_WEEK, SHIUR_LEVELS, SHIUR_GENDERS, SHIUR_CATEGORIES } from "@/lib/validations/content";
 import { ShiurSubmitModal } from "@/components/shiurim/ShiurSubmitModal";
+import { UniversalSearch } from "@/components/search/UniversalSearch";
 
 interface ScheduleEntry {
   start?: string;
@@ -157,6 +158,7 @@ export default function ShiurimPage() {
   const [areaFilter, setAreaFilter] = useState<string>("");
   const [teacherFilter, setTeacherFilter] = useState<string>("");
   const [organizationFilter, setOrganizationFilter] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
     days: [],
     categories: [],
@@ -210,8 +212,20 @@ export default function ShiurimPage() {
     fetchShiurim();
   }, [dayFilter, levelFilter, genderFilter, categoryFilter, areaFilter, teacherFilter, organizationFilter]);
 
+  const filteredShiurim = useMemo(() => {
+    if (!searchQuery) return shiurim;
+    const q = searchQuery.toLowerCase();
+    return shiurim.filter(
+      (s) =>
+        s.title.toLowerCase().includes(q) ||
+        s.teacherName.toLowerCase().includes(q) ||
+        (s.projectOf && s.projectOf.toLowerCase().includes(q)) ||
+        (s.category && s.category.toLowerCase().includes(q))
+    );
+  }, [shiurim, searchQuery]);
+
   // Group shiurim by their primary day (first day in schedule)
-  const groupedByDay = shiurim.reduce((acc, shiur) => {
+  const groupedByDay = filteredShiurim.reduce((acc, shiur) => {
     const days = getShiurDays(shiur);
     const primaryDay = days[0] ?? -1; // -1 for "no specific day"
     if (!acc[primaryDay]) acc[primaryDay] = [];
@@ -239,6 +253,14 @@ export default function ShiurimPage() {
               Find Torah classes and learning opportunities across the Toronto Jewish community
             </p>
             <ShiurSubmitModal />
+            <div className="mt-6 flex justify-center">
+              <UniversalSearch
+                searchType="shiurim"
+                placeholder="Search shiurim by title, teacher, or topic..."
+                onSearch={(q) => setSearchQuery(q)}
+                className="max-w-xl"
+              />
+            </div>
           </div>
         </div>
       </div>

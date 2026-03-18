@@ -1282,3 +1282,80 @@ Fixed issue where page would wait 3.2s even when preloader was already shown in 
 
 - Analytics for homepage ad impressions/clicks (per plan tier)
 - File upload for banner images (currently URL-based)
+
+---
+
+### 2026-03-18 - Universal Fuzzy Search System
+
+**Summary:** Replaced all separate search implementations across the site with a single reusable `<UniversalSearch />` component backed by one unified API endpoint (`/api/search/suggestions`) using PostgreSQL `pg_trgm` fuzzy matching.
+
+#### Architecture
+
+- **One component:** `src/components/search/UniversalSearch.tsx` — accepts `searchType` prop to scope results
+- **One API:** `src/app/api/search/suggestions/route.ts` — accepts `type` param (businesses, classifieds, shuls, shiurim, events, ask-the-rabbi, all)
+- **One query module:** `src/lib/search/fuzzy-search.ts` — per-type query builders with scoring
+- **Shared types:** `src/lib/search/types.ts` — `SearchSuggestion`, `SearchType`, `SuggestionsResponse`
+
+#### Features
+
+- Live dropdown with up to 8 fuzzy-matched suggestions
+- Multi-word highlighting in yellow
+- Keyboard navigation (Arrow Up/Down, Enter, Escape)
+- Click suggestion → navigate to detail page
+- Press Enter → parent page filters/searches
+- AbortController cancels stale requests
+- 300ms debounce, min 2 chars (3 for type=all)
+- Type badges in "all" mode (Business, Shul, Shiur, Event, etc.)
+
+#### Search Fields Per Type
+
+| Type | Fields Searched | Visibility Filters |
+|------|----------------|-------------------|
+| businesses | name, description, category (LEFT JOIN) | approved + active |
+| classifieds | title, description, category (LEFT JOIN) | approved + active |
+| shuls | name, rabbi, address | active |
+| shiurim | title, teacherName, projectOf | active + approved |
+| events | title, description (ILIKE only), location | active + approved + future only |
+| ask-the-rabbi | title, question (multi-word w/ word_similarity) | published |
+
+#### Pages Modified
+
+| Page | Change |
+|------|--------|
+| `/shuls` | Added search bar in hero, client-side filtering via useMemo |
+| `/shiurim` | Added search bar in hero, client-side filtering via useMemo |
+| `/community/calendar` | Added search bar in hero, filters both calendar and list views |
+| `/directory/search` | Replaced basic form with `DirectorySearchBar` wrapper using UniversalSearch |
+| `/classifieds` | Replaced basic input with UniversalSearch in ClassifiedsBrowser |
+| `/ask-the-rabbi` | Replaced AskTheRabbiSearch with `AskTheRabbiSearchBar` wrapper |
+| Homepage hero | Replaced ~70 lines of inline search with UniversalSearch |
+| `/search` results page | Updated to use suggestions API, supports all 6 content types |
+
+#### Files Created
+
+| File | Purpose |
+|------|---------|
+| `src/lib/search/types.ts` | Shared search types |
+| `src/lib/search/fuzzy-search.ts` | Per-type fuzzy query builders |
+| `src/components/search/UniversalSearch.tsx` | Reusable search component |
+| `src/app/api/search/suggestions/route.ts` | Unified suggestions API |
+| `src/components/directory/DirectorySearchBar.tsx` | Client wrapper for server component page |
+| `src/components/ask-the-rabbi/AskTheRabbiSearchBar.tsx` | Client wrapper for server component page |
+| `scripts/enable-universal-search-indexes.ts` | Trigram index creation script |
+
+#### Files Deleted
+
+| File | Reason |
+|------|--------|
+| `src/components/ask-the-rabbi/AskTheRabbiSearch.tsx` | Replaced by UniversalSearch |
+| `src/components/directory/DirectorySearch.tsx` | Replaced by UniversalSearch |
+| `src/app/api/ask-the-rabbi/search/route.ts` | Consolidated into suggestions API |
+| `src/app/api/search/route.ts` | Consolidated into suggestions API |
+
+#### Database Indexes Created
+
+Trigram GIN indexes on: shuls (name, rabbi), shiurim (title, teacher_name), events (title), businesses (name, description), classifieds (title, description). Ask the Rabbi indexes already existed.
+
+#### Design Spec
+
+Full spec at `docs/superpowers/specs/2026-03-18-universal-fuzzy-search-design.md`

@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Search,
   Building2,
   Landmark,
   Calendar,
@@ -14,11 +13,9 @@ import {
   Clock,
   Heart,
   ChevronDown,
-  HelpCircle,
-  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { UniversalSearch } from "@/components/search/UniversalSearch";
 
 // Community feature nodes with descriptions
 const communityNodes = [
@@ -123,34 +120,11 @@ function useCountUp(end: number, duration: number = 2000, startOnView: boolean =
   return { count, ref };
 }
 
-// Search result type config
-const searchTypeConfig = {
-  business: { label: "Business", icon: Building2, color: "bg-blue-500" },
-  classified: { label: "Classified", icon: Tag, color: "bg-green-500" },
-  askTheRabbi: { label: "Ask the Rabbi", icon: HelpCircle, color: "bg-purple-500" },
-};
-
-interface SearchResult {
-  id: number;
-  type: "business" | "classified" | "askTheRabbi";
-  title: string;
-  description: string | null;
-  url: string;
-  category?: string | null;
-}
-
 export function HeroSection() {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [activeConnections, setActiveConnections] = useState<number[]>([]);
   const [orbitRotation, setOrbitRotation] = useState(0);
-
-  // Search dropdown state
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Animated stats
   const businessCount = useCountUp(100, 2000);
@@ -178,56 +152,6 @@ export function HeroSection() {
 
     return () => clearInterval(interval);
   }, []);
-
-  // Debounced search
-  useEffect(() => {
-    if (searchQuery.length < 3) {
-      setSearchResults([]);
-      setShowDropdown(false);
-      return;
-    }
-
-    const debounceTimer = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}&limit=6`);
-        const data = await res.json();
-        setSearchResults(data.results || []);
-        setShowDropdown(true);
-      } catch (error) {
-        console.error("Search error:", error);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(debounceTimer);
-  }, [searchQuery]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim().length >= 3) {
-      setShowDropdown(false);
-      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
-
-  const handleResultClick = (url: string) => {
-    setShowDropdown(false);
-    router.push(url);
-  };
 
   // Calculate node position with orbital rotation
   const getNodePosition = (index: number) => {
@@ -309,80 +233,15 @@ export function HeroSection() {
             </p>
 
             {/* Search Bar */}
-            <form onSubmit={handleSearch} className="mb-8">
-              <div ref={searchContainerRef} className="relative max-w-md mx-auto xl:mx-0 z-[100]">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                    <Input
-                      type="search"
-                      placeholder="Search businesses, classifieds..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onFocus={() => searchQuery.length >= 3 && searchResults.length > 0 && setShowDropdown(true)}
-                      className="pl-10 h-12 bg-white/10 backdrop-blur-sm border-white/20 text-white placeholder:text-white/50 focus:bg-white/15 focus:border-blue-400"
-                    />
-                    {isSearching && (
-                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50 animate-spin" />
-                    )}
-                  </div>
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="bg-blue-500 hover:bg-blue-600 h-12 px-6"
-                    disabled={searchQuery.length < 3}
-                  >
-                    Search
-                  </Button>
-                </div>
-
-                {/* Search Dropdown */}
-                {showDropdown && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[100]">
-                    {searchResults.length > 0 ? (
-                      <>
-                        {searchResults.map((result) => {
-                          const config = searchTypeConfig[result.type];
-                          const Icon = config.icon;
-                          return (
-                            <button
-                              key={`${result.type}-${result.id}`}
-                              type="button"
-                              onClick={() => handleResultClick(result.url)}
-                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 text-left transition-colors border-b border-slate-100 last:border-0"
-                            >
-                              <div className={`p-1.5 rounded ${config.color}`}>
-                                <Icon className="w-4 h-4 text-white" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium text-slate-900 truncate">
-                                  {result.title}
-                                </div>
-                                <div className="text-xs text-slate-500">
-                                  {config.label}
-                                  {result.category && ` - ${result.category}`}
-                                </div>
-                              </div>
-                            </button>
-                          );
-                        })}
-                        <button
-                          type="button"
-                          onClick={() => handleSearch({ preventDefault: () => {} } as React.FormEvent)}
-                          className="w-full px-4 py-3 text-center text-sm text-blue-600 hover:bg-blue-50 font-medium transition-colors"
-                        >
-                          View all results for &quot;{searchQuery}&quot;
-                        </button>
-                      </>
-                    ) : (
-                      <div className="px-4 py-6 text-center text-slate-500">
-                        No results found for &quot;{searchQuery}&quot;
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </form>
+            <div className="mb-8 max-w-md mx-auto xl:mx-0 z-[40] relative">
+              <UniversalSearch
+                searchType="all"
+                placeholder="Search businesses, events, and more..."
+                onSearch={(q) => {
+                  router.push(`/search?q=${encodeURIComponent(q)}`);
+                }}
+              />
+            </div>
 
             {/* Animated stats */}
             <div className="flex flex-wrap justify-center xl:justify-start gap-6 text-sm">

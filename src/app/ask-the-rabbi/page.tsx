@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, ChevronRight } from "lucide-react";
-import { AskTheRabbiSearch } from "@/components/ask-the-rabbi/AskTheRabbiSearch";
+import { AskTheRabbiSearchBar } from "@/components/ask-the-rabbi/AskTheRabbiSearchBar";
 import { SubmitQuestionModal } from "@/components/ask-the-rabbi/SubmitQuestionModal";
 
 export const metadata = {
@@ -77,17 +77,17 @@ async function getQuestions(searchParams: SearchParams) {
     .from(askTheRabbi)
     .where(and(...allConditions))
     .orderBy(
-      // When searching, order by relevance; otherwise by question number
-      words.length > 0
-        ? sql`(${sql.join(exactTitleMatches, sql` + `)}) DESC`
-        : sql`1`,
-      words.length > 0
-        ? sql`(${sql.join(exactQuestionMatches, sql` + `)}) DESC`
-        : sql`1`,
-      words.length > 0
-        ? sql`(${sql.join(fuzzySimilarities, sql` + `)}) DESC`
-        : sql`1`,
-      desc(askTheRabbi.questionNumber)
+      // When searching, order by relevance; otherwise by latest question
+      ...(words.length > 0
+        ? [
+            sql`(${sql.join(exactTitleMatches, sql` + `)}) DESC`,
+            sql`(${sql.join(exactQuestionMatches, sql` + `)}) DESC`,
+            sql`(${sql.join(fuzzySimilarities, sql` + `)}) DESC`,
+            desc(askTheRabbi.questionNumber),
+          ]
+        : [
+            desc(askTheRabbi.id),
+          ])
     )
     .limit(pageSize)
     .offset(offset);
@@ -133,7 +133,7 @@ export default async function AskTheRabbiPage({
 
           {/* Search */}
           <div className="mt-8">
-            <AskTheRabbiSearch initialQuery={query} />
+            <AskTheRabbiSearchBar initialQuery={query} />
           </div>
         </div>
       </div>

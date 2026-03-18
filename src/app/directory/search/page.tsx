@@ -3,10 +3,10 @@ import { db } from "@/lib/db";
 import { businesses, businessCategories } from "@/lib/db/schema";
 import { eq, sql, asc, desc, and } from "drizzle-orm";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Building2 } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { BusinessCard } from "@/components/directory/BusinessCard";
+import { DirectorySearchBar } from "@/components/directory/DirectorySearchBar";
 import { FilterChips } from "@/components/directory/FilterChips";
 import { FilterSidebar } from "@/components/directory/FilterSidebar";
 
@@ -258,24 +258,10 @@ export default async function SearchPage({
             <h1 className="text-2xl md:text-3xl font-bold">Search Directory</h1>
           </div>
 
-          {/* Search Form */}
-          <form className="max-w-2xl mt-4">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <Input
-                  type="search"
-                  name="q"
-                  defaultValue={query}
-                  placeholder="Search businesses..."
-                  className="pl-12 h-12 bg-white text-gray-900 border-0 text-base rounded-xl"
-                />
-              </div>
-              <Button type="submit" size="lg" className="h-12 px-6 rounded-xl bg-blue-600 hover:bg-blue-700">
-                Search
-              </Button>
-            </div>
-          </form>
+          {/* Search */}
+          <div className="mt-4">
+            <DirectorySearchBar initialQuery={query} />
+          </div>
         </div>
       </div>
 

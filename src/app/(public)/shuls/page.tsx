@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { MapPin, Phone, Users, Clock } from "lucide-react";
 import { DENOMINATIONS, NUSACH_OPTIONS } from "@/lib/validations/content";
+import { UniversalSearch } from "@/components/search/UniversalSearch";
 
 interface Shul {
   id: number;
@@ -34,6 +35,18 @@ export default function ShulsPage() {
   const [loading, setLoading] = useState(true);
   const [denominationFilter, setDenominationFilter] = useState<string>("");
   const [nusachFilter, setNusachFilter] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
+  const filteredShuls = useMemo(() => {
+    if (!searchQuery) return shuls;
+    const q = searchQuery.toLowerCase();
+    return shuls.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.rabbi && s.rabbi.toLowerCase().includes(q)) ||
+        (s.address && s.address.toLowerCase().includes(q))
+    );
+  }, [shuls, searchQuery]);
 
   useEffect(() => {
     async function fetchShuls() {
@@ -63,9 +76,15 @@ export default function ShulsPage() {
       <div className="bg-blue-900 text-white py-12">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl md:text-4xl font-bold mb-2">Shul Directory</h1>
-          <p className="text-blue-200 text-lg">
+          <p className="text-blue-200 text-lg mb-6">
             Find synagogues and davening times in the Toronto Jewish community
           </p>
+          <UniversalSearch
+            searchType="shuls"
+            placeholder="Search shuls by name, rabbi, or address..."
+            onSearch={(q) => setSearchQuery(q)}
+            className="max-w-xl"
+          />
         </div>
       </div>
 
@@ -132,19 +151,19 @@ export default function ShulsPage() {
               </div>
             ))}
           </div>
-        ) : shuls.length === 0 ? (
+        ) : filteredShuls.length === 0 ? (
           <div className="text-center py-12">
             <Users className="h-16 w-16 mx-auto text-gray-300 mb-4" />
             <h2 className="text-xl font-semibold text-gray-600 mb-2">No shuls found</h2>
             <p className="text-gray-500">
-              {denominationFilter || nusachFilter
-                ? "Try adjusting your filters"
+              {searchQuery || denominationFilter || nusachFilter
+                ? "Try adjusting your search or filters"
                 : "Check back soon for updates"}
             </p>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {shuls.map((shul) => (
+            {filteredShuls.map((shul) => (
               <Link
                 key={shul.id}
                 href={`/shuls/${shul.slug}`}
@@ -212,9 +231,9 @@ export default function ShulsPage() {
         )}
 
         {/* Results count */}
-        {!loading && shuls.length > 0 && (
+        {!loading && filteredShuls.length > 0 && (
           <div className="mt-8 text-center text-sm text-gray-500">
-            Showing {shuls.length} shul{shuls.length !== 1 ? "s" : ""}
+            Showing {filteredShuls.length} shul{filteredShuls.length !== 1 ? "s" : ""}
           </div>
         )}
       </div>

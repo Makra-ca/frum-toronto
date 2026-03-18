@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Calendar, MapPin, Clock, ChevronLeft, ChevronRight, List, Grid } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EVENT_TYPES } from "@/lib/validations/content";
+import { UniversalSearch } from "@/components/search/UniversalSearch";
 import { HDate, gematriya } from "@hebcal/core";
 
 interface CalendarEvent {
@@ -120,6 +121,7 @@ export default function EventsPage() {
   const [showHebrewDates, setShowHebrewDates] = useState(true);
   const [selectedDayEvents, setSelectedDayEvents] = useState<CalendarEvent[] | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   useEffect(() => {
     async function fetchEvents() {
@@ -176,8 +178,19 @@ export default function EventsPage() {
     return new Date(year, month, 1).getDay();
   }
 
+  const filteredEvents = useMemo(() => {
+    if (!searchQuery) return events;
+    const q = searchQuery.toLowerCase();
+    return events.filter(
+      (e) =>
+        e.title.toLowerCase().includes(q) ||
+        (e.description && e.description.toLowerCase().includes(q)) ||
+        (e.location && e.location.toLowerCase().includes(q))
+    );
+  }, [events, searchQuery]);
+
   function getEventsForDate(day: number): CalendarEvent[] {
-    return events.filter((event) => {
+    return filteredEvents.filter((event) => {
       const eventDate = new Date(event.startTime);
       return (
         eventDate.getDate() === day &&
@@ -269,11 +282,19 @@ export default function EventsPage() {
               <Calendar className="h-8 w-8" />
             </div>
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              Community Events
+              Calendar
             </h1>
-            <p className="text-xl text-blue-100">
+            <p className="text-xl text-blue-100 mb-6">
               Discover upcoming events, shiurim, and celebrations in the Toronto Jewish community
             </p>
+            <div className="flex justify-center">
+              <UniversalSearch
+                searchType="events"
+                placeholder="Search events by name, location, or description..."
+                onSearch={(q) => setSearchQuery(q)}
+                className="max-w-xl"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -374,7 +395,7 @@ export default function EventsPage() {
                   </div>
                 ))}
               </div>
-            ) : events.length === 0 ? (
+            ) : filteredEvents.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
                   <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
@@ -382,12 +403,12 @@ export default function EventsPage() {
                     No Upcoming Events
                   </h3>
                   <p className="text-gray-500">
-                    Check back later for new community events.
+                    {searchQuery ? "Try adjusting your search" : "Check back later for new community events."}
                   </p>
                 </CardContent>
               </Card>
             ) : (
-              events.map((event) => (
+              filteredEvents.map((event) => (
                 <Link key={event.id} href={`/community/calendar/${event.id}`}>
                   <Card className="hover:shadow-md transition-shadow cursor-pointer">
                     <CardContent className="p-6">

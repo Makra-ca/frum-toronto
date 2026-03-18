@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
+import { UniversalSearch } from "@/components/search/UniversalSearch";
 
 interface Category {
   id: number;
@@ -68,37 +68,22 @@ function getCategoryImage(slug: string): string {
 }
 
 export function ClassifiedsBrowser({ categories, topCategories = [] }: ClassifiedsBrowserProps) {
-  const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category | null>(categories[0] || null);
   const router = useRouter();
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/classifieds?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
 
   return (
     <div>
       {/* Search Input */}
-      <form onSubmit={handleSearch} className="mb-6">
-        <div className="flex gap-2 max-w-2xl">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <Input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search classifieds..."
-              className="pl-12 pr-4 h-12 bg-white border-gray-200 rounded-lg shadow-sm"
-            />
-          </div>
-          <Button type="submit" className="h-12 px-6 rounded-lg bg-orange-600 hover:bg-orange-700">
-            Search
-          </Button>
-        </div>
-      </form>
+      <div className="mb-6">
+        <UniversalSearch
+          searchType="classifieds"
+          placeholder="Search classifieds..."
+          onSearch={(q) => {
+            router.push(`/classifieds?q=${encodeURIComponent(q)}`);
+          }}
+          className="max-w-2xl"
+        />
+      </div>
 
       {/* Quick Links - Top Categories */}
       <div className="flex flex-wrap gap-2 mb-6">
