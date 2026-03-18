@@ -60,6 +60,12 @@ npm run db:check         # Run custom database check script
 src/
 ├── app/
 │   ├── (admin)/admin/       # Admin panel (role="admin" required)
+│   │   ├── shuls/           # All Shuls | Requests | Managers (tabbed)
+│   │   ├── businesses/      # All Businesses | Categories | Plans (tabbed)
+│   │   ├── programs/        # Events | Shiurim | Rabbi | Classifieds | Specials (tabbed)
+│   │   ├── community/       # Simchas | Shiva | Tehillim | Alerts | Eruv | Numbers (tabbed)
+│   │   ├── approvals/       # Content approval queue
+│   │   └── ...              # users, newsletters, contacts, settings
 │   ├── (auth)/              # Auth pages (login, register, forgot-password)
 │   ├── (dashboard)/dashboard/ # User dashboard (authenticated)
 │   ├── (public)/            # Public pages (shuls, shiurim, calendar, zmanim)
@@ -786,6 +792,7 @@ PAYPAL_WEBHOOK_ID=...
 | DB client | `src/lib/db/index.ts` |
 | Admin layout | `src/app/(admin)/admin/layout.tsx` |
 | Admin sidebar | `src/components/admin/AdminLayoutClient.tsx` |
+| Admin tabs | `src/components/admin/AdminTabs.tsx` |
 | Validation schemas | `src/lib/validations/content.ts` |
 | Type definitions | `src/types/index.ts` |
 | Email sending | `src/lib/email/send.ts` |
@@ -1359,3 +1366,116 @@ Trigram GIN indexes on: shuls (name, rabbi), shiurim (title, teacher_name), even
 #### Design Spec
 
 Full spec at `docs/superpowers/specs/2026-03-18-universal-fuzzy-search-design.md`
+
+---
+
+### 2026-03-18 - Homepage Ads, Header Redesign, Shul Documents System
+
+#### Newsletter Cron Fix
+- Removed every-minute cron; newsletters now send immediately on admin trigger (Vercel Pro 60s timeout)
+- `vercel.json` no longer has newsletter cron entry
+
+#### Zmanim Page
+- Added date picker, month skip buttons (double chevrons), "Today" button
+- Prominent Shabbat banner showing candle lighting + havdalah at top of week
+
+#### Header Redesign
+- Removed top blue bar (redundant — auth in dropdown/hamburger)
+- Logged out: "Log in" + "Sign up" button; Logged in: first name + initials avatar circle
+- Removed search icon (hero search handles it)
+- Tighter nav padding at `xl`, logo text hidden at `xl` to prevent overflow, restored at `2xl`
+- Mobile nav scrollable (`overflow-y-auto`)
+
+#### Ask the Rabbi
+- Fixed sort order (`id DESC` instead of broken `ORDER BY 1`)
+- Hide "Question #" when questionNumber is null
+
+#### Auth Forms
+- Password visibility toggle on Register and Reset Password (Login already had it)
+
+#### Shiur Detail Page
+- Complete redesign: overlapping card layout, icon-based sidebar details, Google Maps link
+- Schedule/location/contact sections with proper hierarchy
+
+#### Admin Shiurim Form
+- Schedule: card-per-day layout with notes as resizable Textarea below times
+- Fixed `shulId` string→number conversion, fixed location dropdown (`businessName`→`name`)
+- Start/end dates now optional (empty by default)
+
+#### Shul Documents System (Newsletters & Tefillos)
+- **Schema**: `shul_documents` table (shulId, title, type, fileUrl, fileSize, description, uploadedBy)
+- **Upload API**: Extended `/api/upload` to accept PDFs (10MB limit)
+- **Admin**: "Docs" button on shul table → dialog with upload form, preview cards, edit/delete
+- **Dashboard**: Shul managers can upload from `/dashboard/shuls/[id]`
+- **Public**: Newsletters + Tefillos sections on shul detail page with PDF/image preview cards
+- **Cache**: `revalidatePath` on create/delete instead of `force-dynamic`
+- Edit supports title/type/description changes + optional file replacement
+
+#### Other Fixes
+- Footer: removed placeholder social icons, kept only email (redundant removed too)
+- Calendar hero: "Community Events" → "Calendar"
+- Event detail: removed icons from type badges
+- Davening notes: multiline Textarea + proper display below time/day on public page
+- Blog benefit added to register page member benefits
+- File inputs: `cursor-pointer` for clickable indication
+
+---
+
+### 2026-03-18 - Admin Sidebar Reorganization
+
+**Summary:** Collapsed 16 flat admin sidebar links into 10 grouped links with tab-based sub-navigation. Built 2 new admin pages (Eruv Status, Important Numbers).
+
+#### New Sidebar Structure
+
+```
+Dashboard          (single page)
+Users              (single page)
+Shuls              → All Shuls | Requests | Managers
+Businesses         → All Businesses | Categories | Plans
+Programs           → Events | Shiurim | Ask the Rabbi | Classifieds | Specials
+Community          → Simchas | Shiva | Tehillim | Alerts | Kosher Alerts | Eruv | Important Numbers
+Approvals          (single page)
+Newsletters        (single page)
+Contact Messages   (single page)
+Settings           (single page)
+```
+
+#### Key Components
+
+| Component | Purpose |
+|-----------|---------|
+| `src/components/admin/AdminTabs.tsx` | Reusable tab nav — horizontal on desktop, vertical stack on mobile |
+| `src/app/(admin)/admin/shuls/layout.tsx` | Shuls group layout (hides tabs on `[id]` detail pages) |
+| `src/app/(admin)/admin/businesses/layout.tsx` | Businesses group layout |
+| `src/app/(admin)/admin/programs/layout.tsx` | Programs group layout |
+| `src/app/(admin)/admin/community/layout.tsx` | Community group layout (7 tabs) |
+
+#### New Pages Built
+
+| Page | Route |
+|------|-------|
+| Eruv Status | `/admin/community/eruv` — toggle Up/Down, date, message, history table |
+| Important Numbers | `/admin/community/important-numbers` — CRUD table with dialog form |
+
+#### New API Routes
+
+| Route | Methods |
+|-------|---------|
+| `/api/admin/eruv` | GET, POST (upsert by date) |
+| `/api/admin/eruv/[id]` | PATCH |
+| `/api/admin/important-numbers` | GET, POST |
+| `/api/admin/important-numbers/[id]` | PATCH, DELETE |
+
+#### Route Migration
+
+All old page routes moved to new locations. API routes (`/api/admin/*`) did NOT move — pages call the same endpoints from new locations.
+
+#### Hardcoded Links Updated
+
+- Dashboard links: `/admin/content?status=pending` → `/admin/approvals`
+- Shiva email template: `/admin/content/shiva` → `/admin/community/shiva`
+- Tehillim email template: `/admin/content` → `/admin/community/tehillim`
+
+#### Design Spec
+
+`docs/superpowers/specs/2026-03-18-admin-sidebar-reorganization-design.md`
