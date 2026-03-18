@@ -296,17 +296,6 @@ export default function AdminBusinessesPage() {
     setEditingBusiness(null);
   }
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    );
-  }
-
   // Show pending count from current page results (not accurate for total, but gives indication)
   const pendingOnPage = businesses.filter(
     (b) => b.approvalStatus === "pending"
@@ -323,17 +312,14 @@ export default function AdminBusinessesPage() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Business Directory</h1>
-          <p className="text-gray-500">
-            Manage business listings
-            {statusFilter === "pending" && pagination.totalCount > 0 && (
-              <span className="ml-2 text-yellow-600">
-                ({pagination.totalCount} pending approval)
-              </span>
-            )}
-          </p>
-        </div>
+        <p className="text-gray-500">
+          Manage business listings
+          {statusFilter === "pending" && pagination.totalCount > 0 && (
+            <span className="ml-2 text-yellow-600">
+              ({pagination.totalCount} pending approval)
+            </span>
+          )}
+        </p>
         <Button onClick={() => setIsDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Business
@@ -436,14 +422,16 @@ export default function AdminBusinessesPage() {
         </div>
       </div>
 
-      <BusinessTable
-        businesses={businesses}
-        onEdit={handleEdit}
-        onDelete={handleDeleteClick}
-        onApprove={handleApprove}
-        onReject={handleReject}
-        onReorder={handleReorder}
-      />
+      <div className={loading ? "opacity-50 pointer-events-none transition-opacity" : "transition-opacity"}>
+        <BusinessTable
+          businesses={businesses}
+          onEdit={handleEdit}
+          onDelete={handleDeleteClick}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onReorder={handleReorder}
+        />
+      </div>
 
       {/* Pagination Controls */}
       {pagination.totalPages > 1 && (

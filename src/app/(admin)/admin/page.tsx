@@ -87,7 +87,7 @@ export default async function AdminDashboardPage() {
           </Card>
         </Link>
 
-        <Link href="/admin/content?status=pending">
+        <Link href="/admin/approvals">
           <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-orange-500">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
@@ -102,7 +102,7 @@ export default async function AdminDashboardPage() {
           </Card>
         </Link>
 
-        <Link href="/admin/content?type=classifieds&status=pending">
+        <Link href="/admin/approvals">
           <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-orange-500">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">

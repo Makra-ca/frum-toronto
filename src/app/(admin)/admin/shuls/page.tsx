@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ShulForm } from "@/components/admin/ShulForm";
 import { ShulTable, type Shul } from "@/components/admin/ShulTable";
+import { ShulDocuments } from "@/components/admin/ShulDocuments";
 import { ShulFormData } from "@/lib/validations/content";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -32,6 +33,7 @@ export default function AdminShulsPage() {
   const [editingShul, setEditingShul] = useState<Shul | null>(null);
   const [deletingShul, setDeletingShul] = useState<Shul | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [docsShul, setDocsShul] = useState<Shul | null>(null);
 
   async function fetchShuls() {
     try {
@@ -137,11 +139,7 @@ export default function AdminShulsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Shuls</h1>
-          <p className="text-gray-500">Manage synagogues and their davening schedules</p>
-        </div>
+      <div className="flex justify-end">
         <Button onClick={() => setIsDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Shul
@@ -152,6 +150,7 @@ export default function AdminShulsPage() {
         shuls={shuls}
         onEdit={handleEdit}
         onDelete={handleDeleteClick}
+        onManageDocuments={(shul) => setDocsShul(shul)}
       />
 
       <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
@@ -210,6 +209,18 @@ export default function AdminShulsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Documents Dialog */}
+      <Dialog open={!!docsShul} onOpenChange={(open) => !open && setDocsShul(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Documents — {docsShul?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {docsShul && <ShulDocuments shulId={docsShul.id} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

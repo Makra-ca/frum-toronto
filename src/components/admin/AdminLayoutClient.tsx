@@ -11,38 +11,26 @@ import {
   LayoutDashboard,
   Users,
   Building2,
-  FolderTree,
-  FileText,
-  Calendar,
   BookOpen,
   Settings,
   Home,
   Landmark,
-  ClipboardList,
-  UserCog,
   MessageSquare,
   Mail,
-  HelpCircle,
-  CreditCard,
-  Tag,
+  CheckCircle,
+  Heart,
 } from "lucide-react";
 
 const navItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/users", label: "Users", icon: Users },
-  { href: "/admin/businesses", label: "Businesses", icon: Building2 },
-  { href: "/admin/subscription-plans", label: "Subscription Plans", icon: CreditCard },
-  { href: "/admin/categories", label: "Categories", icon: FolderTree },
   { href: "/admin/shuls", label: "Shuls", icon: Landmark },
-  { href: "/admin/shul-requests", label: "Shul Requests", icon: ClipboardList },
-  { href: "/admin/user-shuls", label: "Shul Managers", icon: UserCog },
-  { href: "/admin/content", label: "Content", icon: FileText },
-  { href: "/admin/contacts", label: "Contact Messages", icon: MessageSquare },
-  { href: "/admin/rabbi-submissions", label: "Rabbi Questions", icon: HelpCircle },
+  { href: "/admin/businesses", label: "Businesses", icon: Building2 },
+  { href: "/admin/programs", label: "Programs", icon: BookOpen },
+  { href: "/admin/community", label: "Community", icon: Heart },
+  { href: "/admin/approvals", label: "Approvals", icon: CheckCircle },
   { href: "/admin/newsletters", label: "Newsletters", icon: Mail },
-  { href: "/admin/events", label: "Events", icon: Calendar },
-  { href: "/admin/shiurim", label: "Shiurim", icon: BookOpen },
-  { href: "/admin/specials", label: "Specials", icon: Tag },
+  { href: "/admin/contacts", label: "Contact Messages", icon: MessageSquare },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
@@ -63,9 +51,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       <nav className="flex-1 py-4">
         {navItems.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            (item.href !== "/admin" && pathname.startsWith(item.href));
+          const isActive = item.exact
+            ? pathname === item.href
+            : pathname === item.href || pathname.startsWith(item.href + "/");
 
           return (
             <Link
