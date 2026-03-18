@@ -63,7 +63,7 @@ export default function EditBlogPostPage() {
       const res = await fetch("/api/admin/blog/categories");
       if (res.ok) {
         const data = await res.json();
-        setCategories(data || []);
+        setCategories(data.categories || data || []);
       }
     } catch (error) {
       console.error("[BLOG] Error fetching categories:", error);
