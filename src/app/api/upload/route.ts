@@ -2,15 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { put, del } from "@vercel/blob";
 import { auth } from "@/lib/auth/auth";
 
-// Maximum file size: 4MB
-const MAX_FILE_SIZE = 4 * 1024 * 1024;
+// Maximum file sizes
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB
+const MAX_PDF_SIZE = 10 * 1024 * 1024; // 10MB
 
-// Allowed image MIME types
-const ALLOWED_TYPES = [
+// Allowed MIME types
+const ALLOWED_IMAGE_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/gif",
+];
+
+const ALLOWED_TYPES = [
+  ...ALLOWED_IMAGE_TYPES,
+  "application/pdf",
 ];
 
 // POST /api/upload - Upload an image to Vercel Blob
@@ -33,15 +39,17 @@ export async function POST(request: NextRequest) {
     // Validate file type
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { error: "Invalid file type. Allowed: JPEG, PNG, WebP, GIF" },
+        { error: "Invalid file type. Allowed: JPEG, PNG, WebP, GIF, PDF" },
         { status: 400 }
       );
     }
 
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE) {
+    // Validate file size (PDFs get higher limit)
+    const isPdf = file.type === "application/pdf";
+    const maxSize = isPdf ? MAX_PDF_SIZE : MAX_IMAGE_SIZE;
+    if (file.size > maxSize) {
       return NextResponse.json(
-        { error: "File too large. Maximum size is 4MB" },
+        { error: `File too large. Maximum size is ${isPdf ? "10MB" : "4MB"}` },
         { status: 400 }
       );
     }

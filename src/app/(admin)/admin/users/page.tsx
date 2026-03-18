@@ -30,6 +30,7 @@ export default async function AdminUsersPage() {
       canAutoApproveEvents: users.canAutoApproveEvents,
       canAutoApproveClassifieds: users.canAutoApproveClassifieds,
       canAutoApproveShiurim: users.canAutoApproveShiurim,
+      canAutoApproveAlerts: users.canAutoApproveAlerts,
       canPostSpecials: users.canPostSpecials,
     })
     .from(users)

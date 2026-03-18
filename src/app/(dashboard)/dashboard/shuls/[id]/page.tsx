@@ -16,7 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Save, Loader2, Clock } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Clock, FileText } from "lucide-react";
+import { ShulDocuments } from "@/components/admin/ShulDocuments";
 import { toast } from "sonner";
 
 interface ShulData {
@@ -396,6 +397,19 @@ export default function EditShulPage({ params }: { params: Promise<{ id: string 
             </Button>
           </div>
         </form>
+
+        {/* Documents Section */}
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Newsletters & Tefillos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ShulDocuments shulId={parseInt(id)} apiBasePath="/api/shuls" />
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

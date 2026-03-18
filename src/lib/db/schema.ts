@@ -43,6 +43,7 @@ export const users = pgTable("users", {
   canAutoApproveEvents: boolean("can_auto_approve_events").default(false),
   canAutoApproveClassifieds: boolean("can_auto_approve_classifieds").default(false),
   canAutoApproveShiurim: boolean("can_auto_approve_shiurim").default(false),
+  canAutoApproveAlerts: boolean("can_auto_approve_alerts").default(false),
   canPostSpecials: boolean("can_post_specials").default(false), // Verified businesses can post specials/deals
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -425,6 +426,27 @@ export const shiurim = pgTable("shiurim", {
 });
 
 // ============================================
+// SHUL DOCUMENTS (Newsletters & Tefillos)
+// ============================================
+
+export const shulDocuments = pgTable("shul_documents", {
+  id: serial("id").primaryKey(),
+  shulId: integer("shul_id").notNull().references(() => shuls.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 255 }).notNull(),
+  type: varchar("type", { length: 20 }).notNull(), // "newsletter" or "tefillah"
+  fileUrl: varchar("file_url", { length: 500 }).notNull(),
+  fileSize: integer("file_size"), // bytes
+  description: text("description"),
+  publishedAt: timestamp("published_at").defaultNow(),
+  uploadedBy: integer("uploaded_by").references(() => users.id),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_shul_documents_shul").on(table.shulId),
+  index("idx_shul_documents_type").on(table.type),
+]);
+
+// ============================================
 // ASK THE RABBI
 // ============================================
 
@@ -504,6 +526,7 @@ export const alerts = pgTable("alerts", {
   urgency: varchar("urgency", { length: 20 }).default("normal"),
   isPinned: boolean("is_pinned").default(false),
   expiresAt: timestamp("expires_at"),
+  approvalStatus: varchar("approval_status", { length: 20 }).default("approved"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });

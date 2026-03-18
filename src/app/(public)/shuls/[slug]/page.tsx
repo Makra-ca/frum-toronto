@@ -1,11 +1,11 @@
 import { db } from "@/lib/db";
-import { shuls, daveningSchedules, events } from "@/lib/db/schema";
-import { eq, and, gte } from "drizzle-orm";
+import { shuls, daveningSchedules, events, shulDocuments } from "@/lib/db/schema";
+import { eq, and, gte, desc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Phone, Mail, Globe, ChevronLeft, Clock, Users, Calendar } from "lucide-react";
+import { MapPin, Phone, Mail, Globe, ChevronLeft, Clock, Users, Calendar, FileText, Download, Newspaper, BookOpen } from "lucide-react";
 import { DAYS_OF_WEEK } from "@/lib/validations/content";
 import { ShulEventsCalendar } from "@/components/shuls/ShulEventsCalendar";
 
@@ -46,6 +46,32 @@ export default async function ShulPage({ params }: PageProps) {
     )
     .orderBy(events.startTime)
     .limit(20);
+
+  // Fetch documents (newsletters & tefillos)
+  const documents = await db
+    .select()
+    .from(shulDocuments)
+    .where(and(eq(shulDocuments.shulId, shul.id), eq(shulDocuments.isActive, true)))
+    .orderBy(desc(shulDocuments.publishedAt));
+
+  const newsletters = documents.filter((d) => d.type === "newsletter");
+  const tefillos = documents.filter((d) => d.type === "tefillah");
+
+  function formatFileSize(bytes: number | null): string {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function formatDocDate(dateStr: Date | null): string {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
 
   // Group schedules by tefilah type
   const groupedSchedules = schedules.reduce((acc, schedule) => {
@@ -140,21 +166,17 @@ export default async function ShulPage({ params }: PageProps) {
                             {typeSchedules.map((schedule) => (
                               <div
                                 key={schedule.id}
-                                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                                className="p-3 bg-gray-50 rounded-lg"
                               >
-                                <div className="flex items-center gap-3">
-                                  <span className="font-medium">
-                                    {formatTime(schedule.time)}
-                                  </span>
-                                  <span className="text-gray-500">
-                                    {getDayLabel(schedule.dayOfWeek)}
-                                  </span>
-                                  {schedule.notes && (
-                                    <span className="text-sm text-gray-400">
-                                      ({schedule.notes})
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-medium">
+                                      {formatTime(schedule.time)}
                                     </span>
-                                  )}
-                                </div>
+                                    <span className="text-gray-500">
+                                      {getDayLabel(schedule.dayOfWeek)}
+                                    </span>
+                                  </div>
                                 <div className="flex gap-1">
                                   {schedule.isShabbos && (
                                     <Badge variant="outline" className="text-xs">
@@ -172,6 +194,12 @@ export default async function ShulPage({ params }: PageProps) {
                                     </Badge>
                                   )}
                                 </div>
+                                </div>
+                                {schedule.notes && (
+                                  <p className="text-sm text-gray-500 mt-2 whitespace-pre-wrap border-t border-gray-200 pt-2">
+                                    {schedule.notes}
+                                  </p>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -195,6 +223,44 @@ export default async function ShulPage({ params }: PageProps) {
                 <ShulEventsCalendar events={upcomingEvents} />
               </CardContent>
             </Card>
+
+            {/* Newsletters */}
+            {newsletters.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Newspaper className="h-5 w-5 text-blue-600" />
+                    Newsletters
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {newsletters.map((doc) => (
+                      <ShulDocumentCard key={doc.id} doc={doc} accent="blue" />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Tefillos */}
+            {tefillos.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-purple-600" />
+                    Tefillos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {tefillos.map((doc) => (
+                      <ShulDocumentCard key={doc.id} doc={doc} accent="purple" />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Sidebar - Contact Info */}
@@ -282,5 +348,71 @@ export default async function ShulPage({ params }: PageProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+function ShulDocumentCard({
+  doc,
+  accent,
+}: {
+  doc: { id: number; title: string; fileUrl: string; fileSize: number | null; publishedAt: Date | null; description: string | null };
+  accent: "blue" | "purple";
+}) {
+  const isImage = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(doc.fileUrl);
+  const hoverBorder = accent === "blue" ? "hover:border-blue-200" : "hover:border-purple-200";
+
+  return (
+    <a
+      href={doc.fileUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`block border border-gray-100 rounded-lg overflow-hidden ${hoverBorder} hover:shadow-md transition-all group`}
+    >
+      {/* Preview */}
+      <div className="relative w-full h-48 bg-gray-100">
+        {isImage ? (
+          <img
+            src={doc.fileUrl}
+            alt={doc.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <iframe
+            src={`${doc.fileUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+            className="w-full h-full pointer-events-none"
+            title={doc.title}
+          />
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="p-3">
+        <p className={`font-medium text-gray-900 text-sm truncate group-hover:text-${accent}-700`}>
+          {doc.title}
+        </p>
+        {doc.description && (
+          <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{doc.description}</p>
+        )}
+        <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+          {doc.publishedAt && (
+            <span>
+              {new Date(doc.publishedAt).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </span>
+          )}
+          {doc.fileSize && (
+            <span>
+              {doc.fileSize < 1024 * 1024
+                ? `${(doc.fileSize / 1024).toFixed(1)} KB`
+                : `${(doc.fileSize / (1024 * 1024)).toFixed(1)} MB`}
+            </span>
+          )}
+          <Download className={`h-3 w-3 ml-auto text-gray-400 group-hover:text-${accent}-600`} />
+        </div>
+      </div>
+    </a>
   );
 }

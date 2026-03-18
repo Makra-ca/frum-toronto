@@ -42,6 +42,7 @@ interface User {
   canAutoApproveEvents: boolean | null;
   canAutoApproveClassifieds: boolean | null;
   canAutoApproveShiurim: boolean | null;
+  canAutoApproveAlerts: boolean | null;
   canPostSpecials: boolean | null;
 }
 
@@ -60,6 +61,7 @@ const PERMISSION_LABELS: { key: keyof User; label: string }[] = [
   { key: "canAutoApproveEvents", label: "Events" },
   { key: "canAutoApproveClassifieds", label: "Classifieds" },
   { key: "canAutoApproveShiurim", label: "Shiurim" },
+  { key: "canAutoApproveAlerts", label: "Community Alerts" },
   { key: "canPostSpecials", label: "Post Specials/Deals" },
 ];
 

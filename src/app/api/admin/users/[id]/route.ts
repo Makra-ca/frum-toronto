@@ -32,6 +32,7 @@ export async function PATCH(
       canAutoApproveEvents,
       canAutoApproveClassifieds,
       canAutoApproveShiurim,
+      canAutoApproveAlerts,
       canPostSpecials,
     } = body;
 
@@ -56,6 +57,7 @@ export async function PATCH(
     if (canAutoApproveEvents !== undefined) updateData.canAutoApproveEvents = canAutoApproveEvents;
     if (canAutoApproveClassifieds !== undefined) updateData.canAutoApproveClassifieds = canAutoApproveClassifieds;
     if (canAutoApproveShiurim !== undefined) updateData.canAutoApproveShiurim = canAutoApproveShiurim;
+    if (canAutoApproveAlerts !== undefined) updateData.canAutoApproveAlerts = canAutoApproveAlerts;
     if (canPostSpecials !== undefined) updateData.canPostSpecials = canPostSpecials;
 
     await db

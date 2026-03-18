@@ -1,10 +1,11 @@
 import { db } from "@/lib/db";
 import { simchas, simchaTypes } from "@/lib/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, and } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PartyPopper, Calendar, MapPin, Info } from "lucide-react";
 import Image from "next/image";
+import { SimchaSubmitModal } from "@/components/simchas/SimchaSubmitModal";
 
 export const metadata = {
   title: "Simchas - FrumToronto",
@@ -28,7 +29,7 @@ async function getSimchas() {
     })
     .from(simchas)
     .leftJoin(simchaTypes, eq(simchas.typeId, simchaTypes.id))
-    .where(eq(simchas.isActive, true))
+    .where(and(eq(simchas.isActive, true), eq(simchas.approvalStatus, "approved")))
     .orderBy(desc(simchas.createdAt));
 
   return simchasList;
@@ -51,14 +52,19 @@ export default async function SimchasPage() {
       {/* Header */}
       <div className="bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 text-white py-12">
         <div className="container mx-auto px-4">
-          <div className="flex items-center gap-3 mb-4">
-            <PartyPopper className="h-8 w-8" />
-            <h1 className="text-3xl md:text-4xl font-bold">Simchas</h1>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <PartyPopper className="h-8 w-8" />
+                <h1 className="text-3xl md:text-4xl font-bold">Simchas</h1>
+              </div>
+              <p className="text-purple-200 max-w-2xl">
+                Celebrate with the Toronto Jewish community! Share in the joy of
+                engagements, weddings, births, bar/bat mitzvahs, and other simchas.
+              </p>
+            </div>
+            <SimchaSubmitModal />
           </div>
-          <p className="text-purple-200 max-w-2xl">
-            Celebrate with the Toronto Jewish community! Share in the joy of
-            engagements, weddings, births, bar/bat mitzvahs, and other simchas.
-          </p>
         </div>
       </div>
 

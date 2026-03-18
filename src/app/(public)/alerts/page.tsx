@@ -4,6 +4,7 @@ import { desc, eq, and, or, isNull, gte } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Bell, AlertTriangle, Info, Pin } from "lucide-react";
+import { AlertSubmitModal } from "@/components/alerts/AlertSubmitModal";
 
 export const metadata = {
   title: "Alerts & Bulletins - FrumToronto",
@@ -21,6 +22,7 @@ async function getAlerts() {
     .where(
       and(
         eq(alerts.isActive, true),
+        eq(alerts.approvalStatus, "approved"),
         or(
           isNull(alerts.expiresAt),
           gte(alerts.expiresAt, now)
@@ -62,14 +64,19 @@ export default async function AlertsPage() {
       {/* Header */}
       <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 text-white py-12">
         <div className="container mx-auto px-4">
-          <div className="flex items-center gap-3 mb-4">
-            <Bell className="h-8 w-8" />
-            <h1 className="text-3xl md:text-4xl font-bold">Alerts & Bulletins</h1>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <Bell className="h-8 w-8" />
+                <h1 className="text-3xl md:text-4xl font-bold">Alerts & Bulletins</h1>
+              </div>
+              <p className="text-blue-200 max-w-2xl">
+                Stay informed about community announcements, important updates, and bulletins
+                for the Toronto Jewish community.
+              </p>
+            </div>
+            <AlertSubmitModal />
           </div>
-          <p className="text-blue-200 max-w-2xl">
-            Stay informed about community announcements, important updates, and bulletins
-            for the Toronto Jewish community.
-          </p>
         </div>
       </div>
 
