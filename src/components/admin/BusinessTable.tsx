@@ -27,8 +27,10 @@ interface BusinessHours {
 export interface Business {
   id: number;
   name: string;
+  tagline: string | null;
   slug: string;
   description: string | null;
+  bannerImageUrl: string | null;
   address: string | null;
   city: string | null;
   postalCode: string | null;

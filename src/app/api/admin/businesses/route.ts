@@ -90,8 +90,10 @@ export async function GET(request: NextRequest) {
       .select({
         id: businesses.id,
         name: businesses.name,
+        tagline: businesses.tagline,
         slug: businesses.slug,
         description: businesses.description,
+        bannerImageUrl: businesses.bannerImageUrl,
         address: businesses.address,
         city: businesses.city,
         postalCode: businesses.postalCode,
