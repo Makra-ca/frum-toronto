@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Calendar } from "lucide-react";
+import { Pencil, Trash2, Calendar, FileText } from "lucide-react";
 
 export interface Shul {
   id: number;
@@ -36,9 +36,10 @@ interface ShulTableProps {
   shuls: Shul[];
   onEdit: (shul: Shul) => void;
   onDelete: (shul: Shul) => void;
+  onManageDocuments?: (shul: Shul) => void;
 }
 
-export function ShulTable({ shuls, onEdit, onDelete }: ShulTableProps) {
+export function ShulTable({ shuls, onEdit, onDelete, onManageDocuments }: ShulTableProps) {
   if (shuls.length === 0) {
     return (
       <div className="text-center py-12 bg-gray-50 rounded-lg">
@@ -107,6 +108,16 @@ export function ShulTable({ shuls, onEdit, onDelete }: ShulTableProps) {
                         Davening
                       </Button>
                     </Link>
+                    {onManageDocuments && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onManageDocuments(shul)}
+                      >
+                        <FileText className="h-4 w-4 mr-1" />
+                        Docs
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -183,6 +194,15 @@ export function ShulTable({ shuls, onEdit, onDelete }: ShulTableProps) {
                   Davening
                 </Button>
               </Link>
+              {onManageDocuments && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onManageDocuments(shul)}
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

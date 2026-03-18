@@ -34,7 +34,7 @@ export const daveningScheduleSchema = z.object({
   shulId: z.number().int().positive("Shul is required"),
   tefilahType: z.enum(["shacharis", "mincha", "maariv"]),
   dayOfWeek: z.number().int().min(0).max(6).optional().nullable(), // 0=Sun, 6=Sat, null=daily
-  time: z.string().regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format"),
+  time: z.string().regex(/^\d{1,2}:\d{2}(:\d{2})?$/, "Time must be in HH:MM format").transform((t) => t.slice(0, 5)),
   notes: z.string().max(200).optional().nullable(),
   isWinter: z.boolean(),
   isSummer: z.boolean(),
@@ -54,7 +54,7 @@ export const eventSchema = z.object({
   startTime: z.string().datetime({ message: "Valid start time is required" }),
   endTime: z.string().datetime().optional().nullable(),
   isAllDay: z.boolean(),
-  eventType: z.enum(["community", "fundraising", "school", "wedding"]).optional().nullable(),
+  eventType: z.enum(["community", "fundraising", "school", "youth"]).optional().nullable(),
   shulId: z.number().int().positive().optional().nullable(),
   contactName: z.string().max(100).optional().nullable(),
   contactEmail: z.string().email().max(255).optional().nullable(),
@@ -190,7 +190,7 @@ export const EVENT_TYPES = [
   { value: "community", label: "Community Event" },
   { value: "fundraising", label: "Fundraising Event" },
   { value: "school", label: "School Information" },
-  { value: "wedding", label: "Wedding" },
+  { value: "youth", label: "Youth" },
 ];
 
 export const SHIUR_LEVELS = [

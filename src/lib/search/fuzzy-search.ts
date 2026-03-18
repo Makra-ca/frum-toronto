@@ -319,7 +319,7 @@ export async function searchEvents(
     community: "Community Event",
     fundraising: "Fundraising Event",
     school: "School Information",
-    wedding: "Wedding",
+    youth: "Youth",
   };
 
   return results.map((e) => {

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { tehillimList } from "@/lib/db/schema";
 import { and, eq, lt, or, isNull } from "drizzle-orm";
 
-// This cron job runs daily to delete expired tehillim entries
+// This cron job runs daily to archive expired tehillim entries
 // Configure in vercel.json with: { "path": "/api/cron/tehillim-cleanup", "schedule": "0 0 * * *" }
 
 export async function GET(request: Request) {
@@ -18,35 +18,36 @@ export async function GET(request: Request) {
 
     const today = new Date().toISOString().split("T")[0];
 
-    // Delete expired tehillim entries that:
+    // Archive expired tehillim entries (set isActive = false) that:
     // 1. Are not permanent (isPermanent is false or null)
     // 2. Have an expiration date that has passed
-    const deleted = await db
-      .delete(tehillimList)
+    // 3. Are still active
+    const archived = await db
+      .update(tehillimList)
+      .set({ isActive: false })
       .where(
         and(
-          // Not permanent (false or null)
+          eq(tehillimList.isActive, true),
           or(
             eq(tehillimList.isPermanent, false),
             isNull(tehillimList.isPermanent)
           ),
-          // Has an expiration date and it has passed
           lt(tehillimList.expiresAt, today)
         )
       )
       .returning({ id: tehillimList.id });
 
-    console.log(`[Cron] Tehillim cleanup: Deleted ${deleted.length} expired entries`);
+    console.log(`[Cron] Tehillim cleanup: Archived ${archived.length} expired entries`);
 
     return NextResponse.json({
       success: true,
-      deleted: deleted.length,
+      archived: archived.length,
       date: today,
     });
   } catch (error) {
     console.error("[Cron] Tehillim cleanup error:", error);
     return NextResponse.json(
-      { error: "Failed to cleanup tehillim entries" },
+      { error: "Failed to archive tehillim entries" },
       { status: 500 }
     );
   }

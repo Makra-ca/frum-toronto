@@ -11,7 +11,27 @@ export async function GET(request: Request) {
     const year = searchParams.get("year");
     const upcoming = searchParams.get("upcoming");
 
-    let query = db
+    const conditions = [eq(events.approvalStatus, "approved")];
+
+    // Filter by event type
+    if (type) {
+      conditions.push(eq(events.eventType, type));
+    }
+
+    // Filter by month/year
+    if (month && year) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
+      conditions.push(gte(events.startTime, startDate));
+      conditions.push(lte(events.startTime, endDate));
+    }
+
+    // Filter upcoming events only
+    if (upcoming === "true") {
+      conditions.push(gte(events.startTime, new Date()));
+    }
+
+    const results = await db
       .select({
         id: events.id,
         title: events.title,
@@ -31,35 +51,8 @@ export async function GET(request: Request) {
       })
       .from(events)
       .leftJoin(shuls, eq(events.shulId, shuls.id))
-      .where(eq(events.approvalStatus, "approved"))
-      .$dynamic();
-
-    // Filter by event type
-    if (type) {
-      query = query.where(eq(events.eventType, type));
-    }
-
-    // Filter by month/year
-    if (month && year) {
-      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
-      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
-      query = query.where(
-        and(
-          gte(events.startTime, startDate),
-          lte(events.startTime, endDate)
-        )
-      );
-    }
-
-    // Filter upcoming events only
-    if (upcoming === "true") {
-      query = query.where(gte(events.startTime, new Date()));
-    }
-
-    // Order by start time
-    query = query.orderBy(asc(events.startTime));
-
-    const results = await query;
+      .where(and(...conditions))
+      .orderBy(asc(events.startTime));
 
     return NextResponse.json(results);
   } catch (error) {

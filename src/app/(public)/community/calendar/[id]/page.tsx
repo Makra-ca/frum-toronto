@@ -13,9 +13,6 @@ import {
   DollarSign,
   ArrowLeft,
   Building2,
-  PartyPopper,
-  GraduationCap,
-  Heart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EventActions } from "@/components/calendar/EventActions";
@@ -66,13 +63,13 @@ function getEventTypeLabel(type: string | null): string {
 }
 
 function getEventTypeConfig(type: string | null) {
-  const configs: Record<string, { bg: string; text: string; icon: typeof Calendar }> = {
-    community: { bg: "bg-blue-100", text: "text-blue-700", icon: PartyPopper },
-    fundraising: { bg: "bg-emerald-100", text: "text-emerald-700", icon: Heart },
-    school: { bg: "bg-amber-100", text: "text-amber-700", icon: GraduationCap },
-    wedding: { bg: "bg-pink-100", text: "text-pink-700", icon: Heart },
+  const configs: Record<string, { bg: string; text: string }> = {
+    community: { bg: "bg-blue-100", text: "text-blue-700" },
+    fundraising: { bg: "bg-emerald-100", text: "text-emerald-700" },
+    school: { bg: "bg-amber-100", text: "text-amber-700" },
+    youth: { bg: "bg-pink-100", text: "text-pink-700" },
   };
-  return configs[type || ""] || { bg: "bg-gray-100", text: "text-gray-700", icon: Calendar };
+  return configs[type || ""] || { bg: "bg-gray-100", text: "text-gray-700" };
 }
 
 function getHebrewDate(date: Date): string {
@@ -99,7 +96,6 @@ export default async function EventDetailPage({ params }: PageProps) {
   const startDate = new Date(event.startTime);
   const endDate = event.endTime ? new Date(event.endTime) : null;
   const typeConfig = getEventTypeConfig(event.eventType);
-  const TypeIcon = typeConfig.icon;
   const hebrewDate = getHebrewDate(startDate);
   const hasContactInfo = event.contactName || event.contactEmail || event.contactPhone;
 
@@ -141,8 +137,7 @@ export default async function EventDetailPage({ params }: PageProps) {
                 {/* Title and meta */}
                 <div className="flex-1 min-w-0">
                   {/* Event type badge */}
-                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium mb-3 ${typeConfig.bg} ${typeConfig.text}`}>
-                    <TypeIcon className="h-3.5 w-3.5" />
+                  <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mb-3 ${typeConfig.bg} ${typeConfig.text}`}>
                     {getEventTypeLabel(event.eventType)}
                   </div>
 
@@ -227,7 +222,7 @@ export default async function EventDetailPage({ params }: PageProps) {
                     </div>
                   ) : (
                     <div className="bg-gradient-to-br from-gray-50 to-slate-100 rounded-xl p-6 text-center border border-gray-100">
-                      <TypeIcon className="h-10 w-10 mx-auto text-gray-300 mb-3" />
+                      <Calendar className="h-10 w-10 mx-auto text-gray-300 mb-3" />
                       <p className="text-gray-500">
                         More details coming soon. Contact the organizer for information.
                       </p>

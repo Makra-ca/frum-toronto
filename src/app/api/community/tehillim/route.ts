@@ -130,7 +130,7 @@ export async function POST(request: Request) {
               </div>
 
               <p>
-                <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/admin/content"
+                <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/admin/community/tehillim"
                    style="display: inline-block; padding: 10px 20px; background: #1e3a5f; color: white; text-decoration: none; border-radius: 5px;">
                   Review in Admin Panel
                 </a>

@@ -62,7 +62,7 @@ interface ShiurFormData {
 
 interface Shul {
   id: number;
-  businessName: string;
+  name: string;
 }
 
 interface ShiurFormProps {
@@ -86,10 +86,6 @@ export function ShiurForm({ initialData, onSubmit, onCancel, isLoading }: ShiurF
   const [shuls, setShuls] = useState<Shul[]>([]);
   const [showCustomLocation, setShowCustomLocation] = useState(false);
 
-  const today = new Date();
-  const nextYear = new Date(today);
-  nextYear.setFullYear(nextYear.getFullYear() + 1);
-
   const {
     register,
     handleSubmit,
@@ -109,8 +105,8 @@ export function ShiurForm({ initialData, onSubmit, onCancel, isLoading }: ShiurF
       locationPostalCode: initialData?.locationPostalCode || "",
       locationArea: initialData?.locationArea || "",
       schedule: initialData?.schedule || defaultSchedule,
-      startDate: initialData?.startDate || today.toISOString().split("T")[0],
-      endDate: initialData?.endDate || nextYear.toISOString().split("T")[0],
+      startDate: initialData?.startDate || "",
+      endDate: initialData?.endDate || "",
       category: initialData?.category || "",
       classType: initialData?.classType || "",
       level: initialData?.level || "",
@@ -172,7 +168,13 @@ export function ShiurForm({ initialData, onSubmit, onCancel, isLoading }: ShiurF
   }
 
   function handleFormSubmit(data: ShiurFormData) {
-    onSubmit(data);
+    const transformed = {
+      ...data,
+      shulId: data.shulId && data.shulId !== "other" && data.shulId !== "none"
+        ? parseInt(data.shulId) as unknown as string
+        : null as unknown as string,
+    };
+    onSubmit(transformed);
   }
 
   return (
@@ -243,72 +245,72 @@ export function ShiurForm({ initialData, onSubmit, onCancel, isLoading }: ShiurF
           <CardTitle className="text-lg">Schedule</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 pr-4 font-medium">Day</th>
-                  <th className="text-left py-2 px-2 font-medium">Starts</th>
-                  <th className="text-left py-2 px-2 font-medium">Ends</th>
-                  <th className="text-left py-2 pl-2 font-medium">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {DAYS_OF_WEEK.map((day) => (
-                  <tr key={day.value} className="border-b">
-                    <td className="py-2 pr-4 font-medium">{day.label}</td>
-                    <td className="py-2 px-2">
-                      <Input
-                        type="time"
-                        className="w-28"
-                        value={schedule?.[day.value.toString()]?.start || ""}
-                        onChange={(e) =>
-                          updateSchedule(day.value.toString(), "start", e.target.value)
-                        }
-                      />
-                    </td>
-                    <td className="py-2 px-2">
-                      <Input
-                        type="time"
-                        className="w-28"
-                        value={schedule?.[day.value.toString()]?.end || ""}
-                        onChange={(e) =>
-                          updateSchedule(day.value.toString(), "end", e.target.value)
-                        }
-                      />
-                    </td>
-                    <td className="py-2 pl-2">
-                      <Input
-                        className="w-full"
-                        placeholder="Notes"
-                        value={schedule?.[day.value.toString()]?.notes || ""}
-                        onChange={(e) =>
-                          updateSchedule(day.value.toString(), "notes", e.target.value)
-                        }
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-2">
+            {DAYS_OF_WEEK.map((day) => {
+              const dayKey = day.value.toString();
+              const hasTime = schedule?.[dayKey]?.start;
+              return (
+                <div
+                  key={day.value}
+                  className={`rounded-lg border p-4 transition-colors ${
+                    hasTime ? "border-blue-200 bg-blue-50/30" : "border-gray-100 bg-white"
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <span className="font-semibold text-gray-900 w-28 flex-shrink-0">{day.label}</span>
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="flex-1">
+                        <Label className="text-xs text-gray-500 mb-1 block">Start</Label>
+                        <Input
+                          type="time"
+                          value={schedule?.[dayKey]?.start || ""}
+                          onChange={(e) => updateSchedule(dayKey, "start", e.target.value)}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-xs text-gray-500 mb-1 block">End</Label>
+                        <Input
+                          type="time"
+                          value={schedule?.[dayKey]?.end || ""}
+                          onChange={(e) => updateSchedule(dayKey, "end", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {/* Notes below */}
+                  <div className="mt-2 sm:ml-28 sm:pl-3">
+                    <Textarea
+                      placeholder="Notes (optional)"
+                      rows={2}
+                      className="resize-y min-h-[60px]"
+                      value={schedule?.[dayKey]?.notes || ""}
+                      onChange={(e) => updateSchedule(dayKey, "notes", e.target.value)}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          <div className="grid grid-cols-2 gap-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Start Date</Label>
-              <Input
-                id="startDate"
-                type="date"
-                {...register("startDate")}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endDate">End Date</Label>
-              <Input
-                id="endDate"
-                type="date"
-                {...register("endDate")}
-              />
+          <div className="pt-4 border-t border-gray-100">
+            <p className="text-sm text-gray-500 mb-3">Optional — only set if this shiur runs for a specific season or term</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Start Date</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  {...register("startDate")}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endDate">End Date</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  {...register("endDate")}
+                />
+              </div>
             </div>
           </div>
         </CardContent>
@@ -334,7 +336,7 @@ export function ShiurForm({ initialData, onSubmit, onCancel, isLoading }: ShiurF
                 <SelectItem value="other">Other</SelectItem>
                 {shuls.map((shul) => (
                   <SelectItem key={shul.id} value={shul.id.toString()}>
-                    {shul.businessName}
+                    {shul.name}
                   </SelectItem>
                 ))}
               </SelectContent>

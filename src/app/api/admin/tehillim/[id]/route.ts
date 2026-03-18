@@ -12,6 +12,7 @@ const updateSchema = z.object({
   reason: z.string().max(200).optional(),
   expiresAt: z.string().optional().nullable(),
   isPermanent: z.boolean().optional(),
+  isActive: z.boolean().optional(),
   approvalStatus: z.enum(["pending", "approved", "rejected"]).optional(),
 });
 
@@ -100,6 +101,9 @@ export async function PATCH(
       if (result.data.isPermanent) {
         updates.expiresAt = null;
       }
+    }
+    if (result.data.isActive !== undefined) {
+      updates.isActive = result.data.isActive;
     }
     if (result.data.approvalStatus !== undefined) {
       updates.approvalStatus = result.data.approvalStatus;

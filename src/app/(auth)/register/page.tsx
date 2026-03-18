@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { RegisterForm } from "@/components/auth/RegisterForm";
-import { MessageSquare, Tag, Calendar, Bell } from "lucide-react";
+import { MessageSquare, Tag, Calendar, Bell, PenLine } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Register",
@@ -12,6 +12,7 @@ const memberBenefits = [
   { icon: MessageSquare, text: "Submit questions to Ask the Rabbi" },
   { icon: Tag, text: "Post and manage classifieds" },
   { icon: Calendar, text: "Submit community events" },
+  { icon: PenLine, text: "Post community blog content — recipes, parsha thoughts, health tips, and more" },
   { icon: Bell, text: "Personalized notifications" },
 ];
 

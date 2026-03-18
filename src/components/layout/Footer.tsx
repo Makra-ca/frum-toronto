@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Facebook, Twitter, Mail, Phone, ExternalLink } from "lucide-react";
+import { Mail, Phone, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
@@ -38,30 +38,7 @@ export function Footer() {
               The Toronto Jewish Orthodox Community Gateway. Connecting the
               community with businesses, shuls, events, and resources.
             </p>
-            <div className="flex gap-4">
-              <a
-                href="https://facebook.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-blue-300 transition-colors"
-              >
-                <Facebook className="h-5 w-5" />
-              </a>
-              <a
-                href="https://twitter.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-blue-300 transition-colors"
-              >
-                <Twitter className="h-5 w-5" />
-              </a>
-              <a
-                href="mailto:info@frumtoronto.com"
-                className="hover:text-blue-300 transition-colors"
-              >
-                <Mail className="h-5 w-5" />
-              </a>
-            </div>
+            {/* TODO: Add social media links when actual URLs are available */}
           </div>
 
           {/* Quick Links */}

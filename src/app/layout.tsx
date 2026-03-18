@@ -3,6 +3,7 @@ import { Urbanist } from "next/font/google";
 import "./globals.css";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { SessionProvider } from "@/components/providers/SessionProvider";
+import { Toaster } from "@/components/ui/sonner";
 
 const urbanist = Urbanist({
   variable: "--font-urbanist",
@@ -39,6 +40,7 @@ export default function RootLayout({
       <body className={`${urbanist.variable} font-sans antialiased`}>
         <SessionProvider>
           <LayoutWrapper>{children}</LayoutWrapper>
+          <Toaster />
         </SessionProvider>
       </body>
     </html>

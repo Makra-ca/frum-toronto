@@ -20,7 +20,12 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || "";
     const offset = (page - 1) * limit;
 
+    const archived = searchParams.get("archived") === "true";
+
     const conditions = [];
+
+    // Active vs archived filter
+    conditions.push(eq(tehillimList.isActive, !archived));
 
     // Status filter
     if (status !== "all") {

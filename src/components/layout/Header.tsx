@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { Menu, ChevronDown, ChevronLeft, ChevronRight, Search, User, LogOut, LayoutDashboard, Shield } from "lucide-react";
+import { Menu, ChevronDown, ChevronLeft, ChevronRight, LogOut, LayoutDashboard, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -30,7 +30,7 @@ import { ClassifiedsMegaMenu, ClassifiedsData } from "./ClassifiedsMegaMenu";
 import { ClassifiedsMobileDrilldown } from "./ClassifiedsMobileDrilldown";
 
 export function Header() {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showDirectoryDrilldown, setShowDirectoryDrilldown] = useState(false);
   const [showClassifiedsDrilldown, setShowClassifiedsDrilldown] = useState(false);
@@ -65,73 +65,22 @@ export function Header() {
   }, [mobileMenuOpen]);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white">
-      {/* Top bar */}
-      <div className="bg-blue-900 text-white py-1 px-4">
-        <div className="container mx-auto flex justify-between items-center text-sm">
-          <span className="hidden md:block">
-            The Toronto Jewish Orthodox Community Gateway
-          </span>
-          <div className="flex items-center gap-4 ml-auto">
-            {status === "loading" ? (
-              <span className="text-blue-200">Loading...</span>
-            ) : session ? (
-              <>
-                <span className="hidden sm:inline text-blue-200">
-                  {session.user?.name || session.user?.email}
-                </span>
-                {isAdmin && (
-                  <>
-                    <span className="hidden sm:inline">|</span>
-                    <Link href="/admin" className="hover:underline flex items-center gap-1">
-                      <Shield className="h-3 w-3" />
-                      Admin
-                    </Link>
-                  </>
-                )}
-                <span>|</span>
-                <Link href="/dashboard" className="hover:underline">
-                  Dashboard
-                </Link>
-                <span>|</span>
-                <button
-                  onClick={() => signOut({ callbackUrl: "/" })}
-                  className="hover:underline"
-                >
-                  Sign Out
-                </button>
-              </>
-            ) : (
-              <>
-                <Link href="/login" className="hover:underline">
-                  Login
-                </Link>
-                <span>|</span>
-                <Link href="/register" className="hover:underline">
-                  Register
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Main header */}
-      <div className="container mx-auto px-4 py-3">
+    <header className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
+      <div className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <Image
               src="/logo.png"
               alt="FrumToronto"
               width={60}
               height={60}
-              className="h-12 w-auto"
+              className="h-10 sm:h-12 w-auto"
               priority
             />
-            <div className="flex items-baseline">
-              <span className="text-2xl font-bold text-blue-900">Frum</span>
-              <span className="text-2xl font-bold text-blue-600">Toronto</span>
+            <div className="flex items-baseline xl:hidden 2xl:flex">
+              <span className="text-xl sm:text-2xl font-bold text-blue-900">Frum</span>
+              <span className="text-xl sm:text-2xl font-bold text-blue-600">Toronto</span>
             </div>
           </Link>
 
@@ -143,7 +92,7 @@ export function Header() {
                   {/* Special handling for Directory - use mega menu */}
                   {item.label === "Directory" ? (
                     <>
-                      <NavigationMenuTrigger className="text-sm">
+                      <NavigationMenuTrigger className="text-[13px] px-2.5 2xl:text-sm 2xl:px-4">
                         {item.label}
                       </NavigationMenuTrigger>
                       <NavigationMenuContent>
@@ -152,7 +101,7 @@ export function Header() {
                     </>
                   ) : item.label === "Classifieds" ? (
                     <>
-                      <NavigationMenuTrigger className="text-sm">
+                      <NavigationMenuTrigger className="text-[13px] px-2.5 2xl:text-sm 2xl:px-4">
                         {item.label}
                       </NavigationMenuTrigger>
                       <NavigationMenuContent>
@@ -161,7 +110,7 @@ export function Header() {
                     </>
                   ) : item.children ? (
                     <>
-                      <NavigationMenuTrigger className="text-sm">
+                      <NavigationMenuTrigger className="text-[13px] px-2.5 2xl:text-sm 2xl:px-4">
                         {item.label}
                       </NavigationMenuTrigger>
                       <NavigationMenuContent>
@@ -184,7 +133,7 @@ export function Header() {
                   ) : (
                     <Link
                       href={item.href}
-                      className="group inline-flex h-10 w-max items-center justify-center rounded-md bg-white px-4 py-2 text-sm font-medium transition-colors hover:bg-blue-50 hover:text-blue-900"
+                      className="group inline-flex h-10 w-max items-center justify-center rounded-md bg-white px-2.5 py-2 text-[13px] font-medium transition-colors hover:bg-blue-50 hover:text-blue-900 2xl:px-4 2xl:text-sm"
                     >
                       {item.label}
                     </Link>
@@ -195,62 +144,73 @@ export function Header() {
           </NavigationMenu>
 
           {/* Right side actions */}
-          <div className="flex items-center gap-2">
-            {/* Search button */}
-            <Button variant="ghost" size="icon" className="hidden md:flex">
-              <Search className="h-5 w-5" />
-            </Button>
-
-            {/* User menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="hidden md:flex">
-                  <User className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                {session ? (
-                  <>
-                    <div className="px-2 py-1.5">
-                      <p className="text-sm font-medium">{session.user?.name}</p>
-                      <p className="text-xs text-muted-foreground">{session.user?.email}</p>
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            {/* Auth area - desktop/tablet only */}
+            {session ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="hidden md:flex items-center gap-2 rounded-full pl-3 pr-1 py-1 hover:bg-gray-100 transition-colors">
+                    <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate">
+                      {session.user?.name?.split(" ")[0] || "Account"}
+                    </span>
+                    <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-semibold">
+                      {session.user?.name
+                        ? session.user.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .toUpperCase()
+                            .slice(0, 2)
+                        : session.user?.email?.[0]?.toUpperCase() || "U"}
                     </div>
-                    <DropdownMenuSeparator />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-2 py-1.5">
+                    <p className="text-sm font-medium">{session.user?.name}</p>
+                    <p className="text-xs text-muted-foreground">{session.user?.email}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard" className="cursor-pointer">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  {isAdmin && (
                     <DropdownMenuItem asChild>
-                      <Link href="/dashboard" className="cursor-pointer">
-                        <LayoutDashboard className="mr-2 h-4 w-4" />
-                        Dashboard
+                      <Link href="/admin" className="cursor-pointer">
+                        <Shield className="mr-2 h-4 w-4" />
+                        Admin Panel
                       </Link>
                     </DropdownMenuItem>
-                    {isAdmin && (
-                      <DropdownMenuItem asChild>
-                        <Link href="/admin" className="cursor-pointer">
-                          <Shield className="mr-2 h-4 w-4" />
-                          Admin Panel
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => signOut({ callbackUrl: "/" })}
-                      className="cursor-pointer text-red-600"
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Sign Out
-                    </DropdownMenuItem>
-                  </>
-                ) : (
-                  <>
-                    <DropdownMenuItem asChild>
-                      <Link href="/login">Login</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/register">Register</Link>
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => signOut({ callbackUrl: "/" })}
+                    className="cursor-pointer text-red-600"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="hidden md:flex items-center gap-1 xl:gap-2">
+                <Link
+                  href="/login"
+                  className="text-[13px] xl:text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors px-2 xl:px-3 py-2"
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/register"
+                  className="text-[13px] xl:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors px-3 xl:px-4 py-2 rounded-lg whitespace-nowrap"
+                >
+                  Sign up
+                </Link>
+              </div>
+            )}
 
             {/* Mobile menu */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -286,7 +246,7 @@ export function Header() {
                     <ClassifiedsMobileDrilldown onClose={() => setMobileMenuOpen(false)} data={classifiedsData} />
                   </div>
                 ) : (
-                  <nav className="flex flex-col gap-4 mt-8 px-6">
+                  <nav className="flex flex-col gap-4 mt-8 px-6 overflow-y-auto max-h-[calc(100vh-2rem)] pb-8">
                     {mainNavigation.map((item) => (
                       <div key={item.label}>
                         {item.label === "Directory" ? (

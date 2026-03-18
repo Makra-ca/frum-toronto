@@ -7,6 +7,7 @@ import { DAYS_OF_WEEK, TEFILAH_TYPES } from "@/lib/validations/content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -153,10 +154,12 @@ export function DaveningForm({
 
       <div className="space-y-2">
         <Label htmlFor="notes">Notes</Label>
-        <Input
+        <Textarea
           id="notes"
           {...register("notes")}
           placeholder="e.g., 'Followed by breakfast'"
+          rows={2}
+          className="resize-y min-h-[60px]"
         />
       </div>
 
