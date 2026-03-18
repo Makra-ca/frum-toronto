@@ -128,6 +128,7 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   showMap: boolean("show_map").default(false),
   showLogo: boolean("show_logo").default(false),
   showSocialLinks: boolean("show_social_links").default(false),
+  showKosherBadge: boolean("show_kosher_badge").default(false),
   isFeatured: boolean("is_featured").default(false),
   priorityInSearch: boolean("priority_in_search").default(false),
   // Homepage ad placements

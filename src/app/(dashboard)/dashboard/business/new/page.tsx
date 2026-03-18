@@ -54,6 +54,7 @@ interface SubscriptionPlan {
   showMap: boolean;
   showLogo: boolean;
   showSocialLinks: boolean;
+  showKosherBadge: boolean;
   isFeatured: boolean;
   priorityInSearch: boolean;
   showInHomepageBanner: boolean;
