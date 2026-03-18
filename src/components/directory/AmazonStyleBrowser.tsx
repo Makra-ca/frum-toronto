@@ -3,9 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Search, ChevronRight, ChevronLeft } from "lucide-react";
+import { ChevronRight, ChevronLeft } from "lucide-react";
+import { UniversalSearch } from "@/components/search/UniversalSearch";
 
 interface Subcategory {
   id: number;
@@ -65,40 +64,23 @@ function getCategoryImage(category: Category): string {
 }
 
 export function AmazonStyleBrowser({ categories, topCategories = [] }: AmazonStyleBrowserProps) {
-  const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category | null>(categories[0] || null);
   const [mobileActiveCategory, setMobileActiveCategory] = useState<Category | null>(null);
   const router = useRouter();
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/directory/search?q=${encodeURIComponent(searchQuery.trim())}`);
-    } else {
-      router.push("/directory/search");
-    }
-  };
-
   return (
     <div>
       {/* Search Input */}
-      <form onSubmit={handleSearch} className="mb-6">
-        <div className="flex gap-2 max-w-2xl">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <Input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search businesses..."
-              className="pl-12 pr-4 h-12 bg-white border-gray-200 rounded-lg shadow-sm"
-            />
-          </div>
-          <Button type="submit" className="h-12 px-6 rounded-lg">
-            Search
-          </Button>
-        </div>
-      </form>
+      <div className="mb-6">
+        <UniversalSearch
+          searchType="businesses"
+          placeholder="Search businesses..."
+          onSearch={(q) => {
+            router.push(`/directory/search?q=${encodeURIComponent(q)}`);
+          }}
+          className="max-w-2xl"
+        />
+      </div>
 
       {/* Quick Links - Top Categories */}
       {topCategories.length > 0 && (
