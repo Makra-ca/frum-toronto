@@ -1479,3 +1479,52 @@ All old page routes moved to new locations. API routes (`/api/admin/*`) did NOT 
 #### Design Spec
 
 `docs/superpowers/specs/2026-03-18-admin-sidebar-reorganization-design.md`
+
+---
+
+### 2026-03-18 - Blog System
+
+**Summary:** Built a full blog system where admins post freely, users submit for approval, and readers can comment with flexible moderation.
+
+#### Database Tables
+
+- `blog_categories` — id, name, slug, displayOrder
+- `blog_posts` — id, title, slug, content (HTML), contentJson (TipTap JSON), coverImageUrl, excerpt, authorId, categoryId, customCategory, approvalStatus, commentModeration, viewCount, publishedAt, isActive
+- `blog_comments` — id, postId, authorId, content, parentId (1-level threading), approvalStatus, isActive
+- Added `canAutoApproveBlog` to users table
+
+#### Comment Moderation
+
+Three-tier cascade: post-level override → global site setting (`blog_comment_moderation` in site_settings) → default open. Admin comments always auto-approve.
+
+#### Routes
+
+**Public:** `/blog` (listing), `/blog/[slug]` (detail with comments)
+**Admin:** `/admin/programs/blog` (management + categories dialog), `/admin/programs/blog/new`, `/admin/programs/blog/[id]/edit`, `/admin/programs/blog/comments`
+**Dashboard:** `/dashboard/blog` (user's posts), `/dashboard/blog/new`, `/dashboard/blog/[id]/edit`
+
+#### API Routes
+
+| Namespace | Routes |
+|-----------|--------|
+| `/api/admin/blog` | Posts CRUD, categories CRUD, comments moderation |
+| `/api/blog` | Public listing, detail, comments (GET + POST), categories |
+| `/api/user/blog` | User's own posts CRUD with approval flow |
+
+#### Key Components
+
+| Component | Purpose |
+|-----------|---------|
+| `src/components/blog/BlogPostEditor.tsx` | Shared TipTap editor form (admin + dashboard) |
+| `src/components/blog/BlogComments.tsx` | Threaded comments with moderation notice |
+| `src/components/blog/BlogListing.tsx` | Public blog grid with category filter |
+
+#### Navigation
+
+- Blog added as first item in Community dropdown
+- Blog tab added to admin Programs group
+- Blog added to universal fuzzy search system
+
+#### Design Spec
+
+`docs/superpowers/specs/2026-03-18-blog-system-design.md`

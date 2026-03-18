@@ -44,6 +44,7 @@ export const users = pgTable("users", {
   canAutoApproveClassifieds: boolean("can_auto_approve_classifieds").default(false),
   canAutoApproveShiurim: boolean("can_auto_approve_shiurim").default(false),
   canAutoApproveAlerts: boolean("can_auto_approve_alerts").default(false),
+  canAutoApproveBlog: boolean("can_auto_approve_blog").default(false),
   canPostSpecials: boolean("can_post_specials").default(false), // Verified businesses can post specials/deals
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -572,6 +573,58 @@ export const eruvStatus = pgTable("eruv_status", {
   updatedBy: integer("updated_by").references(() => users.id),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// ============================================
+// BLOG
+// ============================================
+
+export const blogCategories = pgTable("blog_categories", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  slug: varchar("slug", { length: 100 }).notNull().unique(),
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const blogPosts = pgTable("blog_posts", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 300 }).notNull(),
+  slug: varchar("slug", { length: 300 }).notNull().unique(),
+  content: text("content").notNull(),
+  contentJson: jsonb("content_json"),
+  coverImageUrl: varchar("cover_image_url", { length: 500 }),
+  excerpt: varchar("excerpt", { length: 500 }),
+  authorId: integer("author_id").notNull().references(() => users.id),
+  categoryId: integer("category_id").references(() => blogCategories.id, { onDelete: "set null" }),
+  customCategory: varchar("custom_category", { length: 100 }),
+  approvalStatus: varchar("approval_status", { length: 20 }).default("pending").notNull(),
+  commentModeration: varchar("comment_moderation", { length: 20 }),
+  viewCount: integer("view_count").default(0),
+  publishedAt: timestamp("published_at"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_blog_posts_listing").on(table.approvalStatus, table.isActive, table.publishedAt),
+  index("idx_blog_posts_author").on(table.authorId),
+  index("idx_blog_posts_category").on(table.categoryId),
+]);
+
+export const blogComments = pgTable("blog_comments", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").notNull().references(() => blogPosts.id, { onDelete: "cascade" }),
+  authorId: integer("author_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  parentId: integer("parent_id"),
+  approvalStatus: varchar("approval_status", { length: 20 }).default("pending").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_blog_comments_post").on(table.postId, table.approvalStatus, table.isActive),
+  index("idx_blog_comments_author").on(table.authorId),
+]);
 
 // ============================================
 // MISC

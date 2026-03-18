@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, ChevronLeft } from "lucide-react";
+import { ChevronRight, ChevronLeft, ChevronDown } from "lucide-react";
 import { UniversalSearch } from "@/components/search/UniversalSearch";
 
 interface Subcategory {
@@ -66,6 +66,7 @@ function getCategoryImage(category: Category): string {
 export function AmazonStyleBrowser({ categories, topCategories = [] }: AmazonStyleBrowserProps) {
   const [activeCategory, setActiveCategory] = useState<Category | null>(categories[0] || null);
   const [mobileActiveCategory, setMobileActiveCategory] = useState<Category | null>(null);
+  const [mobileCategoriesOpen, setMobileCategoriesOpen] = useState(false);
   const router = useRouter();
 
   return (
@@ -187,90 +188,102 @@ export function AmazonStyleBrowser({ categories, topCategories = [] }: AmazonSty
         </div>
       </div>
 
-      {/* Mobile Drill-down Browser */}
+      {/* Mobile Drill-down Browser — collapsed by default */}
       <div className="mt-6 lg:hidden">
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-          {mobileActiveCategory ? (
-            // Subcategory view (drilled down)
+          {/* Collapsible header */}
+          <button
+            onClick={() => {
+              setMobileCategoriesOpen(!mobileCategoriesOpen);
+              if (mobileCategoriesOpen) setMobileActiveCategory(null);
+            }}
+            className="w-full flex items-center justify-between px-4 py-3.5 bg-gray-50 text-left"
+          >
+            <h3 className="font-semibold text-gray-900">Browse Categories</h3>
+            <ChevronDown
+              className={`h-5 w-5 text-gray-500 transition-transform duration-200 ${
+                mobileCategoriesOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {/* Collapsible content */}
+          {mobileCategoriesOpen && (
             <div>
-              {/* Back button */}
-              <button
-                onClick={() => setMobileActiveCategory(null)}
-                className="flex items-center gap-2 w-full px-4 py-3 text-blue-600 font-medium border-b border-gray-100 bg-gray-50"
-              >
-                <ChevronLeft className="h-5 w-5" />
-                All Categories
-              </button>
-
-              {/* Hero image for selected category */}
-              <div className="relative h-32 overflow-hidden">
-                <img
-                  src={getCategoryImage(mobileActiveCategory)}
-                  alt={mobileActiveCategory.name}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-                <div className="absolute bottom-3 left-4 right-4">
-                  <h3 className="text-white font-bold text-lg">
-                    {mobileActiveCategory.name}
-                  </h3>
-                  <p className="text-white/80 text-xs">
-                    {mobileActiveCategory.businessCount} businesses
-                  </p>
-                </div>
-              </div>
-
-              {/* View all link */}
-              <Link
-                href={`/directory/category/${mobileActiveCategory.slug}`}
-                className="flex items-center justify-between px-4 py-3 text-blue-600 font-medium border-b border-gray-100 bg-blue-50/50"
-              >
-                <span>View All {mobileActiveCategory.name}</span>
-                <ChevronRight className="h-5 w-5" />
-              </Link>
-
-              {/* Subcategories list */}
-              <div className="max-h-[300px] overflow-y-auto">
-                {mobileActiveCategory.subcategories
-                  .filter((sub) => sub.businessCount > 0)
-                  .map((sub) => (
-                    <Link
-                      key={sub.id}
-                      href={`/directory/${sub.slug}`}
-                      className="flex items-center justify-between px-4 py-3 border-b border-gray-100 hover:bg-gray-50 active:bg-gray-100"
-                    >
-                      <span className="text-gray-900">{sub.name}</span>
-                      <span className="flex items-center gap-2 text-gray-400">
-                        <span className="text-sm">{sub.businessCount}</span>
-                        <ChevronRight className="h-4 w-4" />
-                      </span>
-                    </Link>
-                  ))}
-              </div>
-            </div>
-          ) : (
-            // Main categories view
-            <div>
-              <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-                <h3 className="font-semibold text-gray-900">Browse Categories</h3>
-              </div>
-              <div className="max-h-[400px] overflow-y-auto">
-                {categories.map((category) => (
+              {mobileActiveCategory ? (
+                // Subcategory view (drilled down)
+                <div>
                   <button
-                    key={category.id}
-                    onClick={() => setMobileActiveCategory(category)}
-                    className="w-full flex items-center justify-between px-4 py-3 border-b border-gray-100 hover:bg-gray-50 active:bg-gray-100 text-left"
+                    onClick={() => setMobileActiveCategory(null)}
+                    className="flex items-center gap-2 w-full px-4 py-3 text-blue-600 font-medium border-b border-gray-100 bg-gray-50"
                   >
-                    <div>
-                      <span className="text-gray-900 font-medium">{category.name}</span>
-                      <p className="text-sm text-gray-500">
-                        {category.subcategories.length} categories · {category.businessCount} businesses
+                    <ChevronLeft className="h-5 w-5" />
+                    All Categories
+                  </button>
+
+                  <div className="relative h-32 overflow-hidden">
+                    <img
+                      src={getCategoryImage(mobileActiveCategory)}
+                      alt={mobileActiveCategory.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                    <div className="absolute bottom-3 left-4 right-4">
+                      <h3 className="text-white font-bold text-lg">
+                        {mobileActiveCategory.name}
+                      </h3>
+                      <p className="text-white/80 text-xs">
+                        {mobileActiveCategory.businessCount} businesses
                       </p>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                  </button>
-                ))}
-              </div>
+                  </div>
+
+                  <Link
+                    href={`/directory/category/${mobileActiveCategory.slug}`}
+                    className="flex items-center justify-between px-4 py-3 text-blue-600 font-medium border-b border-gray-100 bg-blue-50/50"
+                  >
+                    <span>View All {mobileActiveCategory.name}</span>
+                    <ChevronRight className="h-5 w-5" />
+                  </Link>
+
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {mobileActiveCategory.subcategories
+                      .filter((sub) => sub.businessCount > 0)
+                      .map((sub) => (
+                        <Link
+                          key={sub.id}
+                          href={`/directory/${sub.slug}`}
+                          className="flex items-center justify-between px-4 py-3 border-b border-gray-100 hover:bg-gray-50 active:bg-gray-100"
+                        >
+                          <span className="text-gray-900">{sub.name}</span>
+                          <span className="flex items-center gap-2 text-gray-400">
+                            <span className="text-sm">{sub.businessCount}</span>
+                            <ChevronRight className="h-4 w-4" />
+                          </span>
+                        </Link>
+                      ))}
+                  </div>
+                </div>
+              ) : (
+                // Main categories view
+                <div className="max-h-[350px] overflow-y-auto">
+                  {categories.map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => setMobileActiveCategory(category)}
+                      className="w-full flex items-center justify-between px-4 py-3 border-b border-gray-100 hover:bg-gray-50 active:bg-gray-100 text-left"
+                    >
+                      <div>
+                        <span className="text-gray-900 font-medium">{category.name}</span>
+                        <p className="text-sm text-gray-500">
+                          {category.subcategories.length} categories · {category.businessCount} businesses
+                        </p>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

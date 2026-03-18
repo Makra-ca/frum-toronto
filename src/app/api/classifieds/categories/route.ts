@@ -6,7 +6,9 @@ import { sql, eq, and, or, isNull, gt, desc } from "drizzle-orm";
 // Cache for 5 minutes - categories rarely change
 export const revalidate = 300;
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const showAll = searchParams.get("all") === "true";
   // Get categories with listing counts using LEFT JOIN and GROUP BY
   const categoriesResult = await db
     .select({
@@ -46,7 +48,7 @@ export async function GET() {
       slug: cat.slug,
       listingCount: Number(cat.listingCount || 0),
     }))
-    .filter((cat) => cat.listingCount > 0);
+    .filter((cat) => showAll || cat.listingCount > 0);
 
   // Get recent listings (last 10 active, approved listings)
   const recentListingsResult = await db

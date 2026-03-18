@@ -8,6 +8,8 @@ import {
   shiurim,
   events,
   askTheRabbi,
+  blogPosts,
+  blogCategories,
 } from "@/lib/db/schema";
 import { eq, and, or, sql, desc } from "drizzle-orm";
 import type { SearchSuggestion, SearchType } from "./types";
@@ -413,6 +415,57 @@ export async function searchAskTheRabbi(
   }));
 }
 
+// ─── Blog ───────────────────────────────────────────────
+
+export async function searchBlog(
+  query: string,
+  limit: number
+): Promise<SearchSuggestion[]> {
+  const queryLower = query.toLowerCase();
+  const searchTerm = `%${query}%`;
+
+  const results = await db
+    .select({
+      id: blogPosts.id,
+      title: blogPosts.title,
+      slug: blogPosts.slug,
+      categoryName: blogCategories.name,
+      titleSimilarity: sql<number>`GREATEST(
+        similarity(LOWER(${blogPosts.title}), ${queryLower}),
+        word_similarity(${queryLower}, LOWER(${blogPosts.title}))
+      )`,
+    })
+    .from(blogPosts)
+    .leftJoin(blogCategories, eq(blogPosts.categoryId, blogCategories.id))
+    .where(
+      and(
+        eq(blogPosts.approvalStatus, "approved"),
+        eq(blogPosts.isActive, true),
+        or(
+          sql`LOWER(${blogPosts.title}) LIKE LOWER(${searchTerm})`,
+          sql`similarity(LOWER(${blogPosts.title}), ${queryLower}) > 0.2`,
+          sql`word_similarity(${queryLower}, LOWER(${blogPosts.title})) > 0.3`
+        )
+      )
+    )
+    .orderBy(
+      sql`GREATEST(
+        similarity(LOWER(${blogPosts.title}), ${queryLower}),
+        word_similarity(${queryLower}, LOWER(${blogPosts.title}))
+      ) DESC`
+    )
+    .limit(limit);
+
+  return results.map((b, index) => ({
+    id: String(b.id),
+    title: b.title,
+    subtitle: b.categoryName || undefined,
+    url: `/blog/${b.slug}`,
+    type: "blog" as SearchType,
+    relevanceScore: 1000 - index * 10,
+  }));
+}
+
 // ─── Unified Search ──────────────────────────────────────
 
 export async function searchAll(
@@ -421,16 +474,17 @@ export async function searchAll(
 ): Promise<SearchSuggestion[]> {
   const perTypeLimit = 3;
 
-  const [biz, cls, shl, shr, evt, atr] = await Promise.all([
+  const [biz, cls, shl, shr, evt, atr, blg] = await Promise.all([
     searchBusinesses(query, perTypeLimit),
     searchClassifieds(query, perTypeLimit),
     searchShuls(query, perTypeLimit),
     searchShiurim(query, perTypeLimit),
     searchEvents(query, perTypeLimit),
     searchAskTheRabbi(query, perTypeLimit),
+    searchBlog(query, perTypeLimit),
   ]);
 
-  const all = [...biz, ...cls, ...shl, ...shr, ...evt, ...atr];
+  const all = [...biz, ...cls, ...shl, ...shr, ...evt, ...atr, ...blg];
   all.sort((a, b) => b.relevanceScore - a.relevanceScore);
   return all.slice(0, limit);
 }

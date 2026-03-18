@@ -6,6 +6,7 @@ import {
   searchShiurim,
   searchEvents,
   searchAskTheRabbi,
+  searchBlog,
   searchAll,
 } from "@/lib/search/fuzzy-search";
 import type { SearchType, SearchSuggestion, SuggestionsResponse } from "@/lib/search/types";
@@ -22,6 +23,7 @@ const searchFunctions: Record<
   shiurim: searchShiurim,
   events: searchEvents,
   "ask-the-rabbi": searchAskTheRabbi,
+  blog: searchBlog,
 };
 
 export async function GET(request: NextRequest) {

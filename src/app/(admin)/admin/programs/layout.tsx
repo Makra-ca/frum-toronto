@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminTabs } from "@/components/admin/AdminTabs";
-import { Calendar, BookOpen, HelpCircle, ShoppingBag, Tag } from "lucide-react";
+import { Calendar, BookOpen, HelpCircle, ShoppingBag, Tag, Newspaper } from "lucide-react";
 
 const programTabs = [
   { href: "/admin/programs/events", label: "Events", icon: Calendar },
@@ -9,6 +9,7 @@ const programTabs = [
   { href: "/admin/programs/rabbi", label: "Ask the Rabbi", icon: HelpCircle },
   { href: "/admin/programs/classifieds", label: "Classifieds", icon: ShoppingBag },
   { href: "/admin/programs/specials", label: "Specials", icon: Tag },
+  { href: "/admin/programs/blog", label: "Blog", icon: Newspaper },
 ];
 
 export default function ProgramsLayout({ children }: { children: React.ReactNode }) {
