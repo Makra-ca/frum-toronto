@@ -1,0 +1,22 @@
+ask about classifieds who should be able to post all users or only admin
+should we be able to send out emails
+blue bg needs to be smaller
+search bar on homepage make functional
+active articles pop up 
+
+so the events for that weekly newsletter
+
+
+if shul manager submits something admin needs to approve, alert that something new was put on site and ablitily to take off or edit it
+
+have approval and edit in smae spot
+always to be alerted when changed and waht changed
+
+any memebr can pos classified
+
+for signing up it should be madatory which shul you go to
+
+newsletter should pull in the parsha
+http://www.frumtoronto.com/Editor/Mailer.asp?mode=Eruv look at how the newlstter it set up
+alerts are teh 
+

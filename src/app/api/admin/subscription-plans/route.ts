@@ -21,9 +21,10 @@ const createPlanSchema = z.object({
   showMap: z.boolean().default(false),
   showLogo: z.boolean().default(false),
   showSocialLinks: z.boolean().default(false),
-  showKosherBadge: z.boolean().default(false),
   isFeatured: z.boolean().default(false),
   priorityInSearch: z.boolean().default(false),
+  showInHomepageBanner: z.boolean().default(false),
+  showInHomepageSidebar: z.boolean().default(false),
   displayOrder: z.number().int().default(0),
   isActive: z.boolean().default(true),
 });
@@ -104,9 +105,10 @@ export async function POST(request: NextRequest) {
         showMap: data.showMap,
         showLogo: data.showLogo,
         showSocialLinks: data.showSocialLinks,
-        showKosherBadge: data.showKosherBadge,
         isFeatured: data.isFeatured,
         priorityInSearch: data.priorityInSearch,
+        showInHomepageBanner: data.showInHomepageBanner,
+        showInHomepageSidebar: data.showInHomepageSidebar,
         displayOrder: data.displayOrder,
         isActive: data.isActive,
       })

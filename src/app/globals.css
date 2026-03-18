@@ -270,6 +270,11 @@
   animation: page-fade-in 0.7s ease-out 3.2s forwards;
 }
 
+/* Immediate fade-in when preloader was already shown this session */
+.animate-page-fade-in-immediate {
+  animation: page-fade-in 0.3s ease-out forwards;
+}
+
 /* Skip animation on admin routes */
 .animate-page-fade-in-instant {
   opacity: 1;

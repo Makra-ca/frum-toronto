@@ -79,6 +79,7 @@ export async function PUT(
       .update(businesses)
       .set({
         name: validatedData.name,
+        tagline: validatedData.tagline || null,
         categoryId: validatedData.categoryId,
         description: validatedData.description,
         address: validatedData.address,
@@ -87,6 +88,7 @@ export async function PUT(
         phone: validatedData.phone,
         email: validatedData.email || null,
         website: validatedData.website,
+        bannerImageUrl: validatedData.bannerImageUrl || null,
         isKosher: validatedData.isKosher,
         kosherCertification: validatedData.kosherCertification,
         hours: validatedData.hours,

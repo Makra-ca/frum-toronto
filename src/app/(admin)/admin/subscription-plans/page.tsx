@@ -47,9 +47,10 @@ interface SubscriptionPlan {
   showMap: boolean;
   showLogo: boolean;
   showSocialLinks: boolean;
-  showKosherBadge: boolean;
   isFeatured: boolean;
   priorityInSearch: boolean;
+  showInHomepageBanner: boolean;
+  showInHomepageSidebar: boolean;
   paypalPlanIdMonthly: string | null;
   paypalPlanIdYearly: string | null;
   paypalPlanIdMonthlySandbox: string | null;
@@ -76,9 +77,10 @@ const FEATURE_LABELS: Record<string, string> = {
   showMap: "Map/Directions",
   showLogo: "Logo",
   showSocialLinks: "Social Links",
-  showKosherBadge: "Kosher Badge",
-  isFeatured: "Featured Placement",
+  isFeatured: "Featured Badge",
   priorityInSearch: "Priority in Search",
+  showInHomepageBanner: "Homepage Banner Ad",
+  showInHomepageSidebar: "Homepage Sidebar Ad",
 };
 
 const DEFAULT_PLAN: Omit<SubscriptionPlan, "id"> = {
@@ -97,9 +99,10 @@ const DEFAULT_PLAN: Omit<SubscriptionPlan, "id"> = {
   showMap: false,
   showLogo: false,
   showSocialLinks: false,
-  showKosherBadge: false,
   isFeatured: false,
   priorityInSearch: false,
+  showInHomepageBanner: false,
+  showInHomepageSidebar: false,
   paypalPlanIdMonthly: null,
   paypalPlanIdYearly: null,
   paypalPlanIdMonthlySandbox: null,

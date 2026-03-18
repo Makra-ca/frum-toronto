@@ -14,10 +14,17 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps) {
   const { id } = await params;
+  const parsedId = parseInt(id);
+
+  // Handle invalid ID (NaN)
+  if (isNaN(parsedId)) {
+    return { title: "Classified Not Found" };
+  }
+
   const classified = await db
     .select({ title: classifieds.title })
     .from(classifieds)
-    .where(eq(classifieds.id, parseInt(id)))
+    .where(eq(classifieds.id, parsedId))
     .limit(1);
 
   if (!classified[0]) {
@@ -58,7 +65,14 @@ async function getClassified(id: number) {
 
 export default async function ClassifiedDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const classified = await getClassified(parseInt(id));
+  const parsedId = parseInt(id);
+
+  // Handle invalid ID (NaN)
+  if (isNaN(parsedId)) {
+    notFound();
+  }
+
+  const classified = await getClassified(parsedId);
 
   if (!classified) {
     notFound();

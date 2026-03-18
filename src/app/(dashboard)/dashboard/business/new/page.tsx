@@ -54,9 +54,10 @@ interface SubscriptionPlan {
   showMap: boolean;
   showLogo: boolean;
   showSocialLinks: boolean;
-  showKosherBadge: boolean;
   isFeatured: boolean;
   priorityInSearch: boolean;
+  showInHomepageBanner: boolean;
+  showInHomepageSidebar: boolean;
 }
 
 interface Category {
@@ -86,9 +87,10 @@ const FEATURE_LABELS: Record<string, string> = {
   showMap: "Map & Directions",
   showLogo: "Business Logo",
   showSocialLinks: "Social Media Links",
-  showKosherBadge: "Kosher Badge",
-  isFeatured: "Featured Placement",
+  isFeatured: "Featured Badge",
   priorityInSearch: "Priority in Search",
+  showInHomepageBanner: "Homepage Banner Ad",
+  showInHomepageSidebar: "Homepage Sidebar Ad",
 };
 
 const DAYS = [
@@ -115,6 +117,7 @@ export default function NewBusinessPage() {
   // Form state
   const [formData, setFormData] = useState({
     name: "",
+    tagline: "",
     categoryId: "",
     description: "",
     contactName: "",
@@ -195,6 +198,7 @@ export default function NewBusinessPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
+          tagline: formData.tagline || null,
           categoryId: formData.categoryId ? parseInt(formData.categoryId) : null,
           subscriptionPlanId: selectedPlan?.id,
           hours: Object.keys(formData.hours).length > 0 ? formData.hours : null,
@@ -522,6 +526,23 @@ export default function NewBusinessPage() {
                     />
                   </div>
                 )}
+
+                {/* Tagline - shown for plans with homepage ads */}
+                {(selectedPlan?.showInHomepageBanner || selectedPlan?.showInHomepageSidebar) && (
+                  <div className="space-y-2">
+                    <Label htmlFor="tagline">Tagline</Label>
+                    <Input
+                      id="tagline"
+                      value={formData.tagline}
+                      onChange={(e) => updateFormField("tagline", e.target.value)}
+                      placeholder="A short catchy phrase for your ads (max 150 characters)"
+                      maxLength={150}
+                    />
+                    <p className="text-xs text-gray-500">
+                      This tagline will appear in your homepage ad placements. You can upload a banner image from your dashboard after registration.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Contact Info */}
@@ -846,6 +867,7 @@ export default function NewBusinessPage() {
                     setSelectedPlan(null);
                     setFormData({
                       name: "",
+                      tagline: "",
                       categoryId: "",
                       description: "",
                       contactName: "",

@@ -128,9 +128,11 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   showMap: boolean("show_map").default(false),
   showLogo: boolean("show_logo").default(false),
   showSocialLinks: boolean("show_social_links").default(false),
-  showKosherBadge: boolean("show_kosher_badge").default(false),
   isFeatured: boolean("is_featured").default(false),
   priorityInSearch: boolean("priority_in_search").default(false),
+  // Homepage ad placements
+  showInHomepageBanner: boolean("show_in_homepage_banner").default(false),
+  showInHomepageSidebar: boolean("show_in_homepage_sidebar").default(false),
   // PayPal integration - Live
   paypalPlanIdMonthly: varchar("paypal_plan_id_monthly", { length: 100 }),
   paypalPlanIdYearly: varchar("paypal_plan_id_yearly", { length: 100 }),
@@ -160,6 +162,8 @@ export const businesses = pgTable("businesses", {
   email: varchar("email", { length: 255 }),
   website: varchar("website", { length: 255 }),
   logoUrl: varchar("logo_url", { length: 500 }),
+  bannerImageUrl: varchar("banner_image_url", { length: 500 }), // Wide banner for homepage ads
+  tagline: varchar("tagline", { length: 150 }), // Short tagline for homepage ads
   hours: jsonb("hours"), // {monday: {open: "9:00", close: "17:00"}, ...}
   socialLinks: jsonb("social_links"),
   isKosher: boolean("is_kosher").default(false),

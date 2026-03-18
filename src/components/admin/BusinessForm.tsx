@@ -27,8 +27,10 @@ import {
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
+  tagline: z.string().max(150).optional(),
   categoryId: z.string().optional(),
   description: z.string().optional(),
+  bannerImageUrl: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().optional(),
   website: z.string().optional(),
@@ -79,8 +81,10 @@ interface BusinessFormProps {
   initialData?: {
     id?: number;
     name: string;
+    tagline: string | null;
     categoryId: number | null;
     description: string | null;
+    bannerImageUrl: string | null;
     phone: string | null;
     email: string | null;
     website: string | null;
@@ -94,8 +98,10 @@ interface BusinessFormProps {
   };
   onSubmit: (data: {
     name: string;
+    tagline: string | null;
     categoryId: number | null;
     description: string | null;
+    bannerImageUrl: string | null;
     phone: string | null;
     email: string | null;
     website: string | null;
@@ -139,8 +145,10 @@ export function BusinessForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: initialData?.name || "",
+      tagline: initialData?.tagline || "",
       categoryId: initialData?.categoryId?.toString() || "",
       description: initialData?.description || "",
+      bannerImageUrl: initialData?.bannerImageUrl || "",
       phone: initialData?.phone || "",
       email: initialData?.email || "",
       website: initialData?.website || "",
@@ -203,8 +211,10 @@ export function BusinessForm({
 
     await onSubmit({
       name: data.name,
+      tagline: data.tagline || null,
       categoryId: data.categoryId ? parseInt(data.categoryId) : null,
       description: data.description || null,
+      bannerImageUrl: data.bannerImageUrl || null,
       phone: data.phone || null,
       email: data.email || null,
       website: data.website || null,
@@ -275,6 +285,39 @@ export function BusinessForm({
             placeholder="Describe the business"
             rows={3}
           />
+        </div>
+      </div>
+
+      {/* Homepage Ads Section */}
+      <div className="border-t pt-4">
+        <h4 className="font-medium mb-3">Homepage Advertising</h4>
+        <p className="text-sm text-gray-500 mb-4">
+          These fields are used for homepage banner and sidebar ads. Only businesses with eligible subscription plans will appear in ads.
+        </p>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="tagline">Tagline</Label>
+            <Input
+              id="tagline"
+              {...register("tagline")}
+              placeholder="A short catchy phrase for your ads (max 150 characters)"
+              maxLength={150}
+            />
+            <p className="text-xs text-gray-500">
+              This tagline will appear in homepage ad placements
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="bannerImageUrl">Banner Image URL</Label>
+            <Input
+              id="bannerImageUrl"
+              {...register("bannerImageUrl")}
+              placeholder="https://example.com/banner.jpg"
+            />
+            <p className="text-xs text-gray-500">
+              Wide rectangular image (recommended: 1200x400px). Businesses without a banner image will not appear in homepage ads.
+            </p>
+          </div>
         </div>
       </div>
 

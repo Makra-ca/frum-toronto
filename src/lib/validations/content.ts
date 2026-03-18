@@ -76,6 +76,7 @@ const businessHoursEntrySchema = z.object({
 
 export const businessSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
+  tagline: z.string().max(150).optional().nullable(),
   categoryId: z.number().int().positive().optional().nullable(),
   description: z.string().max(5000).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
@@ -84,6 +85,7 @@ export const businessSchema = z.object({
   phone: z.string().max(40).optional().nullable(),
   email: z.string().email().max(255).optional().nullable().or(z.literal("")),
   website: z.string().max(255).optional().nullable(),
+  bannerImageUrl: z.string().max(500).optional().nullable(),
   isKosher: z.boolean().default(false),
   kosherCertification: z.string().max(100).optional().nullable(),
   hours: z.object({

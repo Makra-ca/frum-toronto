@@ -1208,3 +1208,77 @@ ADD COLUMN IF NOT EXISTS community_alerts BOOLEAN DEFAULT false;
 | `src/app/api/community/kosher-alerts/route.ts` | Public submission API |
 | `src/components/kosher-alerts/KosherAlertSubmitModal.tsx` | User submission modal |
 | `src/components/admin/NewsletterForm.tsx` | Fixed Select component |
+
+---
+
+### 2026-03-11 - Homepage Business Advertising System
+
+**Summary:** Implemented tiered homepage advertising for businesses with banner and sidebar ad placements.
+
+#### Subscription Tier Updates
+
+Added 4th tier (Elite) and updated features:
+
+| Tier | Price | Sidebar | Banner | Photos | Categories |
+|------|-------|---------|--------|--------|------------|
+| Free | $0 | No | No | 0 | 1 |
+| Standard | $27/mo | Yes | No | 5 | 3 |
+| Premium | $65/mo | No | Yes | 15 | 5 |
+| Elite | $120/mo | Yes | Yes | Unlimited | Unlimited |
+
+#### Database Changes
+
+```sql
+-- New columns in subscription_plans
+ALTER TABLE subscription_plans ADD COLUMN show_in_homepage_banner BOOLEAN DEFAULT false;
+ALTER TABLE subscription_plans ADD COLUMN show_in_homepage_sidebar BOOLEAN DEFAULT false;
+
+-- New columns in businesses
+ALTER TABLE businesses ADD COLUMN banner_image_url VARCHAR(500);
+ALTER TABLE businesses ADD COLUMN tagline VARCHAR(150);
+```
+
+#### Key Components Created
+
+| Component | Purpose |
+|-----------|---------|
+| `src/components/homepage/HomepageBanner.tsx` | Carousel banner ad after hero (3 random businesses) |
+| `src/components/homepage/HomepageSidebarAds.tsx` | Sidebar ads on desktop, horizontal scroll on mobile |
+| `src/app/api/featured-businesses/route.ts` | API for fetching random eligible businesses |
+
+#### Homepage Layout Changes
+
+- **Banner**: Full-width carousel after hero section, shows 3 random businesses with banner images
+- **Desktop**: 3-column layout with sidebar ads on left/right sides
+- **Mobile**: Horizontal scrollable ads below explore section, widgets at bottom
+
+#### Business Selection Logic
+
+Businesses appear in ads only if:
+1. `approvalStatus = "approved"`
+2. `isActive = true`
+3. Subscription plan has appropriate placement enabled
+4. `bannerImageUrl` is not null (required for visibility)
+
+#### Files Modified/Created
+
+- `src/lib/db/schema.ts` - Added new columns
+- `src/app/(admin)/admin/subscription-plans/page.tsx` - Updated UI for new features
+- `src/app/api/admin/subscription-plans/route.ts` - Updated create schema
+- `src/app/api/admin/subscription-plans/[id]/route.ts` - Updated update schema
+- `src/app/page.tsx` - Updated homepage layout with ad components
+- `src/components/admin/BusinessForm.tsx` - Added tagline and banner image fields
+- `src/lib/validations/content.ts` - Added tagline and bannerImageUrl to businessSchema
+- `src/app/api/businesses/create/route.ts` - Added tagline field
+- `src/app/api/admin/businesses/[id]/route.ts` - Added tagline and bannerImageUrl to update
+
+#### Preloader Fix
+
+Fixed issue where page would wait 3.2s even when preloader was already shown in session:
+- `src/components/layout/PageWrapper.tsx` - Checks sessionStorage before applying delayed animation
+- `src/app/globals.css` - Added `.animate-page-fade-in-immediate` class for quick fade-in
+
+#### Future Tasks
+
+- Analytics for homepage ad impressions/clicks (per plan tier)
+- File upload for banner images (currently URL-based)

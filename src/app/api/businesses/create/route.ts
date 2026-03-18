@@ -7,6 +7,7 @@ import { z } from "zod";
 
 const createBusinessSchema = z.object({
   name: z.string().min(1, "Business name is required").max(200),
+  tagline: z.string().max(150).nullable().optional(),
   categoryId: z.number().nullable().optional(),
   additionalCategoryIds: z.array(z.number()).optional(),
   description: z.string().max(5000).nullable().optional(),
@@ -151,6 +152,7 @@ export async function POST(request: NextRequest) {
       .values({
         name: data.name,
         slug,
+        tagline: data.tagline || null,
         categoryId: data.categoryId || null,
         additionalCategoryIds: data.additionalCategoryIds || null,
         description: data.description || null,
