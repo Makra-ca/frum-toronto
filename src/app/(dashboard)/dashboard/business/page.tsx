@@ -232,16 +232,21 @@ export default function MyBusinessesPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Link href={`/directory/business/${business.slug}`} className="flex-1">
-                      <Button variant="outline" className="w-full">
-                        View Listing
-                        <ExternalLink className="h-4 w-4 ml-2" />
+                  <div className="flex gap-2 flex-wrap">
+                    <Link href={`/dashboard/business/${business.id}`} className="flex-1 min-w-[100px]">
+                      <Button variant="default" className="w-full" size="sm">
+                        Manage
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </Link>
+                    <Link href={`/directory/business/${business.slug}`}>
+                      <Button variant="outline" size="sm" title="View public listing">
+                        <ExternalLink className="h-4 w-4" />
                       </Button>
                     </Link>
                     {(!business.planSlug || business.planSlug === "free") && (
                       <Link href="/dashboard/business/new">
-                        <Button variant="default" size="icon" title="Upgrade Plan">
+                        <Button variant="outline" size="sm" title="Upgrade Plan">
                           <ArrowUpRight className="h-4 w-4" />
                         </Button>
                       </Link>

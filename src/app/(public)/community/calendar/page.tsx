@@ -295,6 +295,14 @@ export default function EventsPage() {
                 className="max-w-xl"
               />
             </div>
+            <div className="mt-4">
+              <Link
+                href="/community/calendar/new"
+                className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white text-sm font-medium px-4 py-2 rounded-full border border-white/30 transition-colors"
+              >
+                + Submit an Event
+              </Link>
+            </div>
           </div>
         </div>
       </div>

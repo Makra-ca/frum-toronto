@@ -119,6 +119,10 @@ export default function NewClassifiedPage() {
       toast.error("Description must be at least 10 characters");
       return;
     }
+    if (form.description.trim().length > 2000) {
+      toast.error("Description must be 2,000 characters or less");
+      return;
+    }
     if (!form.categoryId) {
       toast.error("Please select a category");
       return;
@@ -250,15 +254,27 @@ export default function NewClassifiedPage() {
                 <Textarea
                   id="description"
                   value={form.description}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.length <= 2000) {
+                      setForm((prev) => ({ ...prev, description: val }));
+                    }
+                  }}
                   placeholder="Describe what you're selling, condition, etc."
                   rows={5}
+                  maxLength={2000}
                 />
+                <p
+                  className={`text-xs mt-1 text-right ${
+                    form.description.length >= 2000
+                      ? "text-red-600"
+                      : form.description.length >= 1900
+                      ? "text-amber-600"
+                      : "text-gray-400"
+                  }`}
+                >
+                  {form.description.length.toLocaleString()} / 2,000
+                </p>
               </div>
 
               {/* Price + Price Type */}

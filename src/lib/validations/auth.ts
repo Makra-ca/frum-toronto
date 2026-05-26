@@ -19,15 +19,19 @@ export const registerSchema = z
     lastName: z.string().min(1, "Last name is required"),
     // Notification preferences
     notifications: z.object({
-      newsletter: z.boolean(),
-      simchas: z.boolean(),
-      shiva: z.boolean(),
-      kosherAlerts: z.boolean(),
-      tehillim: z.boolean(),
-      communityEvents: z.boolean(),
-      communityAlerts: z.boolean(),
-      eruvStatus: z.boolean(),
-    }),
+      newsletter: z.boolean().default(true),
+      simchas: z.boolean().default(true),
+      shiva: z.boolean().default(true),
+      kosherAlerts: z.boolean().default(true),
+      tehillim: z.boolean().default(true),
+      communityEvents: z.boolean().default(true),
+      communityAlerts: z.boolean().default(true),
+      eruvStatus: z.boolean().default(false),
+      askTheRabbiAnswered: z.boolean().default(true),
+      atrCommentReplies: z.boolean().default(true),
+      blogCommentNotifications: z.boolean().default(true),
+      businessDeals: z.boolean().default(false),
+    }).default({}),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",

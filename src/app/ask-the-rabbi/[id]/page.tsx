@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ChevronLeft, ChevronRight, MessageSquare, User } from "lucide-react";
+import { CommentThread } from "@/components/shared/CommentThread";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -185,6 +186,16 @@ export default async function QuestionDetailPage({ params }: PageProps) {
               )}
             </div>
           </div>
+
+          {/* Community Discussion */}
+          {question.isPublished && (
+            <section className="mt-10 pt-8 border-t border-gray-200">
+              <CommentThread
+                apiBase={`/api/ask-the-rabbi/${question.id}/comments`}
+                label="Community Discussion"
+              />
+            </section>
+          )}
         </div>
       </div>
     </div>

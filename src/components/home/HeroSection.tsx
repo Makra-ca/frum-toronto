@@ -9,7 +9,7 @@ import {
   Calendar,
   Tag,
   BookOpen,
-  Users,
+  MessageCircle,
   Clock,
   Heart,
   ChevronDown,
@@ -24,7 +24,7 @@ const communityNodes = [
   { id: "events", label: "Events", description: "Community calendar", icon: Calendar, href: "/community/calendar", color: "from-purple-500 to-purple-600" },
   { id: "classifieds", label: "Classifieds", description: "Buy, sell & trade", icon: Tag, href: "/classifieds", color: "from-cyan-500 to-cyan-600" },
   { id: "shiurim", label: "Shiurim", description: "Torah classes", icon: BookOpen, href: "/shiurim", color: "from-emerald-500 to-emerald-600" },
-  { id: "community", label: "Community", description: "Simchas & alerts", icon: Users, href: "/community", color: "from-pink-500 to-pink-600" },
+  { id: "ask-the-rabbi", label: "Ask Rabbi", description: "Torah Q&A", icon: MessageCircle, href: "/ask-the-rabbi", color: "from-pink-500 to-pink-600" },
   { id: "zmanim", label: "Zmanim", description: "Daily times", icon: Clock, href: "/zmanim", color: "from-amber-500 to-amber-600" },
   { id: "simchas", label: "Simchas", description: "Celebrate together", icon: Heart, href: "/simchas", color: "from-rose-500 to-rose-600" },
 ];

@@ -12,6 +12,7 @@ interface FeaturedBusiness {
   tagline: string | null;
   bannerImageUrl: string | null;
   logoUrl: string | null;
+  website: string | null;
 }
 
 interface HomepageSidebarAdsProps {
@@ -87,10 +88,18 @@ export function HomepageSidebarAds({ position }: HomepageSidebarAdsProps) {
     >
       {/* Vertical carousel container */}
       <div className="relative h-72 rounded-lg overflow-hidden shadow-lg bg-white">
-        {businesses.map((business, index) => (
+        {businesses.map((business, index) => {
+          const externalUrl = business.website
+            ? business.website.startsWith("http")
+              ? business.website
+              : `https://${business.website}`
+            : null;
+          return (
           <Link
             key={business.id}
-            href={`/directory/business/${business.slug}`}
+            href={externalUrl || `/directory/business/${business.slug}`}
+            target={externalUrl ? "_blank" : undefined}
+            rel={externalUrl ? "noopener noreferrer" : undefined}
             className={`absolute inset-0 transition-all duration-500 ease-in-out ${
               index === currentIndex
                 ? "opacity-100 translate-y-0"
@@ -141,11 +150,12 @@ export function HomepageSidebarAds({ position }: HomepageSidebarAdsProps) {
               )}
 
               <span className="inline-block mt-2 text-xs font-medium text-blue-600 hover:text-blue-700">
-                View Listing →
+                {externalUrl ? "Visit Website →" : "View Listing →"}
               </span>
             </div>
           </Link>
-        ))}
+          );
+        })}
 
         {/* Navigation arrows (only show if more than 1 business) */}
         {businesses.length > 1 && (
@@ -229,10 +239,18 @@ export function HomepageSidebarAdsMobile() {
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Featured Businesses</h3>
 
         <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory scrollbar-hide">
-          {businesses.map((business) => (
+          {businesses.map((business) => {
+            const externalUrl = business.website
+              ? business.website.startsWith("http")
+                ? business.website
+                : `https://${business.website}`
+              : null;
+            return (
             <Link
               key={business.id}
-              href={`/directory/business/${business.slug}`}
+              href={externalUrl || `/directory/business/${business.slug}`}
+              target={externalUrl ? "_blank" : undefined}
+              rel={externalUrl ? "noopener noreferrer" : undefined}
               className="flex-shrink-0 w-64 snap-start"
             >
               <div className="rounded-lg overflow-hidden shadow-md bg-white h-full">
@@ -276,7 +294,8 @@ export function HomepageSidebarAdsMobile() {
                 </div>
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-2">Sponsored</p>

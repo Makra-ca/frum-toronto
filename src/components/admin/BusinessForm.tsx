@@ -40,6 +40,7 @@ const formSchema = z.object({
   isKosher: z.boolean(),
   kosherCertification: z.string().optional(),
   isFeatured: z.boolean(),
+  diningType: z.enum(["meat", "dairy", "pareve", "unknown"]).optional(),
   // Hours
   sundayOpen: z.string().optional(),
   sundayClose: z.string().optional(),
@@ -64,6 +65,7 @@ interface Category {
   name: string;
   slug: string;
   parentId: number | null;
+  isRestaurant: boolean;
   children?: Category[];
 }
 
@@ -95,6 +97,7 @@ interface BusinessFormProps {
     kosherCertification: string | null;
     isFeatured: boolean | null;
     hours: BusinessHours | null;
+    diningType?: string | null;
   };
   onSubmit: (data: {
     name: string;
@@ -112,6 +115,7 @@ interface BusinessFormProps {
     kosherCertification: string | null;
     isFeatured: boolean;
     hours: BusinessHours | null;
+    diningType: string | null;
   }) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
@@ -134,6 +138,7 @@ export function BusinessForm({
   isLoading = false,
 }: BusinessFormProps) {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [isRestaurantCategory, setIsRestaurantCategory] = useState(false);
 
   const {
     register,
@@ -158,6 +163,7 @@ export function BusinessForm({
       isKosher: initialData?.isKosher ?? false,
       kosherCertification: initialData?.kosherCertification || "",
       isFeatured: initialData?.isFeatured ?? false,
+      diningType: (initialData?.diningType as "meat" | "dairy" | "pareve" | "unknown" | undefined) ?? undefined,
       // Hours
       sundayOpen: initialData?.hours?.sunday?.open || "",
       sundayClose: initialData?.hours?.sunday?.close || "",
@@ -178,6 +184,7 @@ export function BusinessForm({
 
   const isKosher = watch("isKosher");
   const selectedCategoryId = watch("categoryId");
+  const selectedDiningType = watch("diningType");
 
   useEffect(() => {
     async function fetchCategories() {
@@ -193,6 +200,30 @@ export function BusinessForm({
     }
     fetchCategories();
   }, []);
+
+  // Detect if selected category is a restaurant category
+  useEffect(() => {
+    if (!selectedCategoryId || selectedCategoryId === "none") {
+      setIsRestaurantCategory(false);
+      return;
+    }
+    const catId = parseInt(selectedCategoryId);
+    // Check all categories (parents and children)
+    let found = false;
+    for (const parent of categories) {
+      if (parent.id === catId && parent.isRestaurant) { found = true; break; }
+      if (parent.children) {
+        for (const child of parent.children) {
+          if (child.id === catId && child.isRestaurant) { found = true; break; }
+        }
+      }
+      if (found) break;
+    }
+    setIsRestaurantCategory(found);
+    if (!found) {
+      setValue("diningType", undefined);
+    }
+  }, [selectedCategoryId, categories, setValue]);
 
   async function handleFormSubmit(data: FormData) {
     // Build hours object
@@ -225,6 +256,7 @@ export function BusinessForm({
       kosherCertification: data.isKosher ? (data.kosherCertification || null) : null,
       isFeatured: data.isFeatured,
       hours: Object.keys(hours).length > 0 ? hours : null,
+      diningType: isRestaurantCategory ? (data.diningType || null) : null,
     });
   }
 
@@ -406,6 +438,33 @@ export function BusinessForm({
           )}
         </div>
       </div>
+
+      {/* Dining Type - only shown for restaurant categories */}
+      {isRestaurantCategory && (
+        <div className="border-t pt-4">
+          <h4 className="font-medium mb-3">Dining Type</h4>
+          <Select
+            value={selectedDiningType || "none"}
+            onValueChange={(value) =>
+              setValue("diningType", value === "none" ? undefined : (value as "meat" | "dairy" | "pareve" | "unknown"))
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select dining type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Not specified</SelectItem>
+              <SelectItem value="meat">Meat</SelectItem>
+              <SelectItem value="dairy">Dairy</SelectItem>
+              <SelectItem value="pareve">Pareve</SelectItem>
+              <SelectItem value="unknown">Unknown / Not applicable</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-sm text-gray-500 mt-1">
+            Displayed as a badge on the business listing
+          </p>
+        </div>
+      )}
 
       {/* Featured */}
       <div className="border-t pt-4">

@@ -51,6 +51,7 @@ export interface Business {
   parentCategoryId: number | null;
   ownerEmail: string | null;
   ownerName: string | null;
+  diningType?: string | null;
 }
 
 interface BusinessTableProps {

@@ -43,6 +43,7 @@ import {
   DollarSign,
   Eye,
   Star,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -70,6 +71,15 @@ interface ClassifiedEntry {
 interface ClassifiedCategory {
   id: number;
   name: string;
+}
+
+interface ContactLog {
+  id: number;
+  senderName: string;
+  senderEmail: string;
+  message: string;
+  ipAddress: string | null;
+  sentAt: string;
 }
 
 interface Pagination {
@@ -111,6 +121,8 @@ export default function ClassifiedsManagementPage() {
     isActive: true,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [contactLogs, setContactLogs] = useState<ContactLog[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
   // Delete dialog
   const [deleteEntry, setDeleteEntry] = useState<ClassifiedEntry | null>(null);
@@ -186,6 +198,15 @@ export default function ClassifiedsManagementPage() {
       isSpecial: entry.isSpecial || false,
       isActive: entry.isActive,
     });
+
+    // Fetch contact logs
+    setContactLogs([]);
+    setIsLoadingLogs(true);
+    fetch(`/api/admin/classifieds/${entry.id}/contact-log`)
+      .then((res) => res.ok ? res.json() : [])
+      .then((data) => setContactLogs(Array.isArray(data) ? data : []))
+      .catch(() => setContactLogs([]))
+      .finally(() => setIsLoadingLogs(false));
   };
 
   const handleSave = async () => {
@@ -473,7 +494,19 @@ export default function ClassifiedsManagementPage() {
                 value={editForm.description}
                 onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                 rows={4}
+                maxLength={2000}
               />
+              <p
+                className={`text-xs text-right ${
+                  editForm.description.length >= 2000
+                    ? "text-red-600"
+                    : editForm.description.length >= 1900
+                    ? "text-amber-600"
+                    : "text-gray-400"
+                }`}
+              >
+                {editForm.description.length.toLocaleString()} / 2,000
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -579,6 +612,40 @@ export default function ClassifiedsManagementPage() {
                 />
                 <Label htmlFor="isActive" className="cursor-pointer">Active</Label>
               </div>
+            </div>
+
+            {/* Contact Log */}
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Contact Log
+                {contactLogs.length > 0 && (
+                  <Badge variant="secondary">{contactLogs.length}</Badge>
+                )}
+              </h3>
+              {isLoadingLogs ? (
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Loading...
+                </div>
+              ) : contactLogs.length === 0 ? (
+                <p className="text-sm text-gray-400">No contact attempts yet.</p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {contactLogs.map((log) => (
+                    <div key={log.id} className="bg-gray-50 rounded p-3 text-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium">{log.senderName}</span>
+                        <span className="text-xs text-gray-400">
+                          {new Date(log.sentAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="text-gray-500 text-xs mb-1">{log.senderEmail}</p>
+                      <p className="text-gray-700 line-clamp-2">{log.message}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

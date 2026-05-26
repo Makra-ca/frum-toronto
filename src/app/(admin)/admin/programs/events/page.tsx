@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { EventForm } from "@/components/admin/EventForm";
+import { EventForm, type EventFormSubmitData } from "@/components/admin/EventForm";
 import { EventTable } from "@/components/admin/EventTable";
 import { Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
@@ -86,21 +86,7 @@ export default function AdminEventsPage() {
     fetchEvents();
   }, [fetchEvents]);
 
-  async function handleSubmit(data: {
-    title: string;
-    description: string | null;
-    location: string | null;
-    startTime: string;
-    endTime: string | null;
-    isAllDay: boolean;
-    eventType: string | null;
-    shulId: number | null;
-    contactName: string | null;
-    contactEmail: string | null;
-    contactPhone: string | null;
-    cost: string | null;
-    imageUrl: string | null;
-  }) {
+  async function handleSubmit(data: EventFormSubmitData) {
     setIsSubmitting(true);
     try {
       const url = editingEvent

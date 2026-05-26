@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { businesses, businessCategories, subscriptionPlans } from "@/lib/db/schema";
+import { PageViewTracker } from "@/components/analytics/PageViewTracker";
 import { eq, sql } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,7 @@ interface SubscriptionPlanData {
   showKosherBadge: boolean | null;
   isFeatured: boolean | null;
   priorityInSearch: boolean | null;
+  showVideo: boolean | null;
 }
 
 interface BusinessData {
@@ -63,6 +65,12 @@ interface BusinessData {
   contactName: string | null;
   socialLinks: Record<string, string> | null;
   subscriptionPlan: SubscriptionPlanData | null;
+  muxPlaybackId: string | null;
+  videoStatus: string | null;
+  videoApprovalStatus: string | null;
+  diningType: string | null;
+  isNonProfit: boolean | null;
+  nonProfitStatus: string | null;
 }
 
 export async function generateMetadata({ params }: PageProps) {
@@ -104,6 +112,12 @@ async function getBusinessData(slug: string) {
       contactName: businesses.contactName,
       socialLinks: businesses.socialLinks,
       subscriptionPlanId: businesses.subscriptionPlanId,
+      muxPlaybackId: businesses.muxPlaybackId,
+      videoStatus: businesses.videoStatus,
+      videoApprovalStatus: businesses.videoApprovalStatus,
+      diningType: businesses.diningType,
+      isNonProfit: businesses.isNonProfit,
+      nonProfitStatus: businesses.nonProfitStatus,
     })
     .from(businesses)
     .where(eq(businesses.slug, slug))
@@ -132,6 +146,7 @@ async function getBusinessData(slug: string) {
         showKosherBadge: subscriptionPlans.showKosherBadge,
         isFeatured: subscriptionPlans.isFeatured,
         priorityInSearch: subscriptionPlans.priorityInSearch,
+        showVideo: subscriptionPlans.showVideo,
       })
       .from(subscriptionPlans)
       .where(eq(subscriptionPlans.id, rawBusiness.subscriptionPlanId))
@@ -159,6 +174,12 @@ async function getBusinessData(slug: string) {
     contactName: rawBusiness.contactName,
     socialLinks: rawBusiness.socialLinks as Record<string, string> | null,
     subscriptionPlan,
+    muxPlaybackId: rawBusiness.muxPlaybackId,
+    videoStatus: rawBusiness.videoStatus,
+    videoApprovalStatus: rawBusiness.videoApprovalStatus,
+    diningType: rawBusiness.diningType,
+    isNonProfit: rawBusiness.isNonProfit,
+    nonProfitStatus: rawBusiness.nonProfitStatus,
   };
 
   // Get category info
@@ -172,6 +193,7 @@ async function getBusinessData(slug: string) {
         name: businessCategories.name,
         slug: businessCategories.slug,
         parentId: businessCategories.parentId,
+        isRestaurant: businessCategories.isRestaurant,
       })
       .from(businessCategories)
       .where(eq(businessCategories.id, business.categoryId))
@@ -337,6 +359,26 @@ export default async function BusinessPage({ params }: PageProps) {
                   {showKosherBadge && business.isKosher && (
                     <Badge className="bg-green-500 hover:bg-green-600">
                       {business.kosherCertification || "Kosher"}
+                    </Badge>
+                  )}
+                  {/* Dining type badge — only for restaurant categories */}
+                  {category?.isRestaurant && business.diningType && business.diningType !== "unknown" && (
+                    <Badge
+                      className={
+                        business.diningType === "meat"
+                          ? "bg-red-600 hover:bg-red-700"
+                          : business.diningType === "dairy"
+                          ? "bg-blue-500 hover:bg-blue-600"
+                          : "bg-emerald-600 hover:bg-emerald-700"
+                      }
+                    >
+                      {business.diningType === "meat" ? "Meat" : business.diningType === "dairy" ? "Dairy" : "Pareve"}
+                    </Badge>
+                  )}
+                  {/* Non-profit verified badge */}
+                  {business.isNonProfit && business.nonProfitStatus === "verified" && (
+                    <Badge className="bg-purple-600 hover:bg-purple-700">
+                      Verified Non-Profit
                     </Badge>
                   )}
                 </div>
@@ -533,6 +575,26 @@ export default async function BusinessPage({ params }: PageProps) {
               </Card>
             )}
 
+            {/* Video - only shown for Elite plan with approved video */}
+            {plan?.showVideo && business.videoStatus === "ready" && business.videoApprovalStatus === "approved" && business.muxPlaybackId && (
+              <Card className="border-0 shadow-sm overflow-hidden">
+                <CardHeader>
+                  <CardTitle>Watch Our Video</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="aspect-video w-full bg-black">
+                    <iframe
+                      src={`https://player.mux.com/${business.muxPlaybackId}`}
+                      allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-full"
+                      title={`${business.name} video`}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Map - only shown for paid plans */}
             {showMap && fullAddress && (
               <Card className="border-0 shadow-sm overflow-hidden">
@@ -644,6 +706,7 @@ export default async function BusinessPage({ params }: PageProps) {
           </aside>
         </div>
       </div>
+      <PageViewTracker entityType="business" entityId={business.id} />
     </div>
   );
 }

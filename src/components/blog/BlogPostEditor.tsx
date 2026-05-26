@@ -15,7 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, X, Loader2, ImageIcon } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { CoverImageUploader } from "@/components/blog/CoverImageUploader";
 
 interface BlogPostEditorProps {
   initialData?: {
@@ -71,7 +72,6 @@ export function BlogPostEditor({
   const [commentModeration, setCommentModeration] = useState<string | null>(
     initialData?.commentModeration || null
   );
-  const [isUploading, setIsUploading] = useState(false);
   const [isCustomCategory, setIsCustomCategory] = useState(
     !!initialData?.customCategory
   );
@@ -79,42 +79,6 @@ export function BlogPostEditor({
   const handleEditorChange = (html: string, json: unknown) => {
     setContent(html);
     setContentJson(json);
-  };
-
-  const handleCoverImageUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const data = await res.json();
-      setCoverImageUrl(data.url);
-      toast.success("Cover image uploaded");
-    } catch {
-      toast.error("Failed to upload image");
-    } finally {
-      setIsUploading(false);
-      e.target.value = "";
-    }
   };
 
   const handleSubmit = async () => {
@@ -173,49 +137,11 @@ export function BlogPostEditor({
       <Card>
         <CardContent className="p-4">
           <Label className="text-sm font-medium mb-3 block">Cover Image</Label>
-          {coverImageUrl ? (
-            <div className="relative">
-              <img
-                src={coverImageUrl}
-                alt="Cover preview"
-                className="w-full max-h-64 object-cover rounded-lg"
-              />
-              <Button
-                type="button"
-                variant="destructive"
-                size="icon"
-                className="absolute top-2 right-2 h-8 w-8"
-                onClick={() => setCoverImageUrl(null)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors">
-              <div className="flex flex-col items-center gap-2 text-gray-500">
-                {isUploading ? (
-                  <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                ) : (
-                  <>
-                    <ImageIcon className="h-8 w-8" />
-                    <span className="text-sm font-medium">
-                      Click to upload cover image
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      JPG, PNG, WebP
-                    </span>
-                  </>
-                )}
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleCoverImageUpload}
-                className="hidden"
-                disabled={isUploading}
-              />
-            </label>
-          )}
+          <CoverImageUploader
+            value={coverImageUrl}
+            onChange={setCoverImageUrl}
+            disabled={isLoading}
+          />
         </CardContent>
       </Card>
 
@@ -311,7 +237,7 @@ export function BlogPostEditor({
         <Button
           type="button"
           onClick={handleSubmit}
-          disabled={isLoading || isUploading}
+          disabled={isLoading}
         >
           {isLoading ? (
             <>

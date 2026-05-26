@@ -102,6 +102,18 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .offset(offset);
 
+    // Count total pending comments across all posts for the badge indicator
+    const [pendingCommentsResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(blogComments)
+      .where(
+        and(
+          eq(blogComments.approvalStatus, "pending"),
+          eq(blogComments.isActive, true)
+        )
+      );
+    const pendingCommentsCount = Number(pendingCommentsResult?.count || 0);
+
     return NextResponse.json({
       posts,
       pagination: {
@@ -110,6 +122,7 @@ export async function GET(request: NextRequest) {
         totalCount,
         totalPages: Math.ceil(totalCount / limit),
       },
+      pendingCommentsCount,
     });
   } catch (error) {
     console.error("[API] Error fetching blog posts:", error);

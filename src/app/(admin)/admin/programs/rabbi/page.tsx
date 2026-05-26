@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import Link from "next/link";
 
 interface Submission {
   id: number;
@@ -206,6 +207,17 @@ export default function RabbiSubmissionsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Page nav */}
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-gray-500">Manage question submissions</span>
+        <Link href="/admin/programs/rabbi/comments">
+          <Button variant="outline" size="sm" className="gap-2">
+            <MessageSquare className="h-4 w-4" />
+            Moderation Comments
+          </Button>
+        </Link>
+      </div>
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>

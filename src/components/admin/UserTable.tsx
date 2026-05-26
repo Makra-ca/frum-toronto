@@ -44,6 +44,8 @@ interface User {
   canAutoApproveShiurim: boolean | null;
   canAutoApproveAlerts: boolean | null;
   canPostSpecials: boolean | null;
+  canManageAskTheRabbi: boolean | null;
+  commentPermission: string | null;
 }
 
 interface UserTableProps {
@@ -128,10 +130,13 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
     if (!permissionsDialogUser) return;
     setSavingPermissions(true);
 
-    const updates: Record<string, boolean> = {};
+    const updates: Record<string, boolean | string> = {};
     PERMISSION_LABELS.forEach(({ key }) => {
       updates[key] = Boolean(permissionsDialogUser[key]);
     });
+    // Include new permission fields
+    updates.canManageAskTheRabbi = Boolean(permissionsDialogUser.canManageAskTheRabbi);
+    updates.commentPermission = permissionsDialogUser.commentPermission ?? "allowed";
 
     try {
       const response = await fetch(`/api/admin/users/${permissionsDialogUser.id}`, {
@@ -211,6 +216,51 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
                   />
                 </div>
               ))}
+            </div>
+
+            {/* Additional permissions */}
+            <div className="pt-3 border-t space-y-3">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Additional Permissions
+              </p>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="canManageAskTheRabbi" className="text-sm">
+                  Can manage Ask the Rabbi
+                </Label>
+                <Checkbox
+                  id="canManageAskTheRabbi"
+                  checked={Boolean(permissionsDialogUser?.canManageAskTheRabbi)}
+                  onCheckedChange={(checked) =>
+                    setPermissionsDialogUser((prev) =>
+                      prev ? { ...prev, canManageAskTheRabbi: !!checked } : prev
+                    )
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor="commentPermission" className="text-sm flex-1">
+                  Comment permission
+                </Label>
+                <Select
+                  value={permissionsDialogUser?.commentPermission ?? "allowed"}
+                  onValueChange={(value) =>
+                    setPermissionsDialogUser((prev) =>
+                      prev ? { ...prev, commentPermission: value } : prev
+                    )
+                  }
+                >
+                  <SelectTrigger className="w-44 h-8 text-sm" id="commentPermission">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="allowed">Allowed</SelectItem>
+                    <SelectItem value="requires_approval">Requires Approval</SelectItem>
+                    <SelectItem value="blocked">Blocked</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 

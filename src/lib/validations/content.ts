@@ -125,6 +125,7 @@ export const businessSchema = z.object({
     saturday: businessHoursEntrySchema.optional(),
   }).optional().nullable(),
   isFeatured: z.boolean().default(false),
+  diningType: z.enum(["meat", "dairy", "pareve", "unknown"]).optional().nullable(),
 });
 
 export type BusinessFormData = z.infer<typeof businessSchema>;

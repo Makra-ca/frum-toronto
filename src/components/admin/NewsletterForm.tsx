@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -25,7 +26,7 @@ import {
 import { NewsletterEditor } from "@/components/newsletter";
 import { newsletterSchema, type NewsletterFormData } from "@/lib/validations/newsletter";
 import { toast } from "sonner";
-import { Save, Send, Clock, ArrowLeft } from "lucide-react";
+import { Save, Send, Clock, ArrowLeft, FlaskConical } from "lucide-react";
 import type { Newsletter, NewsletterSegment } from "@/types/newsletter";
 import Link from "next/link";
 
@@ -40,6 +41,7 @@ interface SegmentWithCount extends NewsletterSegment {
 
 export function NewsletterForm({ newsletter, isNew = false }: NewsletterFormProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [segments, setSegments] = useState<SegmentWithCount[]>([]);
@@ -48,6 +50,12 @@ export function NewsletterForm({ newsletter, isNew = false }: NewsletterFormProp
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
+
+  // Test send state
+  const [showTestSendDialog, setShowTestSendDialog] = useState(false);
+  const [testEmail, setTestEmail] = useState("");
+  const [isSendingTest, setIsSendingTest] = useState(false);
+  const testEmailInitialized = useRef(false);
 
   const {
     register,
@@ -73,6 +81,14 @@ export function NewsletterForm({ newsletter, isNew = false }: NewsletterFormProp
   useEffect(() => {
     fetchSegments();
   }, []);
+
+  // Pre-fill test email with session user's email (once on mount)
+  useEffect(() => {
+    if (session?.user?.email && !testEmailInitialized.current) {
+      setTestEmail(session.user.email);
+      testEmailInitialized.current = true;
+    }
+  }, [session]);
 
   const fetchSegments = async () => {
     try {
@@ -198,6 +214,57 @@ export function NewsletterForm({ newsletter, isNew = false }: NewsletterFormProp
     }
   };
 
+  const handleTestSend = async () => {
+    if (!newsletter?.id || !testEmail) return;
+
+    if (!testEmail.includes("@")) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    setIsSendingTest(true);
+    try {
+      // Step 1: Generate / refresh preview
+      const previewRes = await fetch(
+        `/api/admin/newsletters/${newsletter.id}/preview`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        }
+      );
+
+      if (!previewRes.ok) {
+        const previewError = await previewRes.json();
+        throw new Error(previewError.error || "Failed to generate preview");
+      }
+
+      // Step 2: Send test email
+      const testRes = await fetch(
+        `/api/admin/newsletters/${newsletter.id}/test-send`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: testEmail }),
+        }
+      );
+
+      if (!testRes.ok) {
+        const testError = await testRes.json();
+        throw new Error(testError.error || "Failed to send test email");
+      }
+
+      toast.success(`Test email sent to ${testEmail}`);
+      setShowTestSendDialog(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to send test email"
+      );
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
+
   const selectedSegment = segments.find((s) => s.id.toString() === selectedSegmentId);
 
   return (
@@ -226,6 +293,17 @@ export function NewsletterForm({ newsletter, isNew = false }: NewsletterFormProp
             <Save className="h-4 w-4 mr-2" />
             {isLoading ? "Saving..." : "Save Draft"}
           </Button>
+          {!isNew && (
+            <Button
+              variant="outline"
+              onClick={() => setShowTestSendDialog(true)}
+              disabled={!content}
+              title="Send a test email to preview how it looks"
+            >
+              <FlaskConical className="h-4 w-4 mr-2" />
+              Send Test
+            </Button>
+          )}
           {!isNew && newsletter?.status === "draft" && (
             <>
               <Button
@@ -346,6 +424,51 @@ export function NewsletterForm({ newsletter, isNew = false }: NewsletterFormProp
             </Button>
             <Button onClick={handleSend} disabled={isSending}>
               {isSending ? "Sending..." : "Send Now"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Test Send Dialog */}
+      <Dialog open={showTestSendDialog} onOpenChange={setShowTestSendDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Test Email</DialogTitle>
+            <DialogDescription>
+              A preview of this newsletter will be generated and sent to the address below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="testEmail">Send to</Label>
+              <Input
+                id="testEmail"
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="email@example.com"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleTestSend();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowTestSendDialog(false)}
+              disabled={isSendingTest}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleTestSend}
+              disabled={isSendingTest || !testEmail}
+            >
+              {isSendingTest ? "Sending..." : "Send Test"}
             </Button>
           </DialogFooter>
         </DialogContent>

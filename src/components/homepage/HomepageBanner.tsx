@@ -12,10 +12,12 @@ interface FeaturedBusiness {
   tagline: string | null;
   bannerImageUrl: string | null;
   logoUrl: string | null;
+  website: string | null;
 }
 
 export function HomepageBanner() {
   const [businesses, setBusinesses] = useState<FeaturedBusiness[]>([]);
+  const [bloggerId, setBloggerId] = useState<number | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
@@ -23,9 +25,10 @@ export function HomepageBanner() {
   useEffect(() => {
     const fetchBusinesses = async () => {
       try {
-        const res = await fetch("/api/featured-businesses?placement=banner&limit=3");
+        const res = await fetch("/api/featured-businesses?placement=banner&limit=3&include=bloggers");
         const data = await res.json();
         setBusinesses(data.businesses || []);
+        setBloggerId(data.blogger?.id ?? null);
       } catch (error) {
         console.error("Error fetching banner businesses:", error);
       } finally {
@@ -88,10 +91,18 @@ export function HomepageBanner() {
         >
           {/* Carousel container */}
           <div className="relative h-32 md:h-40 lg:h-48 rounded-lg overflow-hidden">
-            {businesses.map((business, index) => (
+            {businesses.map((business, index) => {
+              const externalUrl = business.website
+                ? business.website.startsWith("http")
+                  ? business.website
+                  : `https://${business.website}`
+                : null;
+              return (
               <Link
                 key={business.id}
-                href={`/directory/business/${business.slug}`}
+                href={externalUrl || `/directory/business/${business.slug}`}
+                target={externalUrl ? "_blank" : undefined}
+                rel={externalUrl ? "noopener noreferrer" : undefined}
                 className={`absolute inset-0 transition-all duration-500 ease-in-out ${
                   index === currentIndex
                     ? "opacity-100 translate-x-0"
@@ -132,6 +143,12 @@ export function HomepageBanner() {
                         </div>
                       )}
 
+                      {bloggerId === business.id && (
+                        <span className="inline-block mb-2 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/90 text-white">
+                          Featured Blogger
+                        </span>
+                      )}
+
                       <h3 className="text-xl md:text-2xl lg:text-3xl font-bold text-white mb-1">
                         {business.name}
                       </h3>
@@ -143,13 +160,14 @@ export function HomepageBanner() {
                       )}
 
                       <span className="inline-block mt-3 text-sm font-medium text-blue-300 hover:text-blue-200 transition-colors">
-                        Visit Listing →
+                        {externalUrl ? "Visit Website →" : "View Listing →"}
                       </span>
                     </div>
                   </div>
                 </div>
               </Link>
-            ))}
+              );
+            })}
           </div>
 
           {/* Navigation arrows (only show if more than 1 business) */}

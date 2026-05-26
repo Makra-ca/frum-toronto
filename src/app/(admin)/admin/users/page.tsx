@@ -32,6 +32,8 @@ export default async function AdminUsersPage() {
       canAutoApproveShiurim: users.canAutoApproveShiurim,
       canAutoApproveAlerts: users.canAutoApproveAlerts,
       canPostSpecials: users.canPostSpecials,
+      canManageAskTheRabbi: users.canManageAskTheRabbi,
+      commentPermission: users.commentPermission,
     })
     .from(users)
     .orderBy(desc(users.createdAt));

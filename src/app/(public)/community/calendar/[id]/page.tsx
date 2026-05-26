@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { events, shuls } from "@/lib/db/schema";
+import { PageViewTracker } from "@/components/analytics/PageViewTracker";
 import { eq } from "drizzle-orm";
 import {
   Calendar,
@@ -341,6 +342,7 @@ export default async function EventDetailPage({ params }: PageProps) {
           </div>
         </div>
       </div>
+      <PageViewTracker entityType="event" entityId={event.id} />
     </div>
   );
 }

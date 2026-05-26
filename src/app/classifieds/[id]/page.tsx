@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ShoppingBag, ChevronRight, Clock, Tag, MapPin, DollarSign } from "lucide-react";
+import { ContactSellerModal } from "@/components/classifieds/ContactSellerModal";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -212,6 +213,15 @@ export default async function ClassifiedDetailPage({ params }: PageProps) {
                     </p>
                   )}
                 </div>
+                {classified.hasContactEmail && (
+                  <div className="mt-4">
+                    <ContactSellerModal
+                      classifiedId={classified.id}
+                      classifiedTitle={classified.title}
+                      hasContactEmail={classified.hasContactEmail}
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

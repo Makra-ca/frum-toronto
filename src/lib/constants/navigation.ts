@@ -44,7 +44,7 @@ export const mainNavigation: NavItem[] = [
     ],
   },
   {
-    label: "Shuls & Tefillos",
+    label: "Shuls",
     href: "/shuls",
     children: [
       { label: "Shul Directory", href: "/shuls" },

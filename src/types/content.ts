@@ -16,6 +16,9 @@ export interface CalendarEvent {
   contactPhone: string | null;
   cost: string | null;
   imageUrl: string | null;
+  flyerUrl: string | null;
+  websiteUrl: string | null;
+  organization: string | null;
   approvalStatus: string | null;
   isActive: boolean | null;
 }

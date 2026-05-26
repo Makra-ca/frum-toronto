@@ -17,43 +17,88 @@ interface Preferences {
   shiva: boolean;
   tehillim: boolean;
   communityEvents: boolean;
+  communityAlerts: boolean;
+  askTheRabbiAnswered: boolean;
+  atrCommentReplies: boolean;
+  blogCommentNotifications: boolean;
+  businessDeals: boolean;
 }
 
-const SUBSCRIPTION_OPTIONS = [
+const SUBSCRIPTION_GROUPS = [
   {
-    key: "newsletter",
-    label: "Weekly Newsletter",
-    description: "Community news, events, and announcements",
+    label: "Community Updates",
+    options: [
+      {
+        key: "newsletter",
+        label: "Weekly Newsletter",
+        description: "Community news, events, and announcements",
+      },
+      {
+        key: "kosherAlerts",
+        label: "Kosher Alerts",
+        description: "Important kosher-related notices and updates",
+      },
+      {
+        key: "eruvStatus",
+        label: "Eruv Status",
+        description: "Weekly eruv status notifications",
+      },
+      {
+        key: "simchas",
+        label: "Simchas",
+        description: "Community celebrations and mazel tov announcements",
+      },
+      {
+        key: "shiva",
+        label: "Shiva Notices",
+        description: "Condolence and shiva information",
+      },
+      {
+        key: "tehillim",
+        label: "Tehillim Updates",
+        description: "Updates about the community tehillim list",
+      },
+      {
+        key: "communityEvents",
+        label: "Community Events",
+        description: "Notifications about upcoming events and gatherings",
+      },
+      {
+        key: "communityAlerts",
+        label: "Community Alerts",
+        description: "Important community announcements and urgent notices",
+      },
+    ],
   },
   {
-    key: "kosherAlerts",
-    label: "Kosher Alerts",
-    description: "Important kosher-related notices and updates",
+    label: "Torah Content",
+    options: [
+      {
+        key: "askTheRabbiAnswered",
+        label: "Ask the Rabbi — Answer Received",
+        description: "Notified when a rabbi responds to your submitted question",
+      },
+      {
+        key: "atrCommentReplies",
+        label: "Ask the Rabbi — Comment Replies",
+        description: "Notified when someone replies to your comment on a Q&A",
+      },
+    ],
   },
   {
-    key: "eruvStatus",
-    label: "Eruv Status",
-    description: "Weekly eruv status notifications",
-  },
-  {
-    key: "simchas",
-    label: "Simchas",
-    description: "Community celebrations and mazel tov announcements",
-  },
-  {
-    key: "shiva",
-    label: "Shiva Notices",
-    description: "Condolence and shiva information",
-  },
-  {
-    key: "tehillim",
-    label: "Tehillim Updates",
-    description: "Updates about the community tehillim list",
-  },
-  {
-    key: "communityEvents",
-    label: "Community Events",
-    description: "Notifications about upcoming events and gatherings",
+    label: "Blog & Business",
+    options: [
+      {
+        key: "blogCommentNotifications",
+        label: "Blog Post Comments",
+        description: "Notified when someone comments on your blog post",
+      },
+      {
+        key: "businessDeals",
+        label: "Business Deals & Specials",
+        description: "Occasional emails about deals from FrumToronto directory businesses",
+      },
+    ],
   },
 ] as const;
 
@@ -71,6 +116,11 @@ function PreferencesContent() {
     shiva: false,
     tehillim: false,
     communityEvents: false,
+    communityAlerts: false,
+    askTheRabbiAnswered: true,
+    atrCommentReplies: true,
+    blogCommentNotifications: true,
+    businessDeals: false,
   });
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -101,8 +151,13 @@ function PreferencesContent() {
             eruvStatus: data.eruvStatus,
             simchas: data.simchas,
             shiva: data.shiva,
-            tehillim: data.tehillim || false,
-            communityEvents: data.communityEvents || false,
+            tehillim: data.tehillim ?? false,
+            communityEvents: data.communityEvents ?? false,
+            communityAlerts: data.communityAlerts ?? false,
+            askTheRabbiAnswered: data.askTheRabbiAnswered ?? true,
+            atrCommentReplies: data.atrCommentReplies ?? true,
+            blogCommentNotifications: data.blogCommentNotifications ?? true,
+            businessDeals: data.businessDeals ?? false,
           });
           setStatus("loaded");
         }
@@ -151,7 +206,20 @@ function PreferencesContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token,
-          preferences: { newsletter: true, kosherAlerts: false, eruvStatus: false, simchas: false, shiva: false, tehillim: false, communityEvents: false },
+          preferences: {
+            newsletter: true,
+            kosherAlerts: false,
+            eruvStatus: false,
+            simchas: false,
+            shiva: false,
+            tehillim: false,
+            communityEvents: false,
+            communityAlerts: false,
+            askTheRabbiAnswered: true,
+            atrCommentReplies: true,
+            blogCommentNotifications: true,
+            businessDeals: false,
+          },
         }),
       });
 
@@ -164,6 +232,11 @@ function PreferencesContent() {
           shiva: false,
           tehillim: false,
           communityEvents: false,
+          communityAlerts: false,
+          askTheRabbiAnswered: true,
+          atrCommentReplies: true,
+          blogCommentNotifications: true,
+          businessDeals: false,
         });
         setStatus("loaded");
         toast.success("Welcome back! You've been re-subscribed.");
@@ -250,21 +323,30 @@ function PreferencesContent() {
             </p>
 
             <div className="space-y-6">
-              {SUBSCRIPTION_OPTIONS.map(({ key, label, description }) => (
-                <div key={key} className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <Label htmlFor={key} className="font-medium text-gray-900 cursor-pointer">
-                      {label}
-                    </Label>
-                    <p className="text-sm text-gray-500 mt-0.5">{description}</p>
+              {SUBSCRIPTION_GROUPS.map((group) => (
+                <div key={group.label}>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    {group.label}
+                  </p>
+                  <div className="space-y-4">
+                    {group.options.map(({ key, label, description }) => (
+                      <div key={key} className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <Label htmlFor={key} className="font-medium text-gray-900 cursor-pointer">
+                            {label}
+                          </Label>
+                          <p className="text-sm text-gray-500 mt-0.5">{description}</p>
+                        </div>
+                        <Switch
+                          id={key}
+                          checked={preferences[key as keyof Preferences]}
+                          onCheckedChange={(checked) =>
+                            setPreferences((prev) => ({ ...prev, [key]: checked }))
+                          }
+                        />
+                      </div>
+                    ))}
                   </div>
-                  <Switch
-                    id={key}
-                    checked={preferences[key as keyof Preferences]}
-                    onCheckedChange={(checked) =>
-                      setPreferences((prev) => ({ ...prev, [key]: checked }))
-                    }
-                  />
                 </div>
               ))}
             </div>

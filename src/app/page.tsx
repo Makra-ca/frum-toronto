@@ -6,6 +6,7 @@ import { UpcomingEvents } from "@/components/home/UpcomingEvents";
 import { ZmanimWidget } from "@/components/widgets/ZmanimWidget";
 import { EruvWidget } from "@/components/widgets/EruvWidget";
 import { WeatherWidget } from "@/components/widgets/WeatherWidget";
+import { OmerWidget } from "@/components/widgets/OmerWidget";
 import { HomepageBanner } from "@/components/homepage/HomepageBanner";
 import { HomepageSidebarAds, HomepageSidebarAdsMobile } from "@/components/homepage/HomepageSidebarAds";
 
@@ -57,7 +58,9 @@ export default function HomePage() {
         </div>
 
         {/* Widgets Section - Below main content */}
+        {/* OmerWidget returns null outside the Omer period, leaving the original 3-col layout intact */}
         <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <OmerWidget />
           <ZmanimWidget />
           <EruvWidget />
           <WeatherWidget />

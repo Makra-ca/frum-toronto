@@ -18,6 +18,10 @@ interface NotificationPreferences {
   communityEvents: boolean;
   communityAlerts: boolean;
   eruvStatus: boolean;
+  askTheRabbiAnswered: boolean;
+  atrCommentReplies: boolean;
+  blogCommentNotifications: boolean;
+  businessDeals: boolean;
 }
 
 const notificationOptions = [
@@ -61,6 +65,26 @@ const notificationOptions = [
     label: "Eruv Status",
     description: "Weekly eruv status updates before Shabbos"
   },
+  {
+    id: "askTheRabbiAnswered" as const,
+    label: "Ask the Rabbi — Answer Received",
+    description: "Email me when a rabbi responds to my submitted question"
+  },
+  {
+    id: "atrCommentReplies" as const,
+    label: "Ask the Rabbi — Comment Replies",
+    description: "Email me when someone replies to my comment on a Q&A"
+  },
+  {
+    id: "blogCommentNotifications" as const,
+    label: "Blog Post Comments",
+    description: "Email me when someone comments on my blog post"
+  },
+  {
+    id: "businessDeals" as const,
+    label: "Business Deals & Specials",
+    description: "Occasional emails about deals from FrumToronto directory businesses"
+  },
 ];
 
 export default function SettingsPage() {
@@ -73,6 +97,10 @@ export default function SettingsPage() {
     communityEvents: false,
     communityAlerts: false,
     eruvStatus: false,
+    askTheRabbiAnswered: true,
+    atrCommentReplies: true,
+    blogCommentNotifications: true,
+    businessDeals: false,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -150,6 +178,10 @@ export default function SettingsPage() {
       communityEvents: true,
       communityAlerts: true,
       eruvStatus: true,
+      askTheRabbiAnswered: true,
+      atrCommentReplies: true,
+      blogCommentNotifications: true,
+      businessDeals: true,
     });
   };
 
@@ -163,6 +195,10 @@ export default function SettingsPage() {
       communityEvents: false,
       communityAlerts: false,
       eruvStatus: false,
+      askTheRabbiAnswered: false,
+      atrCommentReplies: false,
+      blogCommentNotifications: false,
+      businessDeals: false,
     });
   };
 

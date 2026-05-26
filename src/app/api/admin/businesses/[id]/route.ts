@@ -93,6 +93,7 @@ export async function PUT(
         kosherCertification: validatedData.kosherCertification,
         hours: validatedData.hours,
         isFeatured: validatedData.isFeatured,
+        diningType: validatedData.diningType || null,
         updatedAt: new Date(),
       })
       .where(eq(businesses.id, businessId))

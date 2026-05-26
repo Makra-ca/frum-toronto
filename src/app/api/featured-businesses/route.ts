@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
           tagline: businesses.tagline,
           bannerImageUrl: businesses.bannerImageUrl,
           logoUrl: businesses.logoUrl,
+          website: businesses.website,
         })
         .from(businesses)
         .innerJoin(
@@ -75,6 +76,7 @@ export async function GET(request: NextRequest) {
         tagline: businesses.tagline,
         bannerImageUrl: businesses.bannerImageUrl,
         logoUrl: businesses.logoUrl,
+        website: businesses.website,
       })
       .from(businesses)
       .innerJoin(
@@ -132,6 +134,7 @@ export async function GET(request: NextRequest) {
           tagline: businesses.tagline,
           bannerImageUrl: businesses.bannerImageUrl,
           logoUrl: businesses.logoUrl,
+          website: businesses.website,
         })
         .from(businesses)
         .where(
@@ -176,6 +179,7 @@ export async function GET(request: NextRequest) {
           tagline: businesses.tagline,
           bannerImageUrl: businesses.bannerImageUrl,
           logoUrl: businesses.logoUrl,
+          website: businesses.website,
         })
         .from(businesses)
         .innerJoin(

@@ -8,6 +8,7 @@ import { Calendar, ArrowLeft, Eye, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BlogComments } from "@/components/blog/BlogComments";
+import { PageViewTracker } from "@/components/analytics/PageViewTracker";
 
 export const dynamic = "force-dynamic";
 
@@ -211,6 +212,7 @@ export default async function BlogPostPage({ params }: PageProps) {
           />
         </div>
       </div>
+      <PageViewTracker entityType="blog_post" entityId={post.id} />
     </div>
   );
 }

@@ -14,15 +14,33 @@ import { GoogleSignInButton } from "./GoogleSignInButton";
 import { registerSchema, RegisterInput } from "@/lib/validations/auth";
 import { AlertCircle, CheckCircle, Loader2, Bell, Eye, EyeOff } from "lucide-react";
 
-const notificationOptions = [
-  { id: "newsletter", label: "Weekly Newsletter", description: "Community updates and announcements" },
-  { id: "simchas", label: "Simchas", description: "Mazel tov announcements" },
-  { id: "shiva", label: "Shiva Notices", description: "Community bereavement notifications" },
-  { id: "kosherAlerts", label: "Kosher Alerts", description: "Product recalls and certification updates" },
-  { id: "tehillim", label: "Tehillim Updates", description: "Prayer list updates" },
-  { id: "communityEvents", label: "Community Events", description: "Upcoming events and gatherings" },
-  { id: "communityAlerts", label: "Community Alerts", description: "Important community announcements and urgent notices" },
-  { id: "eruvStatus", label: "Eruv Status", description: "Weekly eruv status updates" },
+const notificationGroups = [
+  {
+    label: "Community Updates",
+    options: [
+      { id: "communityEvents", label: "Event announcements", description: "Upcoming events and gatherings" },
+      { id: "kosherAlerts", label: "Kosher alerts", description: "Product recalls and certification updates" },
+      { id: "simchas", label: "Simchas (births, engagements, weddings)", description: "" },
+      { id: "shiva", label: "Shiva notices", description: "" },
+      { id: "tehillim", label: "Tehillim requests", description: "" },
+      { id: "communityAlerts", label: "Community alerts", description: "Important announcements and urgent notices" },
+    ],
+  },
+  {
+    label: "Torah Content",
+    options: [
+      { id: "newsletter", label: "Weekly newsletter", description: "Community updates and announcements" },
+      { id: "askTheRabbiAnswered", label: "Ask the Rabbi — when my question is answered", description: "" },
+      { id: "atrCommentReplies", label: "Ask the Rabbi — comment replies", description: "" },
+    ],
+  },
+  {
+    label: "Blog & Business",
+    options: [
+      { id: "blogCommentNotifications", label: "Blog post comments (on my posts)", description: "" },
+      { id: "businessDeals", label: "Business deals & specials", description: "" },
+    ],
+  },
 ] as const;
 
 export function RegisterForm() {
@@ -43,13 +61,17 @@ export function RegisterForm() {
     defaultValues: {
       notifications: {
         newsletter: true,
-        simchas: false,
-        shiva: false,
-        kosherAlerts: false,
-        tehillim: false,
-        communityEvents: false,
-        communityAlerts: false,
+        simchas: true,
+        shiva: true,
+        kosherAlerts: true,
+        tehillim: true,
+        communityEvents: true,
+        communityAlerts: true,
         eruvStatus: false,
+        askTheRabbiAnswered: true,
+        atrCommentReplies: true,
+        blogCommentNotifications: true,
+        businessDeals: false,
       },
     },
   });
@@ -225,23 +247,37 @@ export function RegisterForm() {
             <Label className="text-sm font-medium">Email Notifications</Label>
           </div>
           <p className="text-xs text-gray-500 -mt-1">
-            Choose which notifications you&apos;d like to receive
+            Choose what you&apos;d like to hear about
           </p>
-          <div className="grid grid-cols-1 gap-2 p-3 bg-gray-50 rounded-lg border">
-            {notificationOptions.map((option) => (
-              <div key={option.id} className="flex items-start gap-3">
-                <Checkbox
-                  id={option.id}
-                  checked={notifications?.[option.id] ?? false}
-                  onCheckedChange={(checked) =>
-                    setValue(`notifications.${option.id}`, checked === true)
-                  }
-                  className="mt-0.5"
-                />
-                <label htmlFor={option.id} className="flex-1 cursor-pointer">
-                  <span className="text-sm font-medium">{option.label}</span>
-                  <span className="block text-xs text-gray-500">{option.description}</span>
-                </label>
+          <div className="space-y-3">
+            {notificationGroups.map((group) => (
+              <div key={group.label}>
+                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                  {group.label}
+                </p>
+                <div className="grid grid-cols-1 gap-2 p-3 bg-gray-50 rounded-lg border">
+                  {group.options.map((option) => (
+                    <div key={option.id} className="flex items-start gap-3">
+                      <Checkbox
+                        id={`notifications.${option.id}`}
+                        checked={(notifications as Record<string, boolean>)?.[option.id] ?? false}
+                        onCheckedChange={(checked) =>
+                          setValue(
+                            `notifications.${option.id}` as `notifications.${keyof RegisterInput["notifications"]}`,
+                            checked === true
+                          )
+                        }
+                        className="mt-0.5"
+                      />
+                      <label htmlFor={`notifications.${option.id}`} className="flex-1 cursor-pointer">
+                        <span className="text-sm">{option.label}</span>
+                        {option.description && (
+                          <span className="block text-xs text-gray-500">{option.description}</span>
+                        )}
+                      </label>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
@@ -19,23 +19,34 @@ import {
   Mail,
   CheckCircle,
   Heart,
+  Bell,
+  BarChart2,
 } from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/admin/notifications", label: "Notifications", icon: Bell },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/shuls", label: "Shuls", icon: Landmark },
   { href: "/admin/businesses", label: "Businesses", icon: Building2 },
   { href: "/admin/programs", label: "Programs", icon: BookOpen },
   { href: "/admin/community", label: "Community", icon: Heart },
   { href: "/admin/approvals", label: "Approvals", icon: CheckCircle },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart2 },
   { href: "/admin/newsletters", label: "Newsletters", icon: Mail },
   { href: "/admin/contacts", label: "Contact Messages", icon: MessageSquare },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({
+  onNavigate,
+  unreadCount,
+}: {
+  onNavigate?: () => void;
+  unreadCount: number;
+}) {
   const pathname = usePathname();
+  const displayCount = unreadCount > 9 ? "9+" : unreadCount;
 
   return (
     <>
@@ -54,6 +65,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           const isActive = item.exact
             ? pathname === item.href
             : pathname === item.href || pathname.startsWith(item.href + "/");
+          const isNotifications = item.href === "/admin/notifications";
 
           return (
             <Link
@@ -67,8 +79,13 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                   : "hover:bg-blue-800/50 text-blue-100"
               )}
             >
-              <item.icon className="h-5 w-5" />
-              {item.label}
+              <item.icon className="h-5 w-5 flex-shrink-0" />
+              <span className="flex-1">{item.label}</span>
+              {isNotifications && unreadCount > 0 && (
+                <span className="flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                  {displayCount}
+                </span>
+              )}
             </Link>
           );
         })}
@@ -91,12 +108,35 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const res = await fetch("/api/admin/notifications?limit=200&page=1", {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        const count = (json.data ?? []).filter(
+          (n: { isRead: boolean }) => !n.isRead
+        ).length;
+        setUnreadCount(count);
+      } catch {
+        // Silently ignore
+      }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-gray-100">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 bg-blue-900 text-white min-h-screen flex-col">
-        <SidebarContent />
+        <SidebarContent unreadCount={unreadCount} />
       </aside>
 
       {/* Mobile Header */}
@@ -122,7 +162,10 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
           className="w-64 p-0 bg-blue-900 text-white border-none"
         >
           <SheetTitle className="sr-only">Admin Navigation</SheetTitle>
-          <SidebarContent onNavigate={() => setSidebarOpen(false)} />
+          <SidebarContent
+            onNavigate={() => setSidebarOpen(false)}
+            unreadCount={unreadCount}
+          />
         </SheetContent>
       </Sheet>
 

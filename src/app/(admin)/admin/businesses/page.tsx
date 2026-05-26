@@ -151,8 +151,10 @@ export default function AdminBusinessesPage() {
 
   async function handleSubmit(data: {
     name: string;
+    tagline?: string | null;
     categoryId: number | null;
     description: string | null;
+    bannerImageUrl?: string | null;
     phone: string | null;
     email: string | null;
     website: string | null;
@@ -163,6 +165,7 @@ export default function AdminBusinessesPage() {
     kosherCertification: string | null;
     isFeatured: boolean;
     hours: BusinessHours | null;
+    diningType: string | null;
   }) {
     setIsSubmitting(true);
     try {
