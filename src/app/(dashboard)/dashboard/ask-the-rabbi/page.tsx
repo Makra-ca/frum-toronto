@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
@@ -32,8 +32,11 @@ import {
   X,
   ExternalLink,
   Lock,
+  PlusCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { UniversalSearch } from "@/components/search/UniversalSearch";
+import { AtrQuickPost } from "@/components/ask-the-rabbi/AtrQuickPost";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -313,16 +316,18 @@ function QuestionsTab() {
       />
 
       {/* Search bar */}
-      <form onSubmit={handleSearch} className="flex gap-2 mb-4">
-        <Input
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Search by title or question text..."
-          className="max-w-sm"
-        />
-        <Button type="submit" variant="outline" size="sm">
-          Search
-        </Button>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="max-w-sm w-full">
+          <UniversalSearch
+            searchType="ask-the-rabbi"
+            placeholder="Search questions..."
+            onSearch={(q) => {
+              setSearchInput(q);
+              setSearch(q);
+              setPage(1);
+            }}
+          />
+        </div>
         {search && (
           <Button
             type="button"
@@ -337,7 +342,7 @@ function QuestionsTab() {
             Clear
           </Button>
         )}
-      </form>
+      </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
@@ -650,7 +655,7 @@ function PendingCommentsTab() {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type Tab = "questions" | "comments";
+type Tab = "questions" | "comments" | "new";
 
 export default function AskTheRabbiDashboardPage() {
   const { data: session, status } = useSession();
@@ -754,17 +759,19 @@ export default function AskTheRabbiDashboardPage() {
                 [
                   { key: "questions", label: "All Questions" },
                   { key: "comments", label: "Pending Comments" },
-                ] as { key: Tab; label: string }[]
-              ).map(({ key, label }) => (
+                  { key: "new", label: "New Question", icon: PlusCircle },
+                ] as { key: Tab; label: string; icon?: React.ElementType }[]
+              ).map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
                   onClick={() => setActiveTab(key)}
-                  className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                     activeTab === key
                       ? "border-purple-600 text-purple-700"
                       : "border-transparent text-gray-500 hover:text-gray-700"
                   }`}
                 >
+                  {Icon && <Icon className="h-3.5 w-3.5" />}
                   {label}
                 </button>
               ))}
@@ -774,8 +781,10 @@ export default function AskTheRabbiDashboardPage() {
           <CardContent>
             {activeTab === "questions" ? (
               <QuestionsTab />
-            ) : (
+            ) : activeTab === "comments" ? (
               <PendingCommentsTab />
+            ) : (
+              <AtrQuickPost canManageAtr={true} />
             )}
           </CardContent>
         </Card>
