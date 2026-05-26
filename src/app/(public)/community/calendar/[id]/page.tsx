@@ -220,14 +220,7 @@ export default async function EventDetailPage({ params }: PageProps) {
                         </p>
                       </div>
                     </div>
-                  ) : (
-                    <div className="bg-gradient-to-br from-gray-50 to-slate-100 rounded-xl p-6 text-center border border-gray-100">
-                      <Calendar className="h-10 w-10 mx-auto text-gray-300 mb-3" />
-                      <p className="text-gray-500">
-                        More details coming soon. Contact the organizer for information.
-                      </p>
-                    </div>
-                  )}
+                  ) : null}
 
                   {/* Location */}
                   {event.location && (

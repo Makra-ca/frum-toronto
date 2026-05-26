@@ -38,7 +38,6 @@ export function Footer() {
               The Toronto Jewish Orthodox Community Gateway. Connecting the
               community with businesses, shuls, events, and resources.
             </p>
-            {/* TODO: Add social media links when actual URLs are available */}
           </div>
 
           {/* Quick Links */}

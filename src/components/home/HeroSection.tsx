@@ -125,10 +125,18 @@ export function HeroSection() {
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [activeConnections, setActiveConnections] = useState<number[]>([]);
   const [orbitRotation, setOrbitRotation] = useState(0);
+  const [stats, setStats] = useState({ businesses: 0, shuls: 0 });
+
+  useEffect(() => {
+    fetch("/api/stats")
+      .then((res) => res.json())
+      .then((data) => setStats(data))
+      .catch(() => {});
+  }, []);
 
   // Animated stats
-  const businessCount = useCountUp(100, 2000);
-  const shulCount = useCountUp(50, 2000);
+  const businessCount = useCountUp(stats.businesses, 2000);
+  const shulCount = useCountUp(stats.shuls, 2000);
 
   // Slow orbital rotation
   useEffect(() => {
