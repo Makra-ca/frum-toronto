@@ -94,7 +94,7 @@ export default async function QuestionDetailPage({ params }: PageProps) {
               Ask The Rabbi
             </Link>
             <ChevronRight className="h-4 w-4" />
-            <span className="text-white">#{question.questionNumber}</span>
+            <span className="text-white line-clamp-1">{question.title}</span>
           </nav>
 
           <div className="flex items-center gap-3">
