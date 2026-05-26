@@ -46,6 +46,8 @@ export const users = pgTable("users", {
   canAutoApproveAlerts: boolean("can_auto_approve_alerts").default(false),
   canAutoApproveBlog: boolean("can_auto_approve_blog").default(false),
   canPostSpecials: boolean("can_post_specials").default(false), // Verified businesses can post specials/deals
+  canManageAskTheRabbi: boolean("can_manage_ask_the_rabbi").default(false).notNull(),
+  commentPermission: varchar("comment_permission", { length: 20 }).default("allowed").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -108,6 +110,7 @@ export const businessCategories = pgTable("business_categories", {
   imageUrl: varchar("image_url", { length: 500 }), // Category hero image URL
   displayOrder: integer("display_order").default(0),
   isActive: boolean("is_active").default(true),
+  isRestaurant: boolean("is_restaurant").default(false).notNull(),
   oldId: integer("old_id"), // migration mapping
 });
 
@@ -136,12 +139,23 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   // Homepage ad placements
   showInHomepageBanner: boolean("show_in_homepage_banner").default(false),
   showInHomepageSidebar: boolean("show_in_homepage_sidebar").default(false),
+  // Video feature
+  showVideo: boolean("show_video").default(false).notNull(),
+  // Non-profit pricing
+  priceMonthlyNonProfit: decimal("price_monthly_non_profit", { precision: 10, scale: 2 }),
+  priceYearlyNonProfit: decimal("price_yearly_non_profit", { precision: 10, scale: 2 }),
   // PayPal integration - Live
   paypalPlanIdMonthly: varchar("paypal_plan_id_monthly", { length: 100 }),
   paypalPlanIdYearly: varchar("paypal_plan_id_yearly", { length: 100 }),
   // PayPal integration - Sandbox
   paypalPlanIdMonthlySandbox: varchar("paypal_plan_id_monthly_sandbox", { length: 100 }),
   paypalPlanIdYearlySandbox: varchar("paypal_plan_id_yearly_sandbox", { length: 100 }),
+  // PayPal non-profit plans - Live
+  paypalPlanIdMonthlyNonProfit: varchar("paypal_plan_id_monthly_non_profit", { length: 100 }),
+  paypalPlanIdYearlyNonProfit: varchar("paypal_plan_id_yearly_non_profit", { length: 100 }),
+  // PayPal non-profit plans - Sandbox
+  paypalPlanIdMonthlyNonProfitSandbox: varchar("paypal_plan_id_monthly_non_profit_sandbox", { length: 100 }),
+  paypalPlanIdYearlyNonProfitSandbox: varchar("paypal_plan_id_yearly_non_profit_sandbox", { length: 100 }),
   // Display order for pricing page
   displayOrder: integer("display_order").default(0),
   isActive: boolean("is_active").default(true),
@@ -167,6 +181,20 @@ export const businesses = pgTable("businesses", {
   logoUrl: varchar("logo_url", { length: 500 }),
   bannerImageUrl: varchar("banner_image_url", { length: 500 }), // Wide banner for homepage ads
   tagline: varchar("tagline", { length: 150 }), // Short tagline for homepage ads
+  // Mux video
+  muxPlaybackId: varchar("mux_playback_id", { length: 255 }),
+  muxAssetId: varchar("mux_asset_id", { length: 255 }),
+  muxUploadId: varchar("mux_upload_id", { length: 255 }),
+  videoStatus: varchar("video_status", { length: 20 }).default("none").notNull(),
+  videoApprovalStatus: varchar("video_approval_status", { length: 20 }).default("pending").notNull(),
+  videoRejectionReason: text("video_rejection_reason"),
+  // Non-profit
+  isNonProfit: boolean("is_non_profit").default(false).notNull(),
+  nonProfitDocumentUrl: varchar("non_profit_document_url", { length: 500 }),
+  nonProfitStatus: varchar("non_profit_status", { length: 20 }).default("none").notNull(),
+  nonProfitRejectionReason: text("non_profit_rejection_reason"),
+  // Dining
+  diningType: varchar("dining_type", { length: 20 }),
   hours: jsonb("hours"), // {monday: {open: "9:00", close: "17:00"}, ...}
   socialLinks: jsonb("social_links"),
   isKosher: boolean("is_kosher").default(false),
@@ -204,6 +232,7 @@ export const businessSubscriptions = pgTable("business_subscriptions", {
   paypalSubscriptionId: varchar("paypal_subscription_id", { length: 100 }),
   paypalPayerId: varchar("paypal_payer_id", { length: 100 }),
   billingCycle: varchar("billing_cycle", { length: 20 }).default("monthly"), // monthly or yearly
+  isNonProfitRate: boolean("is_non_profit_rate").default(false).notNull(),
   // Subscription status
   status: varchar("status", { length: 20 }).default("pending"), // pending, active, cancelled, expired
   currentPeriodStart: timestamp("current_period_start"),
@@ -372,6 +401,9 @@ export const events = pgTable("events", {
   contactPhone: varchar("contact_phone", { length: 40 }),
   cost: varchar("cost", { length: 150 }),
   imageUrl: varchar("image_url", { length: 500 }),
+  flyerUrl: varchar("flyer_url", { length: 500 }),
+  websiteUrl: varchar("website_url", { length: 500 }),
+  organization: varchar("organization", { length: 200 }),
   approvalStatus: varchar("approval_status", { length: 20 }).default("approved"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -654,6 +686,10 @@ export const emailSubscribers = pgTable("email_subscribers", {
   tehillim: boolean("tehillim").default(false),
   communityEvents: boolean("community_events").default(false),
   newsletter: boolean("newsletter").default(true), // General newsletter subscription
+  askTheRabbiAnswered: boolean("ask_the_rabbi_answered").default(true).notNull(),
+  atrCommentReplies: boolean("atr_comment_replies").default(true).notNull(),
+  blogCommentNotifications: boolean("blog_comment_notifications").default(true).notNull(),
+  businessDeals: boolean("business_deals").default(false).notNull(),
   isActive: boolean("is_active").default(true),
   unsubscribeToken: varchar("unsubscribe_token", { length: 64 }),
   unsubscribedAt: timestamp("unsubscribed_at"),
@@ -684,6 +720,8 @@ export const newsletters = pgTable("newsletters", {
   previewText: varchar("preview_text", { length: 200 }),
   content: text("content").notNull(), // HTML content
   contentJson: jsonb("content_json"), // TipTap JSON for editing
+  previewHtml: text("preview_html"),
+  previewGeneratedAt: timestamp("preview_generated_at"),
   status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, scheduled, sending, sent, failed
   scheduledAt: timestamp("scheduled_at"),
   sentAt: timestamp("sent_at"),
@@ -787,6 +825,166 @@ export const siteSettings = pgTable("site_settings", {
   description: varchar("description", { length: 255 }),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// ============================================
+// ASK THE RABBI COMMENTS
+// ============================================
+
+export const askTheRabbiComments = pgTable("ask_the_rabbi_comments", {
+  id: serial("id").primaryKey(),
+  questionId: integer("question_id").notNull().references(() => askTheRabbi.id, { onDelete: "cascade" }),
+  authorId: integer("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  parentId: integer("parent_id").references((): AnyPgColumn => askTheRabbiComments.id),
+  approvalStatus: varchar("approval_status", { length: 20 }).default("approved").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_atr_comments_question").on(table.questionId),
+  index("idx_atr_comments_author").on(table.authorId),
+]);
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 50 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  body: text("body").notNull(),
+  linkUrl: varchar("link_url", { length: 500 }),
+  isRead: boolean("is_read").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_notifications_user").on(table.userId, table.isRead),
+]);
+
+// ============================================
+// BUSINESS SHOUTOUTS
+// ============================================
+
+export const businessShoutouts = pgTable("business_shoutouts", {
+  id: serial("id").primaryKey(),
+  businessId: integer("business_id").notNull().references(() => businesses.id, { onDelete: "cascade" }),
+  scheduledDate: date("scheduled_date").notNull(),
+  contentHtml: text("content_html"),
+  contentJson: jsonb("content_json"),
+  imageUrl: varchar("image_url", { length: 500 }),
+  status: varchar("status", { length: 30 }).default("draft").notNull(), // draft, pending, approved, rejected, sent
+  rejectionReason: text("rejection_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_business_shoutouts_business").on(table.businessId),
+  index("idx_business_shoutouts_date").on(table.scheduledDate),
+  index("idx_business_shoutouts_status").on(table.status),
+]);
+
+// ============================================
+// CLASSIFIED CONTACT LOG
+// ============================================
+
+export const classifiedContactLog = pgTable("classified_contact_log", {
+  id: serial("id").primaryKey(),
+  classifiedId: integer("classified_id").notNull().references(() => classifieds.id, { onDelete: "cascade" }),
+  senderName: varchar("sender_name", { length: 100 }).notNull(),
+  senderEmail: varchar("sender_email", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  ipAddress: varchar("ip_address", { length: 50 }),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_classified_contact_log_classified").on(table.classifiedId),
+]);
+
+// ============================================
+// NEWSLETTER BLOCK SNAPSHOTS
+// ============================================
+
+export const newsletterBlockSnapshots = pgTable("newsletter_block_snapshots", {
+  id: serial("id").primaryKey(),
+  newsletterSendId: integer("newsletter_send_id").notNull().references(() => newsletterSends.id, { onDelete: "cascade" }),
+  blockType: varchar("block_type", { length: 50 }).notNull(),
+  snapshotData: jsonb("snapshot_data").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_newsletter_block_snapshots_send").on(table.newsletterSendId),
+]);
+
+// ============================================
+// NEWSLETTER BLOCK SETTINGS
+// ============================================
+
+export const newsletterBlockSettings = pgTable("newsletter_block_settings", {
+  id: serial("id").primaryKey(),
+  newsletterId: integer("newsletter_id").notNull().references(() => newsletters.id, { onDelete: "cascade" }),
+  blockType: varchar("block_type", { length: 50 }).notNull(),
+  isEnabled: boolean("is_enabled").default(false).notNull(),
+  config: jsonb("config"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("idx_newsletter_block_settings_unique").on(table.newsletterId, table.blockType),
+]);
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+export const auditLog = pgTable("audit_log", {
+  id: serial("id").primaryKey(),
+  actorId: integer("actor_id").references(() => users.id, { onDelete: "set null" }),
+  actorEmail: varchar("actor_email", { length: 255 }),
+  action: varchar("action", { length: 50 }).notNull(),
+  entityType: varchar("entity_type", { length: 50 }).notNull(),
+  entityId: integer("entity_id"),
+  entityTitle: varchar("entity_title", { length: 255 }),
+  changes: jsonb("changes"),
+  ipAddress: varchar("ip_address", { length: 50 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_audit_log_actor").on(table.actorId),
+  index("idx_audit_log_entity").on(table.entityType, table.entityId),
+  index("idx_audit_log_created").on(table.createdAt),
+]);
+
+// ============================================
+// PAGE VIEWS
+// ============================================
+
+export const pageViews = pgTable("page_views", {
+  id: serial("id").primaryKey(),
+  url: varchar("url", { length: 500 }).notNull(),
+  entityType: varchar("entity_type", { length: 50 }),
+  entityId: integer("entity_id"),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  sessionId: varchar("session_id", { length: 255 }),
+  ipAddress: varchar("ip_address", { length: 50 }),
+  userAgent: varchar("user_agent", { length: 500 }),
+  referrer: varchar("referrer", { length: 500 }),
+  viewedAt: timestamp("viewed_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_page_views_entity").on(table.entityType, table.entityId),
+  index("idx_page_views_viewed_at").on(table.viewedAt),
+]);
+
+// ============================================
+// SEARCH QUERIES
+// ============================================
+
+export const searchQueries = pgTable("search_queries", {
+  id: serial("id").primaryKey(),
+  query: varchar("query", { length: 500 }).notNull(),
+  searchType: varchar("search_type", { length: 50 }),
+  resultsCount: integer("results_count").default(0).notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+  sessionId: varchar("session_id", { length: 255 }),
+  searchedAt: timestamp("searched_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_search_queries_type").on(table.searchType),
+  index("idx_search_queries_searched_at").on(table.searchedAt),
+]);
 
 // ============================================
 // RELATIONS
