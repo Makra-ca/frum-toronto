@@ -21,11 +21,13 @@ import {
   Heart,
   Bell,
   BarChart2,
+  ScrollText,
 } from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
+  { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/shuls", label: "Shuls", icon: Landmark },
   { href: "/admin/businesses", label: "Businesses", icon: Building2 },

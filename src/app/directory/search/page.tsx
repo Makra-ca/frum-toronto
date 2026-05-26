@@ -79,35 +79,24 @@ async function searchBusinesses(params: SearchParams) {
   }
 
   // Sort
-  console.log("=== SORT DEBUG ===");
-  console.log("Sort param received:", sort);
-  console.log("Sort param type:", typeof sort);
-  console.log("Sort === 'name-asc':", sort === "name-asc");
-
   let orderBy;
   switch (sort) {
     case "name-asc":
-      console.log("MATCHED: name-asc case");
       orderBy = asc(sql`LOWER(TRIM(${businesses.name}))`);
       break;
     case "name-desc":
-      console.log("MATCHED: name-desc case");
       orderBy = desc(sql`LOWER(TRIM(${businesses.name}))`);
       break;
     case "newest":
-      console.log("MATCHED: newest case");
       orderBy = desc(businesses.createdAt);
       break;
     default:
-      console.log("MATCHED: default case (relevance)");
       orderBy = sql`
         CASE WHEN ${businesses.isFeatured} = true THEN 0 ELSE 1 END,
         ${businesses.viewCount} DESC NULLS LAST,
         LOWER(TRIM(${businesses.name})) ASC
       `;
   }
-  console.log("OrderBy value:", orderBy);
-  console.log("=== END SORT DEBUG ===");
 
   // Get businesses
   const results = await db
@@ -134,11 +123,6 @@ async function searchBusinesses(params: SearchParams) {
     .orderBy(orderBy)
     .limit(pageSize)
     .offset(offset);
-
-  // Debug: Log first 5 results
-  console.log("=== RESULTS DEBUG ===");
-  console.log("First 5 business names:", results.slice(0, 5).map(b => b.name));
-  console.log("=== END RESULTS DEBUG ===");
 
   // Get total count
   const countResult = await db

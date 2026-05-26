@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ShoppingBag, ChevronRight, Clock, Tag, MapPin, DollarSign } from "lucide-react";
 import { ContactSellerModal } from "@/components/classifieds/ContactSellerModal";
+import { PageViewTracker } from "@/components/analytics/PageViewTracker";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -100,6 +101,7 @@ export default async function ClassifiedDetailPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <PageViewTracker entityType="classified" entityId={classified.id} />
       {/* Header */}
       <div className="bg-gradient-to-br from-orange-600 via-orange-500 to-amber-500 text-white py-8">
         <div className="container mx-auto px-4">

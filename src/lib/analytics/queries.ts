@@ -397,17 +397,10 @@ export async function getAnalyticsData(
   // ---- Signup trend ----
   const signupTrend = await getUserSignupTrend({ days });
 
-  // ---- Content submissions ----
+  // ---- Content submissions (current + previous period) ----
   const [
-    bizCount,
-    eventCount,
-    blogCount,
-    classifiedCount,
-    shiurCount,
-    shivaCount,
-    simchaCount,
-    tehillimCount,
-    rabiCount,
+    bizCount, eventCount, blogCount, classifiedCount, shiurCount, shivaCount, simchaCount, tehillimCount, rabiCount,
+    prevBizCount, prevEventCount, prevBlogCount, prevClassifiedCount, prevShiurCount, prevShivaCount, prevSimchaCount, prevTehillimCount, prevRabiCount,
   ] = await Promise.all([
     db.select({ count: count() }).from(businesses).where(and(gte(businesses.createdAt, from), lte(businesses.createdAt, to))),
     db.select({ count: count() }).from(events).where(and(gte(events.createdAt, from), lte(events.createdAt, to))),
@@ -418,6 +411,15 @@ export async function getAnalyticsData(
     db.select({ count: count() }).from(simchas).where(and(gte(simchas.createdAt, from), lte(simchas.createdAt, to))),
     db.select({ count: count() }).from(tehillimList).where(and(gte(tehillimList.createdAt, from), lte(tehillimList.createdAt, to))),
     db.select({ count: count() }).from(askTheRabbi).where(and(gte(askTheRabbi.createdAt, from), lte(askTheRabbi.createdAt, to))),
+    db.select({ count: count() }).from(businesses).where(and(gte(businesses.createdAt, prevFrom), lte(businesses.createdAt, prevTo))),
+    db.select({ count: count() }).from(events).where(and(gte(events.createdAt, prevFrom), lte(events.createdAt, prevTo))),
+    db.select({ count: count() }).from(blogPosts).where(and(gte(blogPosts.createdAt, prevFrom), lte(blogPosts.createdAt, prevTo))),
+    db.select({ count: count() }).from(classifieds).where(and(gte(classifieds.createdAt, prevFrom), lte(classifieds.createdAt, prevTo))),
+    db.select({ count: count() }).from(shiurim).where(and(gte(shiurim.createdAt, prevFrom), lte(shiurim.createdAt, prevTo))),
+    db.select({ count: count() }).from(shivaNotifications).where(and(gte(shivaNotifications.createdAt, prevFrom), lte(shivaNotifications.createdAt, prevTo))),
+    db.select({ count: count() }).from(simchas).where(and(gte(simchas.createdAt, prevFrom), lte(simchas.createdAt, prevTo))),
+    db.select({ count: count() }).from(tehillimList).where(and(gte(tehillimList.createdAt, prevFrom), lte(tehillimList.createdAt, prevTo))),
+    db.select({ count: count() }).from(askTheRabbi).where(and(gte(askTheRabbi.createdAt, prevFrom), lte(askTheRabbi.createdAt, prevTo))),
   ]);
 
   return {
@@ -446,5 +448,15 @@ export async function getAnalyticsData(
       tehillim: Number(tehillimCount[0]?.count ?? 0),
       askTheRabbi: Number(rabiCount[0]?.count ?? 0),
     },
+    prevContentTotal:
+      Number(prevBizCount[0]?.count ?? 0) +
+      Number(prevEventCount[0]?.count ?? 0) +
+      Number(prevBlogCount[0]?.count ?? 0) +
+      Number(prevClassifiedCount[0]?.count ?? 0) +
+      Number(prevShiurCount[0]?.count ?? 0) +
+      Number(prevShivaCount[0]?.count ?? 0) +
+      Number(prevSimchaCount[0]?.count ?? 0) +
+      Number(prevTehillimCount[0]?.count ?? 0) +
+      Number(prevRabiCount[0]?.count ?? 0),
   };
 }

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { events, shuls } from "@/lib/db/schema";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import {
   Calendar,
   MapPin,
@@ -45,7 +45,7 @@ async function getEvent(id: number) {
     })
     .from(events)
     .leftJoin(shuls, eq(events.shulId, shuls.id))
-    .where(eq(events.id, id))
+    .where(and(eq(events.id, id), eq(events.approvalStatus, "approved"), eq(events.isActive, true)))
     .limit(1);
 
   return event;

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
+  PenLine,
 } from "lucide-react";
 
 interface BlogPost {
@@ -56,6 +58,7 @@ function formatDate(dateStr: string): string {
 }
 
 export function BlogListing() {
+  const { data: session } = useSession();
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [categories, setCategories] = useState<BlogCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -110,10 +113,23 @@ export function BlogListing() {
       {/* Hero Section */}
       <div className="bg-blue-900 text-white py-12">
         <div className="container mx-auto px-4">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Blog</h1>
-          <p className="text-blue-200 text-lg">
-            Articles, Torah thoughts, and community news
-          </p>
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold mb-2">Blog</h1>
+              <p className="text-blue-200 text-lg">
+                Articles, Torah thoughts, and community news
+              </p>
+            </div>
+            {session?.user && (
+              <Link
+                href="/dashboard/blog/new"
+                className="flex items-center gap-2 bg-white text-blue-800 px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition-colors text-sm self-center shrink-0"
+              >
+                <PenLine className="h-4 w-4" />
+                Write a Post
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 

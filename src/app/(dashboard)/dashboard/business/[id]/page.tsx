@@ -161,6 +161,13 @@ export default function BusinessDashboardPage() {
             Rejected
           </Badge>
         );
+      case "pending_payment":
+        return (
+          <Badge className="bg-orange-100 text-orange-800">
+            <Clock className="h-3 w-3 mr-1" />
+            Payment Required
+          </Badge>
+        );
       default:
         return <Badge variant="secondary">{status || "Unknown"}</Badge>;
     }

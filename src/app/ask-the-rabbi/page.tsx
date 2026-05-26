@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { askTheRabbi } from "@/lib/db/schema";
+import { askTheRabbi, users } from "@/lib/db/schema";
 import { desc, sql, and, eq } from "drizzle-orm";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { MessageSquare, ChevronRight } from "lucide-react";
 import { AskTheRabbiSearchBar } from "@/components/ask-the-rabbi/AskTheRabbiSearchBar";
 import { SubmitQuestionModal } from "@/components/ask-the-rabbi/SubmitQuestionModal";
+import { AtrQuickPost } from "@/components/ask-the-rabbi/AtrQuickPost";
+import { auth } from "@/lib/auth/auth";
 
 export const metadata = {
   title: "Ask The Rabbi - FrumToronto",
@@ -103,13 +105,30 @@ async function getQuestions(searchParams: SearchParams) {
   return { questions, totalCount, totalPages, page };
 }
 
+async function getCanManageAtr(): Promise<boolean> {
+  const session = await auth();
+  if (!session?.user?.id) return false;
+  if (session.user.role === "admin") return true;
+
+  const [dbUser] = await db
+    .select({ canManageAskTheRabbi: users.canManageAskTheRabbi })
+    .from(users)
+    .where(eq(users.id, parseInt(session.user.id)))
+    .limit(1);
+
+  return dbUser?.canManageAskTheRabbi === true;
+}
+
 export default async function AskTheRabbiPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const { questions, totalCount, totalPages, page } = await getQuestions(params);
+  const [{ questions, totalCount, totalPages, page }, canManageAtr] = await Promise.all([
+    getQuestions(params),
+    getCanManageAtr(),
+  ]);
   const query = params.q || "";
 
   return (
@@ -140,6 +159,9 @@ export default async function AskTheRabbiPage({
 
       {/* Content */}
       <div className="container mx-auto px-4 py-8">
+        {/* Quick Post — only visible to users with canManageAskTheRabbi */}
+        <AtrQuickPost canManageAtr={canManageAtr} />
+
         {query && (
           <div className="mb-6">
             <p className="text-gray-600">

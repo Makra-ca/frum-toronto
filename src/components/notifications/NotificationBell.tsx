@@ -16,16 +16,10 @@ export function NotificationBell({ href, apiEndpoint }: NotificationBellProps) {
 
   const fetchUnreadCount = async () => {
     try {
-      // Fetch enough to count unread (most admins won't have > 200 unread)
-      const res = await fetch(`${apiEndpoint}?limit=200&page=1`, {
-        cache: "no-store",
-      });
+      const res = await fetch(`${apiEndpoint}/unread-count`, { cache: "no-store" });
       if (!res.ok) return;
       const json = await res.json();
-      const count = (json.data ?? []).filter(
-        (n: { isRead: boolean }) => !n.isRead
-      ).length;
-      setUnreadCount(count);
+      setUnreadCount(json.count ?? 0);
     } catch {
       // Silently ignore errors
     }

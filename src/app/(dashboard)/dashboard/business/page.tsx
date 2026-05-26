@@ -80,6 +80,8 @@ export default function MyBusinessesPage() {
         return <Badge className="bg-yellow-100 text-yellow-800">Pending Review</Badge>;
       case "rejected":
         return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
+      case "pending_payment":
+        return <Badge className="bg-orange-100 text-orange-800">Payment Required</Badge>;
       default:
         return <Badge variant="secondary">{status || "Unknown"}</Badge>;
     }

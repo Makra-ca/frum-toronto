@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Phone, Mail, Globe, ChevronLeft, Clock, Users, Calendar, FileText, Download, Newspaper, BookOpen } from "lucide-react";
 import { DAYS_OF_WEEK } from "@/lib/validations/content";
 import { ShulEventsCalendar } from "@/components/shuls/ShulEventsCalendar";
+import { PageViewTracker } from "@/components/analytics/PageViewTracker";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -99,6 +100,7 @@ export default async function ShulPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <PageViewTracker entityType="shul" entityId={shul.id} />
       {/* Header */}
       <div className="bg-blue-900 text-white py-8">
         <div className="container mx-auto px-4">

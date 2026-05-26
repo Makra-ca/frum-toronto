@@ -390,7 +390,7 @@ export default function AnalyticsPage() {
               icon={FileText}
               label="Content Submitted"
               value={Object.values(data.contentSubmissions).reduce((a, b) => a + b, 0)}
-              prev={0}
+              prev={data.prevContentTotal}
               color="bg-amber-500"
             />
           </div>

@@ -219,7 +219,7 @@ export function MuxVideoUploader({
               {videoStatus === "uploading" ? "Video upload in progress..." : "Video is being processed..."}
             </p>
             <p className="text-xs text-gray-500 mt-0.5">
-              This may take a few minutes. The page will update automatically.
+              This may take a few minutes. Refresh the page to check the status.
             </p>
           </div>
         </div>

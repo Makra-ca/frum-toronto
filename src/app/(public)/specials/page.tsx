@@ -577,7 +577,7 @@ export default function SpecialsPage() {
                 )}
                 {selectedSpecial.businessSlug && (
                   <Button variant="outline" asChild size="sm" className={selectedSpecial.fileType === "pdf" ? "" : "flex-1"}>
-                    <a href={`/directory/${selectedSpecial.businessSlug}`}>
+                    <a href={`/directory/business/${selectedSpecial.businessSlug}`}>
                       <Store className="h-4 w-4 mr-2" />
                       View Business
                     </a>

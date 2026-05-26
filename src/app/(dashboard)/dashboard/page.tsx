@@ -2,9 +2,9 @@ import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { businesses, subscriptionPlans, businessSubscriptions } from "@/lib/db/schema";
+import { businesses, subscriptionPlans, businessSubscriptions, users } from "@/lib/db/schema";
 import { eq, and, ne } from "drizzle-orm";
-import { Building2, ArrowUpRight, Sparkles } from "lucide-react";
+import { Building2, ArrowUpRight, Sparkles, PenLine } from "lucide-react";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -33,6 +33,15 @@ export default async function DashboardPage() {
   const hasFreePlanBusiness = userBusinesses.some(
     (b) => !b.planSlug || b.planSlug === "free"
   );
+
+  // Check canManageAskTheRabbi permission
+  const [dbUser] = await db
+    .select({ canManageAskTheRabbi: users.canManageAskTheRabbi })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  const canManageAskTheRabbi =
+    session.user.role === "admin" || (dbUser?.canManageAskTheRabbi ?? false);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -122,6 +131,32 @@ export default async function DashboardPage() {
           </div>
         )}
 
+        {/* Blog Writing CTA */}
+        <div className="mb-6 bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="bg-blue-50 rounded-lg p-3 shrink-0">
+                <PenLine className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Share Your Expertise
+                </h3>
+                <p className="text-gray-500 mt-1 text-sm">
+                  Write a blog post for the FrumToronto community. Share insights, announcements, or stories.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/dashboard/blog/new"
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors whitespace-nowrap text-sm shrink-0"
+            >
+              Write a Post
+              <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Profile Card */}
           <div className="bg-white rounded-lg shadow p-6">
@@ -148,6 +183,12 @@ export default async function DashboardPage() {
               Quick Actions
             </h2>
             <div className="space-y-3">
+              <Link
+                href="/dashboard/notifications"
+                className="block text-blue-600 hover:text-blue-800"
+              >
+                → My Notifications
+              </Link>
               <Link
                 href="/dashboard/settings"
                 className="block text-blue-600 hover:text-blue-800"
@@ -188,6 +229,14 @@ export default async function DashboardPage() {
                   className="block text-blue-600 hover:text-blue-800"
                 >
                   → Manage My Shuls
+                </Link>
+              )}
+              {canManageAskTheRabbi && (
+                <Link
+                  href="/dashboard/ask-the-rabbi"
+                  className="block text-blue-600 hover:text-blue-800"
+                >
+                  → Manage Ask the Rabbi
                 </Link>
               )}
               {session.user.role === "admin" && (

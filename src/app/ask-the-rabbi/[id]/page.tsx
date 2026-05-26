@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ChevronLeft, ChevronRight, MessageSquare, User } from "lucide-react";
 import { CommentThread } from "@/components/shared/CommentThread";
+import { PageViewTracker } from "@/components/analytics/PageViewTracker";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -84,6 +85,7 @@ export default async function QuestionDetailPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <PageViewTracker entityType="ask_the_rabbi" entityId={question.id} />
       {/* Header */}
       <div className="bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 text-white py-8">
         <div className="container mx-auto px-4">
