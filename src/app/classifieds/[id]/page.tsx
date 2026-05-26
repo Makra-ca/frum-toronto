@@ -2,11 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { classifieds, classifiedCategories } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ShoppingBag, ChevronRight, Clock, Mail, Tag, MapPin, DollarSign } from "lucide-react";
+import { ArrowLeft, ShoppingBag, ChevronRight, Clock, Tag, MapPin, DollarSign } from "lucide-react";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -46,7 +46,7 @@ async function getClassified(id: number) {
       price: classifieds.price,
       priceType: classifieds.priceType,
       contactName: classifieds.contactName,
-      contactEmail: classifieds.contactEmail,
+      hasContactEmail: sql<boolean>`(${classifieds.contactEmail} IS NOT NULL AND ${classifieds.contactEmail} != '')`.as("has_contact_email"),
       contactPhone: classifieds.contactPhone,
       location: classifieds.location,
       createdAt: classifieds.createdAt,
@@ -193,7 +193,7 @@ export default async function ClassifiedDetailPage({ params }: PageProps) {
           )}
 
           {/* Contact Info */}
-          {(classified.contactEmail || classified.contactPhone || classified.contactName) && (
+          {(classified.hasContactEmail || classified.contactPhone || classified.contactName) && (
             <Card className="border-0 shadow-md mb-6 bg-blue-50">
               <CardContent className="p-6">
                 <h2 className="font-semibold text-gray-900 mb-4">Contact Information</h2>
@@ -202,17 +202,6 @@ export default async function ClassifiedDetailPage({ params }: PageProps) {
                     <p className="text-gray-700">
                       <span className="font-medium">Name:</span> {classified.contactName}
                     </p>
-                  )}
-                  {classified.contactEmail && (
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-gray-500" />
-                      <a
-                        href={`mailto:${classified.contactEmail}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        {classified.contactEmail}
-                      </a>
-                    </div>
                   )}
                   {classified.contactPhone && (
                     <p className="text-gray-700">

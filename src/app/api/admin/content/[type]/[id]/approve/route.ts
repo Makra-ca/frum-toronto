@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { simchas, classifieds, events, tehillimList } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { sendEventLiveEmail } from "@/lib/email/send";
 
 const tableMap = {
   simchas,
@@ -37,6 +38,17 @@ export async function POST(
       return NextResponse.json({ error: "Invalid content type" }, { status: 400 });
     }
 
+    // For events: check previous approvalStatus so we can trigger email on transition
+    let previousApprovalStatus: string | null = null;
+    if (type === "events") {
+      const [existing] = await db
+        .select({ approvalStatus: events.approvalStatus })
+        .from(events)
+        .where(eq(events.id, parseInt(id)))
+        .limit(1);
+      previousApprovalStatus = existing?.approvalStatus ?? null;
+    }
+
     // Base update object
     const updateData: Record<string, unknown> = {
       approvalStatus: "approved",
@@ -55,6 +67,23 @@ export async function POST(
       .update(table)
       .set(updateData)
       .where(eq(table.id, parseInt(id)));
+
+    // Trigger event live broadcast email when transitioning to approved
+    if (type === "events" && previousApprovalStatus !== "approved") {
+      try {
+        const [approvedEvent] = await db
+          .select()
+          .from(events)
+          .where(eq(events.id, parseInt(id)))
+          .limit(1);
+
+        if (approvedEvent) {
+          await sendEventLiveEmail(approvedEvent);
+        }
+      } catch (emailError) {
+        console.error("[EVENTS] Failed to send event live broadcast email on approval:", emailError);
+      }
+    }
 
     return NextResponse.json({ message: `${type} approved successfully` });
   } catch (error) {

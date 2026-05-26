@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { emailSubscribers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Unsubscribe from newsletter via token
  * POST /api/newsletter/unsubscribe
@@ -37,6 +39,11 @@ export async function POST(req: NextRequest) {
         shiva: false,
         tehillim: false,
         communityEvents: false,
+        communityAlerts: false,
+        askTheRabbiAnswered: false,
+        atrCommentReplies: false,
+        blogCommentNotifications: false,
+        businessDeals: false,
         isActive: false,
         unsubscribedAt: new Date(),
       })
@@ -80,6 +87,11 @@ export async function GET(req: NextRequest) {
         shiva: emailSubscribers.shiva,
         tehillim: emailSubscribers.tehillim,
         communityEvents: emailSubscribers.communityEvents,
+        communityAlerts: emailSubscribers.communityAlerts,
+        askTheRabbiAnswered: emailSubscribers.askTheRabbiAnswered,
+        atrCommentReplies: emailSubscribers.atrCommentReplies,
+        blogCommentNotifications: emailSubscribers.blogCommentNotifications,
+        businessDeals: emailSubscribers.businessDeals,
         isActive: emailSubscribers.isActive,
         unsubscribedAt: emailSubscribers.unsubscribedAt,
       })
@@ -132,7 +144,12 @@ export async function PUT(req: NextRequest) {
       preferences.simchas ||
       preferences.shiva ||
       preferences.tehillim ||
-      preferences.communityEvents;
+      preferences.communityEvents ||
+      preferences.communityAlerts ||
+      preferences.askTheRabbiAnswered ||
+      preferences.atrCommentReplies ||
+      preferences.blogCommentNotifications ||
+      preferences.businessDeals;
 
     // Update preferences
     await db
@@ -145,6 +162,11 @@ export async function PUT(req: NextRequest) {
         shiva: preferences.shiva ?? false,
         tehillim: preferences.tehillim ?? false,
         communityEvents: preferences.communityEvents ?? false,
+        communityAlerts: preferences.communityAlerts ?? false,
+        askTheRabbiAnswered: preferences.askTheRabbiAnswered ?? true,
+        atrCommentReplies: preferences.atrCommentReplies ?? true,
+        blogCommentNotifications: preferences.blogCommentNotifications ?? true,
+        businessDeals: preferences.businessDeals ?? false,
         isActive: hasActiveSubscription,
         unsubscribedAt: hasActiveSubscription ? null : new Date(),
       })

@@ -34,6 +34,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (description.trim().length > 2000) {
+      return NextResponse.json(
+        { error: "Description must be 2,000 characters or less" },
+        { status: 400 }
+      );
+    }
     if (!categoryId) {
       return NextResponse.json({ error: "Category is required" }, { status: 400 });
     }

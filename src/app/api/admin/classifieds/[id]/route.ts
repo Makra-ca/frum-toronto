@@ -7,7 +7,7 @@ import { z } from "zod";
 
 const updateSchema = z.object({
   title: z.string().max(255).optional(),
-  description: z.string().optional(),
+  description: z.string().max(2000, "Description must be 2,000 characters or less").optional(),
   price: z.string().optional().nullable(),
   priceType: z.enum(["fixed", "negotiable", "free"]).optional().nullable(),
   contactName: z.string().max(100).optional().nullable(),

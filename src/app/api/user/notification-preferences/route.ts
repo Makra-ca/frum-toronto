@@ -6,6 +6,8 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import crypto from "crypto";
 
+export const dynamic = "force-dynamic";
+
 const updateSchema = z.object({
   newsletter: z.boolean().optional(),
   simchas: z.boolean().optional(),
@@ -15,6 +17,10 @@ const updateSchema = z.object({
   communityEvents: z.boolean().optional(),
   communityAlerts: z.boolean().optional(),
   eruvStatus: z.boolean().optional(),
+  askTheRabbiAnswered: z.boolean().optional(),
+  atrCommentReplies: z.boolean().optional(),
+  blogCommentNotifications: z.boolean().optional(),
+  businessDeals: z.boolean().optional(),
 });
 
 // GET - Get user's notification preferences
@@ -38,6 +44,10 @@ export async function GET() {
         communityEvents: emailSubscribers.communityEvents,
         communityAlerts: emailSubscribers.communityAlerts,
         eruvStatus: emailSubscribers.eruvStatus,
+        askTheRabbiAnswered: emailSubscribers.askTheRabbiAnswered,
+        atrCommentReplies: emailSubscribers.atrCommentReplies,
+        blogCommentNotifications: emailSubscribers.blogCommentNotifications,
+        businessDeals: emailSubscribers.businessDeals,
       })
       .from(emailSubscribers)
       .where(eq(emailSubscribers.userId, userId))
@@ -54,6 +64,10 @@ export async function GET() {
         communityEvents: false,
         communityAlerts: false,
         eruvStatus: false,
+        askTheRabbiAnswered: true,
+        atrCommentReplies: true,
+        blogCommentNotifications: true,
+        businessDeals: false,
       });
     }
 
@@ -116,6 +130,10 @@ export async function PATCH(request: NextRequest) {
           communityEvents: result.data.communityEvents ?? false,
           communityAlerts: result.data.communityAlerts ?? false,
           eruvStatus: result.data.eruvStatus ?? false,
+          askTheRabbiAnswered: result.data.askTheRabbiAnswered ?? true,
+          atrCommentReplies: result.data.atrCommentReplies ?? true,
+          blogCommentNotifications: result.data.blogCommentNotifications ?? true,
+          businessDeals: result.data.businessDeals ?? false,
           isActive: true,
           unsubscribeToken,
         })

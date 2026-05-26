@@ -92,6 +92,7 @@ export async function GET(request: NextRequest) {
         authorLastName: users.lastName,
         categoryName: blogCategories.name,
         commentCount: sql<number>`(SELECT count(*) FROM blog_comments WHERE post_id = ${blogPosts.id})`,
+        pendingCommentsCount: sql<number>`(SELECT count(*) FROM blog_comments WHERE post_id = ${blogPosts.id} AND approval_status = 'pending' AND is_active = true)`,
       })
       .from(blogPosts)
       .leftJoin(users, eq(blogPosts.authorId, users.id))

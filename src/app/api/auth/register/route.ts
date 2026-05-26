@@ -71,6 +71,10 @@ export async function POST(request: Request) {
       communityEvents: notifications?.communityEvents ?? false,
       communityAlerts: notifications?.communityAlerts ?? false,
       eruvStatus: notifications?.eruvStatus ?? false,
+      askTheRabbiAnswered: notifications?.askTheRabbiAnswered ?? true,
+      atrCommentReplies: notifications?.atrCommentReplies ?? true,
+      blogCommentNotifications: notifications?.blogCommentNotifications ?? true,
+      businessDeals: notifications?.businessDeals ?? false,
       isActive: true,
       unsubscribeToken,
     });

@@ -57,13 +57,40 @@ export const eventSchema = z.object({
   eventType: z.enum(["community", "fundraising", "school", "youth"]).optional().nullable(),
   shulId: z.number().int().positive().optional().nullable(),
   contactName: z.string().max(100).optional().nullable(),
-  contactEmail: z.string().email().max(255).optional().nullable(),
+  contactEmail: z.string().email().max(255).optional().nullable().or(z.literal("")),
   contactPhone: z.string().max(40).optional().nullable(),
   cost: z.string().max(150).optional().nullable(),
-  imageUrl: z.string().url().max(500).optional().nullable(),
+  imageUrl: z.string().url().max(500).optional().nullable().or(z.literal("")),
+  flyerUrl: z.string().url().max(500).optional().nullable().or(z.literal("")),
+  websiteUrl: z.string().url().max(500).optional().nullable().or(z.literal("")),
+  organization: z.string().max(200).optional().nullable(),
 });
 
 export type EventFormData = z.infer<typeof eventSchema>;
+
+// Public event submission schema — omits admin-only fields (approvalStatus)
+// and adds forceSchedule for conflict override
+export const publicEventSchema = z.object({
+  title: z.string().min(1, "Title is required").max(255),
+  description: z.string().optional().nullable(),
+  location: z.string().max(500).optional().nullable(),
+  startTime: z.string().datetime({ message: "Valid start time is required" }),
+  endTime: z.string().datetime().optional().nullable(),
+  isAllDay: z.boolean().optional().default(false),
+  eventType: z.enum(["community", "fundraising", "school", "youth"]).optional().nullable().default("community"),
+  shulId: z.number().int().positive().optional().nullable(),
+  contactName: z.string().max(100).optional().nullable(),
+  contactEmail: z.string().email().max(255).optional().nullable().or(z.literal("")),
+  contactPhone: z.string().max(40).optional().nullable(),
+  cost: z.string().max(150).optional().nullable(),
+  imageUrl: z.string().url().max(500).optional().nullable().or(z.literal("")),
+  flyerUrl: z.string().url().max(500).optional().nullable().or(z.literal("")),
+  websiteUrl: z.string().url().max(500).optional().nullable().or(z.literal("")),
+  organization: z.string().max(200).optional().nullable(),
+  forceSchedule: z.boolean().optional().default(false),
+});
+
+export type PublicEventFormData = z.infer<typeof publicEventSchema>;
 
 // ============================================
 // BUSINESSES

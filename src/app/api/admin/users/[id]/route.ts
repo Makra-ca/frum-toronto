@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
+export const dynamic = "force-dynamic";
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -34,6 +36,8 @@ export async function PATCH(
       canAutoApproveShiurim,
       canAutoApproveAlerts,
       canPostSpecials,
+      canManageAskTheRabbi,
+      commentPermission,
     } = body;
 
     const updateData: Record<string, unknown> = {
@@ -59,6 +63,8 @@ export async function PATCH(
     if (canAutoApproveShiurim !== undefined) updateData.canAutoApproveShiurim = canAutoApproveShiurim;
     if (canAutoApproveAlerts !== undefined) updateData.canAutoApproveAlerts = canAutoApproveAlerts;
     if (canPostSpecials !== undefined) updateData.canPostSpecials = canPostSpecials;
+    if (canManageAskTheRabbi !== undefined) updateData.canManageAskTheRabbi = canManageAskTheRabbi;
+    if (commentPermission !== undefined) updateData.commentPermission = commentPermission;
 
     await db
       .update(users)

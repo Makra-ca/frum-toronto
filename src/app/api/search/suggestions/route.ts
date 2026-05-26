@@ -10,6 +10,7 @@ import {
   searchAll,
 } from "@/lib/search/fuzzy-search";
 import type { SearchType, SearchSuggestion, SuggestionsResponse } from "@/lib/search/types";
+import { recordSearchQuery } from "@/lib/analytics/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,19 @@ export async function GET(request: NextRequest) {
 
     // Ensure sorted by relevance
     suggestions.sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+    // Log search query — fire-and-forget, must not block or break search
+    if (query.length >= 2) {
+      const sessionId = request.cookies.get("ft_session_id")?.value ?? "unknown";
+      recordSearchQuery({
+        query,
+        searchType: type ?? "all",
+        resultsCount: suggestions.length,
+        sessionId,
+      }).catch((err) => {
+        console.error("[Analytics] Failed to log search query:", err);
+      });
+    }
 
     return NextResponse.json({ suggestions } satisfies SuggestionsResponse);
   } catch (error) {

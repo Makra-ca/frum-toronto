@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/tehillim-cleanup",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-notifications",
+      "schedule": "0 3 * * *"
     }
   ]
 }
