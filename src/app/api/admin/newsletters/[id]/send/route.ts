@@ -34,7 +34,7 @@ function buildSendHtml(
   }
   // Fallback: old template (no blocks)
   return getNewsletterEmailHtml({
-    content: newsletter.content,
+    content: newsletter.content ?? "",
     previewText: newsletter.previewText || undefined,
     sendId,
     subscriberId,

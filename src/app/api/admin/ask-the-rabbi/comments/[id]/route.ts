@@ -8,7 +8,7 @@ import { z } from "zod";
 export const dynamic = "force-dynamic";
 
 // Auth guard: admin or canManageAskTheRabbi
-async function isAuthorized(session: Awaited<ReturnType<typeof auth>>) {
+async function isAuthorized(session: import("next-auth").Session | null) {
   if (!session?.user?.id) return false;
   if (session.user.role === "admin") return true;
 

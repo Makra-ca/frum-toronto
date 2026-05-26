@@ -13,10 +13,12 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const userId = parseInt(session.user.id as string);
+
     const [result] = await db
       .select({ count: sql<number>`count(*)` })
       .from(notifications)
-      .where(and(eq(notifications.isRead, false), eq(notifications.targetAudience, "admin")));
+      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
 
     return NextResponse.json({ count: Number(result?.count ?? 0) });
   } catch {

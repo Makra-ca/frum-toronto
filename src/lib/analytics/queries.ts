@@ -344,6 +344,7 @@ export interface AnalyticsData {
   topSearchQueries: { query: string; count: number; searchType: string }[];
   signupTrend: { date: string; count: number }[];
   contentSubmissions: ContentSubmissions;
+  prevContentTotal: number;
 }
 
 export async function getAnalyticsData(
@@ -410,7 +411,7 @@ export async function getAnalyticsData(
     db.select({ count: count() }).from(shivaNotifications).where(and(gte(shivaNotifications.createdAt, from), lte(shivaNotifications.createdAt, to))),
     db.select({ count: count() }).from(simchas).where(and(gte(simchas.createdAt, from), lte(simchas.createdAt, to))),
     db.select({ count: count() }).from(tehillimList).where(and(gte(tehillimList.createdAt, from), lte(tehillimList.createdAt, to))),
-    db.select({ count: count() }).from(askTheRabbi).where(and(gte(askTheRabbi.createdAt, from), lte(askTheRabbi.createdAt, to))),
+    db.select({ count: count() }).from(askTheRabbi).where(and(gte(askTheRabbi.publishedAt, from), lte(askTheRabbi.publishedAt, to))),
     db.select({ count: count() }).from(businesses).where(and(gte(businesses.createdAt, prevFrom), lte(businesses.createdAt, prevTo))),
     db.select({ count: count() }).from(events).where(and(gte(events.createdAt, prevFrom), lte(events.createdAt, prevTo))),
     db.select({ count: count() }).from(blogPosts).where(and(gte(blogPosts.createdAt, prevFrom), lte(blogPosts.createdAt, prevTo))),
@@ -419,17 +420,17 @@ export async function getAnalyticsData(
     db.select({ count: count() }).from(shivaNotifications).where(and(gte(shivaNotifications.createdAt, prevFrom), lte(shivaNotifications.createdAt, prevTo))),
     db.select({ count: count() }).from(simchas).where(and(gte(simchas.createdAt, prevFrom), lte(simchas.createdAt, prevTo))),
     db.select({ count: count() }).from(tehillimList).where(and(gte(tehillimList.createdAt, prevFrom), lte(tehillimList.createdAt, prevTo))),
-    db.select({ count: count() }).from(askTheRabbi).where(and(gte(askTheRabbi.createdAt, prevFrom), lte(askTheRabbi.createdAt, prevTo))),
+    db.select({ count: count() }).from(askTheRabbi).where(and(gte(askTheRabbi.publishedAt, prevFrom), lte(askTheRabbi.publishedAt, prevTo))),
   ]);
 
   return {
     overview: {
       totalViews: Number(currentOverview?.totalViews ?? 0),
       uniqueVisitors: Number(currentOverview?.uniqueVisitors ?? 0),
-      newSignups: Number(currentSignups[0]?.count ?? 0),
+      newSignups: Number(currentSignups?.count ?? 0),
       prevTotalViews: Number(prevOverview?.totalViews ?? 0),
       prevUniqueVisitors: Number(prevOverview?.uniqueVisitors ?? 0),
-      prevNewSignups: Number(prevSignups[0]?.count ?? 0),
+      prevNewSignups: Number(prevSignups?.count ?? 0),
     },
     topPages: topPagesResult,
     topBusinesses: topBusinessesResult,

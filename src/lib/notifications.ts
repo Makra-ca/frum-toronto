@@ -7,9 +7,7 @@ interface NotificationPayload {
   type: string;
   title: string;
   body?: string;
-  link?: string;
-  entityType?: string;
-  entityId?: number;
+  linkUrl?: string;
 }
 
 /**
@@ -20,10 +18,8 @@ export async function createNotification(payload: NotificationPayload): Promise<
     userId: payload.userId,
     type: payload.type,
     title: payload.title,
-    body: payload.body ?? null,
-    link: payload.link ?? null,
-    entityType: payload.entityType ?? null,
-    entityId: payload.entityId ?? null,
+    body: payload.body ?? "",
+    linkUrl: payload.linkUrl ?? null,
   });
 }
 
@@ -45,10 +41,8 @@ export async function createAdminNotification(
       userId: admin.id,
       type: payload.type,
       title: payload.title,
-      body: payload.body ?? null,
-      link: payload.link ?? null,
-      entityType: payload.entityType ?? null,
-      entityId: payload.entityId ?? null,
+      body: payload.body ?? "",
+      linkUrl: payload.linkUrl ?? null,
     }))
   );
 }

@@ -20,7 +20,7 @@ function buildSendHtml(
       .replace("</body>", `${trackingPixel}</body>`);
   }
   return getNewsletterEmailHtml({
-    content: newsletter.content,
+    content: newsletter.content ?? "",
     previewText: newsletter.previewText || undefined,
     sendId,
     subscriberId,
