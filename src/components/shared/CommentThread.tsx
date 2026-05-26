@@ -6,11 +6,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { MessageSquare, Loader2, CornerDownRight } from "lucide-react";
+import { MessageSquare, Loader2, CornerDownRight, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 interface CommentThreadComment {
   id: number;
+  authorId: number | null;
   content: string;
   authorName: string;
   parentId: number | null;
@@ -81,6 +82,7 @@ export function CommentThread({
   const [replyingTo, setReplyingTo] = useState<number | null>(null);
   const [replyContent, setReplyContent] = useState("");
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchComments = useCallback(async () => {
     try {
@@ -162,6 +164,24 @@ export function CommentThread({
       setIsSubmittingReply(false);
     }
   };
+
+  const handleDeleteComment = async (commentId: number) => {
+    if (!confirm("Delete this comment?")) return;
+    setDeletingId(commentId);
+    try {
+      const res = await fetch(`${apiBase}?commentId=${commentId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      toast.success("Comment deleted");
+    } catch {
+      toast.error("Failed to delete comment");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const currentUserId = session?.user?.id ? parseInt(session.user.id) : null;
+  const isAdmin = session?.user?.role === "admin";
 
   const topLevelComments = comments.filter((c) => c.parentId === null);
   const getReplies = (commentId: number) =>
@@ -264,19 +284,36 @@ export function CommentThread({
                         {comment.content}
                       </p>
                       {session?.user && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="mt-2 text-xs text-gray-500 h-7 px-2"
-                          onClick={() =>
-                            setReplyingTo(
-                              replyingTo === comment.id ? null : comment.id
-                            )
-                          }
-                        >
-                          <CornerDownRight className="h-3 w-3 mr-1" />
-                          Reply
-                        </Button>
+                        <div className="flex items-center gap-1 mt-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-gray-500 h-7 px-2"
+                            onClick={() =>
+                              setReplyingTo(
+                                replyingTo === comment.id ? null : comment.id
+                              )
+                            }
+                          >
+                            <CornerDownRight className="h-3 w-3 mr-1" />
+                            Reply
+                          </Button>
+                          {(isAdmin || currentUserId === comment.authorId) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 h-7 px-2"
+                              onClick={() => handleDeleteComment(comment.id)}
+                              disabled={deletingId === comment.id}
+                            >
+                              {deletingId === comment.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3 w-3" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       )}
 
                       {/* Reply Input */}
@@ -339,6 +376,21 @@ export function CommentThread({
                             <p className="text-sm text-gray-700 whitespace-pre-wrap">
                               {reply.content}
                             </p>
+                            {(isAdmin || currentUserId === reply.authorId) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 h-6 px-1.5 mt-1"
+                                onClick={() => handleDeleteComment(reply.id)}
+                                disabled={deletingId === reply.id}
+                              >
+                                {deletingId === reply.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3 w-3" />
+                                )}
+                              </Button>
+                            )}
                           </Card>
                         ))}
                       </div>

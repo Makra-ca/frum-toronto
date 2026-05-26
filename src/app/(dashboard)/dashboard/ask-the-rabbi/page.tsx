@@ -33,6 +33,7 @@ import {
   ExternalLink,
   Lock,
   PlusCircle,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { UniversalSearch } from "@/components/search/UniversalSearch";
@@ -252,6 +253,7 @@ function QuestionsTab() {
   const [searchInput, setSearchInput] = useState("");
   const [editQuestion, setEditQuestion] = useState<Question | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchQuestions = useCallback(async () => {
     setIsLoading(true);
@@ -305,6 +307,21 @@ function QuestionsTab() {
     setQuestions((prev) =>
       prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
     );
+  };
+
+  const handleDelete = async (q: Question) => {
+    if (!confirm(`Delete "${q.title}"? This cannot be undone.`)) return;
+    setDeletingId(q.id);
+    try {
+      const res = await fetch(`/api/admin/ask-the-rabbi?id=${q.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      setQuestions((prev) => prev.filter((item) => item.id !== q.id));
+      toast.success("Question deleted");
+    } catch {
+      toast.error("Failed to delete question");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -423,6 +440,21 @@ function QuestionsTab() {
                             <Eye className="h-4 w-4" />
                           ) : (
                             <Eye className="h-4 w-4 opacity-40" />
+                          )}
+                        </Button>
+                        {/* Delete */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => handleDelete(q)}
+                          disabled={deletingId === q.id}
+                          title="Delete question"
+                        >
+                          {deletingId === q.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
                           )}
                         </Button>
                       </div>

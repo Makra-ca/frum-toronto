@@ -174,3 +174,32 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Failed to update question" }, { status: 500 });
   }
 }
+
+// DELETE /api/admin/ask-the-rabbi?id=xxx
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!(await isAuthorized(session))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = parseInt(searchParams.get("id") || "");
+
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "Missing or invalid id param" }, { status: 400 });
+    }
+
+    await db.delete(askTheRabbiComments).where(eq(askTheRabbiComments.questionId, id));
+    const [deleted] = await db.delete(askTheRabbi).where(eq(askTheRabbi.id, id)).returning();
+
+    if (!deleted) {
+      return NextResponse.json({ error: "Question not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[ADMIN ATR] Error deleting question:", error);
+    return NextResponse.json({ error: "Failed to delete question" }, { status: 500 });
+  }
+}

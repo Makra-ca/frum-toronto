@@ -44,6 +44,7 @@ export async function GET(
     const comments = await db
       .select({
         id: askTheRabbiComments.id,
+        authorId: askTheRabbiComments.authorId,
         content: askTheRabbiComments.content,
         parentId: askTheRabbiComments.parentId,
         approvalStatus: askTheRabbiComments.approvalStatus,
@@ -64,6 +65,7 @@ export async function GET(
 
     const mapped = comments.map((c) => ({
       id: c.id,
+      authorId: c.authorId,
       content: c.content,
       parentId: c.parentId,
       approvalStatus: c.approvalStatus,
@@ -217,5 +219,52 @@ export async function POST(
   } catch (error) {
     console.error("[ATR COMMENTS] Error creating comment:", error);
     return NextResponse.json({ error: "Failed to create comment" }, { status: 500 });
+  }
+}
+
+// DELETE /api/ask-the-rabbi/[id]/comments?commentId=xxx
+// Users can delete their own comments; admins/managers can delete any
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const questionId = parseInt(id);
+    const { searchParams } = new URL(request.url);
+    const commentId = parseInt(searchParams.get("commentId") || "");
+
+    if (isNaN(questionId) || isNaN(commentId)) {
+      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+    }
+
+    const userId = parseInt(session.user.id);
+    const isAdmin = session.user.role === "admin";
+
+    const [comment] = await db
+      .select({ id: askTheRabbiComments.id, authorId: askTheRabbiComments.authorId })
+      .from(askTheRabbiComments)
+      .where(and(eq(askTheRabbiComments.id, commentId), eq(askTheRabbiComments.questionId, questionId)))
+      .limit(1);
+
+    if (!comment) {
+      return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+    }
+
+    if (!isAdmin && comment.authorId !== userId) {
+      return NextResponse.json({ error: "You can only delete your own comments" }, { status: 403 });
+    }
+
+    await db.delete(askTheRabbiComments).where(eq(askTheRabbiComments.id, commentId));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[ATR COMMENTS] Error deleting comment:", error);
+    return NextResponse.json({ error: "Failed to delete comment" }, { status: 500 });
   }
 }
