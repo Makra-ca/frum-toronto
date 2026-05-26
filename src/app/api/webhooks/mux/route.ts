@@ -56,14 +56,16 @@ export async function POST(request: NextRequest) {
     const body = await request.text();
     const webhookSecret = process.env.MUX_WEBHOOK_SIGNING_SECRET;
 
-    // Verify signature if secret is configured
-    if (webhookSecret) {
-      const signatureHeader = request.headers.get("mux-signature") || "";
-      const isValid = await verifyMuxSignature(body, signatureHeader, webhookSecret);
-      if (!isValid) {
-        console.error("[MUX Webhook] Invalid signature");
-        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-      }
+    if (!webhookSecret) {
+      console.error("[MUX Webhook] MUX_WEBHOOK_SIGNING_SECRET is not set — rejecting request");
+      return NextResponse.json({ error: "Webhook not configured" }, { status: 401 });
+    }
+
+    const signatureHeader = request.headers.get("mux-signature") || "";
+    const isValid = await verifyMuxSignature(body, signatureHeader, webhookSecret);
+    if (!isValid) {
+      console.error("[MUX Webhook] Invalid signature");
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     const event = JSON.parse(body);

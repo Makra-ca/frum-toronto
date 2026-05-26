@@ -5,6 +5,30 @@ import { eq, and, sql, inArray } from "drizzle-orm";
 import { resend, EMAIL_FROM } from "@/lib/email/resend";
 import { getNewsletterEmailHtml, getNewsletterPlainText } from "@/lib/email/newsletter-template";
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+function buildSendHtml(
+  newsletter: { previewHtml: string | null; content: string | null; previewText: string | null },
+  sendId: number,
+  subscriberId: number,
+  unsubscribeToken: string
+): string {
+  if (newsletter.previewHtml) {
+    const trackingPixel = `<img src="${APP_URL}/api/newsletter/track/open?sid=${sendId}&sub=${subscriberId}" width="1" height="1" alt="" style="display:none;width:1px;height:1px;border:0;" />`;
+    return newsletter.previewHtml
+      .replace(/PREVIEW_TOKEN/g, encodeURIComponent(unsubscribeToken))
+      .replace("</body>", `${trackingPixel}</body>`);
+  }
+  return getNewsletterEmailHtml({
+    content: newsletter.content,
+    previewText: newsletter.previewText || undefined,
+    sendId,
+    subscriberId,
+    unsubscribeToken,
+    trackOpens: true,
+  });
+}
+
 const BATCH_SIZE = 100; // Resend limit per batch request
 const BATCHES_PER_RUN = 5; // Process 500 emails per cron run
 const DELAY_BETWEEN_BATCHES = 600; // ms - to stay under rate limits
@@ -111,14 +135,7 @@ export async function GET(req: NextRequest) {
         from: EMAIL_FROM,
         to: log.email,
         subject: newsletter.subject,
-        html: getNewsletterEmailHtml({
-          content: newsletter.content,
-          previewText: newsletter.previewText || undefined,
-          sendId: send.id,
-          subscriberId: subscriber.id,
-          unsubscribeToken: subscriber.unsubscribeToken || "",
-          trackOpens: true,
-        }),
+        html: buildSendHtml(newsletter, send.id, subscriber.id, subscriber.unsubscribeToken || ""),
         text: getNewsletterPlainText(newsletter.content, subscriber.unsubscribeToken || ""),
       }));
 
