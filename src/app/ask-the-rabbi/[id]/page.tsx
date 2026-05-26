@@ -5,7 +5,6 @@ import { askTheRabbi } from "@/lib/db/schema";
 import { eq, desc, lt, gt } from "drizzle-orm";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ChevronLeft, ChevronRight, MessageSquare, User } from "lucide-react";
 import { CommentThread } from "@/components/shared/CommentThread";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
@@ -108,14 +107,6 @@ export default async function QuestionDetailPage({ params }: PageProps) {
       {/* Content */}
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-3xl mx-auto">
-          {/* Question Number Badge */}
-          <div className="mb-6">
-            {question.questionNumber && (
-              <Badge className="bg-purple-100 text-purple-800 text-sm px-3 py-1">
-                Question #{question.questionNumber}
-              </Badge>
-            )}
-          </div>
 
           {/* Question */}
           <Card className="border-0 shadow-md mb-6">

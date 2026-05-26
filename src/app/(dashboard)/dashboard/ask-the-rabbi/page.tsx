@@ -359,7 +359,6 @@ function QuestionsTab() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-gray-500">
-                  <th className="pb-3 pr-4 font-medium w-12">#</th>
                   <th className="pb-3 pr-4 font-medium">Title</th>
                   <th className="pb-3 pr-4 font-medium w-28">Status</th>
                   <th className="pb-3 pr-4 font-medium w-32">Published</th>
@@ -370,9 +369,6 @@ function QuestionsTab() {
               <tbody className="divide-y divide-gray-100">
                 {questions.map((q) => (
                   <tr key={q.id} className="hover:bg-gray-50/60">
-                    <td className="py-3 pr-4 text-gray-400">
-                      {q.questionNumber ?? "—"}
-                    </td>
                     <td className="py-3 pr-4">
                       <span className="font-medium text-gray-900 line-clamp-1">
                         {q.title}

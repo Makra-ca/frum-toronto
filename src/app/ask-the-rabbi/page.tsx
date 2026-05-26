@@ -4,7 +4,6 @@ import { askTheRabbi, users } from "@/lib/db/schema";
 import { desc, sql, and, eq } from "drizzle-orm";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { MessageSquare, ChevronRight } from "lucide-react";
 import { AskTheRabbiSearchBar } from "@/components/ask-the-rabbi/AskTheRabbiSearchBar";
 import { SubmitQuestionModal } from "@/components/ask-the-rabbi/SubmitQuestionModal";
@@ -181,13 +180,6 @@ export default async function AskTheRabbiPage({
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        {q.questionNumber && (
-                          <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-                            #{q.questionNumber}
-                          </Badge>
-                        )}
-                      </div>
                       <h3 className="font-semibold text-gray-900 text-lg mb-2">
                         {q.title}
                       </h3>

@@ -93,11 +93,6 @@ function AskRabbiCard({ data }: { data: Record<string, any> }) {
           <h3 className="font-semibold text-gray-900 line-clamp-2">
             {data.title as string}
           </h3>
-          {data.questionNumber && (
-            <Badge className="bg-purple-200 text-purple-800 shrink-0">
-              #{data.questionNumber as number}
-            </Badge>
-          )}
         </div>
         {data.question && (
           <p className="text-sm text-gray-600 mt-2 line-clamp-3">
