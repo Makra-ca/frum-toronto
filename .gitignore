@@ -42,3 +42,4 @@ login.txt
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.claude/worktrees/
