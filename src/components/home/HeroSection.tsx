@@ -63,6 +63,19 @@ const starParticles = [
   { id: 29, left: 68, top: 65, size: 1.5, delay: 3.3, duration: 3 },
 ];
 
+// 3 degrees/second orbital speed
+const DEG_PER_MS = 3 / 1000;
+const RADIUS_PCT = 33;
+
+function getNodeXY(index: number, angleDeg: number) {
+  const baseAngle = (index / communityNodes.length) * 360;
+  const rad = ((baseAngle + angleDeg) * Math.PI) / 180;
+  return {
+    x: 50 + Math.sin(rad) * RADIUS_PCT,
+    y: 50 - Math.cos(rad) * RADIUS_PCT,
+  };
+}
+
 // Animated counter hook
 function useCountUp(end: number, duration: number = 2000, startOnView: boolean = true) {
   const [count, setCount] = useState(0);
@@ -124,8 +137,52 @@ export function HeroSection() {
   const router = useRouter();
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [activeConnections, setActiveConnections] = useState<number[]>([]);
-  const [orbitRotation, setOrbitRotation] = useState(0);
   const [stats, setStats] = useState({ businesses: 0, shuls: 0 });
+
+  // RAF-based orbit: no React state involved in the animation loop
+  const angleRef = useRef(0);
+  const rafRef = useRef<number>(0);
+  const lastTimeRef = useRef<number>(0);
+  const nodeEls = useRef<(HTMLAnchorElement | null)[]>(communityNodes.map(() => null));
+  const lineBaseEls = useRef<(SVGLineElement | null)[]>(communityNodes.map(() => null));
+  const lineActiveEls = useRef<(SVGLineElement | null)[]>(communityNodes.map(() => null));
+
+  useEffect(() => {
+    const animate = (timestamp: number) => {
+      if (lastTimeRef.current > 0) {
+        const delta = timestamp - lastTimeRef.current;
+        angleRef.current = (angleRef.current + delta * DEG_PER_MS) % 360;
+      }
+      lastTimeRef.current = timestamp;
+
+      communityNodes.forEach((_, i) => {
+        const { x, y } = getNodeXY(i, angleRef.current);
+
+        const el = nodeEls.current[i];
+        if (el) {
+          el.style.left = `${x}%`;
+          el.style.top = `${y}%`;
+        }
+
+        const lb = lineBaseEls.current[i];
+        if (lb) {
+          lb.setAttribute("x2", `${x}%`);
+          lb.setAttribute("y2", `${y}%`);
+        }
+
+        const la = lineActiveEls.current[i];
+        if (la) {
+          la.setAttribute("x2", `${x}%`);
+          la.setAttribute("y2", `${y}%`);
+        }
+      });
+
+      rafRef.current = requestAnimationFrame(animate);
+    };
+
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, []);
 
   useEffect(() => {
     fetch("/api/stats")
@@ -137,15 +194,6 @@ export function HeroSection() {
   // Animated stats
   const businessCount = useCountUp(stats.businesses, 2000);
   const shulCount = useCountUp(stats.shuls, 2000);
-
-  // Slow orbital rotation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setOrbitRotation((prev) => (prev + 0.15) % 360);
-    }, 50);
-
-    return () => clearInterval(interval);
-  }, []);
 
   // Animate connections periodically
   useEffect(() => {
@@ -161,23 +209,8 @@ export function HeroSection() {
     return () => clearInterval(interval);
   }, []);
 
-  // Calculate node position with orbital rotation
-  const getNodePosition = (index: number) => {
-    const baseAngle = (index / communityNodes.length) * 360;
-    const currentAngle = baseAngle + orbitRotation;
-    const angleRad = (currentAngle * Math.PI) / 180;
-
-    // Reduced radius to keep nodes within bounds (accounting for node size ~16% of container)
-    const radius = 33; // percentage from center
-
-    const x = Math.sin(angleRad) * radius;
-    const y = Math.cos(angleRad) * radius;
-
-    return { x, y, angle: currentAngle };
-  };
-
   const scrollToContent = () => {
-    window.scrollBy({ top: window.innerHeight * 0.8, behavior: 'smooth' });
+    window.scrollBy({ top: window.innerHeight * 0.8, behavior: "smooth" });
   };
 
   return (
@@ -207,7 +240,7 @@ export function HeroSection() {
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
         <div
           className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl animate-pulse"
-          style={{ animationDelay: '1s' }}
+          style={{ animationDelay: "1s" }}
         />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/5 rounded-full blur-3xl" />
 
@@ -215,7 +248,7 @@ export function HeroSection() {
           className="absolute inset-0 opacity-[0.03]"
           style={{
             backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
-            backgroundSize: '40px 40px',
+            backgroundSize: "40px 40px",
           }}
         />
       </div>
@@ -278,14 +311,13 @@ export function HeroSection() {
               className="relative w-[300px] h-[300px] md:w-[380px] md:h-[380px] lg:w-[450px] lg:h-[450px] xl:w-[520px] xl:h-[520px] 2xl:w-[580px] 2xl:h-[580px]"
             >
 
-              {/* Subtle glow rings - no borders, just soft glows */}
+              {/* Subtle glow rings */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[35%] aspect-square rounded-full bg-blue-500/5 blur-sm animate-pulse-ring" />
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50%] aspect-square rounded-full bg-blue-400/5 blur-md animate-pulse-ring-delayed" />
 
-              {/* Center hub with glow */}
-              {/* Glow effect - positioned separately for proper centering */}
+              {/* Center hub glow */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 md:w-40 md:h-40 lg:w-48 lg:h-48 xl:w-56 xl:h-56 bg-blue-500/40 rounded-full blur-2xl animate-pulse z-10" />
-              {/* Hub with styled text like header */}
+              {/* Hub */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 xl:w-32 xl:h-32 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/50 flex items-center justify-center ring-2 ring-blue-400/40 z-20">
                 <div className="text-center">
                   <div className="flex items-baseline justify-center">
@@ -295,7 +327,7 @@ export function HeroSection() {
                 </div>
               </div>
 
-              {/* Connection lines SVG */}
+              {/* Connection lines SVG — x2/y2 updated by RAF, not React */}
               <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 5 }}>
                 <defs>
                   <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -304,42 +336,37 @@ export function HeroSection() {
                   </linearGradient>
                 </defs>
                 {communityNodes.map((node, index) => {
-                  const pos = getNodePosition(index);
+                  const { x: ix, y: iy } = getNodeXY(index, 0);
                   const isActive = activeConnections.includes(index) || hoveredNode === node.id;
-                  const centerX = 50;
-                  const centerY = 50;
-                  const nodeX = 50 + pos.x;
-                  const nodeY = 50 - pos.y; // Invert Y for screen coordinates
 
                   return (
                     <g key={`line-${node.id}`}>
-                      {/* Base line - always visible */}
                       <line
-                        x1={`${centerX}%`}
-                        y1={`${centerY}%`}
-                        x2={`${nodeX}%`}
-                        y2={`${nodeY}%`}
+                        ref={(el) => { lineBaseEls.current[index] = el; }}
+                        x1="50%"
+                        y1="50%"
+                        x2={`${ix}%`}
+                        y2={`${iy}%`}
                         stroke="rgba(147, 197, 253, 0.25)"
                         strokeWidth="1.5"
                         strokeDasharray="6 4"
                       />
-                      {/* Active/animated line */}
                       <line
-                        x1={`${centerX}%`}
-                        y1={`${centerY}%`}
-                        x2={`${nodeX}%`}
-                        y2={`${nodeY}%`}
+                        ref={(el) => { lineActiveEls.current[index] = el; }}
+                        x1="50%"
+                        y1="50%"
+                        x2={`${ix}%`}
+                        y2={`${iy}%`}
                         stroke="url(#lineGradient)"
                         strokeWidth="2.5"
-                        className={`transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`}
+                        className={`transition-opacity duration-500 ${isActive ? "opacity-100" : "opacity-0"}`}
                       />
-                      {/* Pulse dot traveling along line */}
                       {isActive && (
                         <circle r="4" fill="#60a5fa" className="animate-pulse">
                           <animateMotion
                             dur="0.8s"
                             repeatCount="1"
-                            path={`M${centerX * 4},${centerY * 4} L${nodeX * 4},${nodeY * 4}`}
+                            path={`M${ix * 4},${iy * 4} L${50 * 4},${50 * 4}`}
                           />
                         </circle>
                       )}
@@ -348,9 +375,9 @@ export function HeroSection() {
                 })}
               </svg>
 
-              {/* Floating nodes with orbital movement */}
+              {/* Floating nodes — left/top updated by RAF, initial positions at angle=0 */}
               {communityNodes.map((node, index) => {
-                const pos = getNodePosition(index);
+                const { x: ix, y: iy } = getNodeXY(index, 0);
                 const Icon = node.icon;
                 const isHovered = hoveredNode === node.id;
 
@@ -358,11 +385,13 @@ export function HeroSection() {
                   <Link
                     key={node.id}
                     href={node.href}
+                    ref={(el) => { nodeEls.current[index] = el; }}
                     className="absolute z-10 group"
                     style={{
-                      left: `${50 + pos.x}%`,
-                      top: `${50 - pos.y}%`,
-                      transform: 'translate(-50%, -50%)',
+                      left: `${ix}%`,
+                      top: `${iy}%`,
+                      transform: "translate(-50%, -50%)",
+                      willChange: "left, top",
                     }}
                     onMouseEnter={() => setHoveredNode(node.id)}
                     onMouseLeave={() => setHoveredNode(null)}
@@ -370,7 +399,7 @@ export function HeroSection() {
                     {/* Glow effect on hover */}
                     <div
                       className={`absolute inset-0 -m-3 rounded-xl blur-lg transition-opacity duration-300 bg-blue-400/50 ${
-                        isHovered ? 'opacity-100' : 'opacity-0'
+                        isHovered ? "opacity-100" : "opacity-0"
                       }`}
                     />
 
@@ -384,8 +413,8 @@ export function HeroSection() {
                         flex flex-col items-center justify-center
                         transition-all duration-300
                         ${isHovered
-                          ? 'scale-125 shadow-xl shadow-blue-500/40 w-20 h-20 md:w-24 md:h-24 lg:w-28 lg:h-28'
-                          : 'w-14 h-14 md:w-16 md:h-16 lg:w-[72px] lg:h-[72px] xl:w-20 xl:h-20'
+                          ? "scale-125 shadow-xl shadow-blue-500/40 w-20 h-20 md:w-24 md:h-24 lg:w-28 lg:h-28"
+                          : "w-14 h-14 md:w-16 md:h-16 lg:w-[72px] lg:h-[72px] xl:w-20 xl:h-20"
                         }
                       `}
                     >
@@ -393,10 +422,10 @@ export function HeroSection() {
                       <div className="absolute inset-0 shimmer-effect" />
 
                       <Icon className={`relative z-10 text-white transition-all duration-300 ${
-                        isHovered ? 'w-7 h-7 md:w-8 md:h-8 lg:w-9 lg:h-9' : 'w-5 h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 xl:w-8 xl:h-8'
+                        isHovered ? "w-7 h-7 md:w-8 md:h-8 lg:w-9 lg:h-9" : "w-5 h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 xl:w-8 xl:h-8"
                       }`} />
                       <span className={`relative z-10 text-white/90 font-medium mt-0.5 transition-all duration-300 ${
-                        isHovered ? 'text-[10px] md:text-xs lg:text-sm' : 'text-[8px] md:text-[9px] lg:text-[10px] xl:text-xs'
+                        isHovered ? "text-[10px] md:text-xs lg:text-sm" : "text-[8px] md:text-[9px] lg:text-[10px] xl:text-xs"
                       }`}>
                         {node.label}
                       </span>
@@ -449,7 +478,7 @@ export function HeroSection() {
 
       </div>
 
-      {/* Scroll indicator - fixed at bottom of hero section */}
+      {/* Scroll indicator */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30">
         <button
           onClick={scrollToContent}
