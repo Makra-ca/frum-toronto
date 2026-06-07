@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { safeQuery } from "@/lib/db/safe-query";
 import { events } from "@/lib/db/schema";
 import { gte, and, eq } from "drizzle-orm";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,7 +51,9 @@ async function getUpcomingEvents() {
 }
 
 export async function UpcomingEvents() {
-  const upcomingEvents = await getUpcomingEvents();
+  const upcomingEvents = await safeQuery(getUpcomingEvents, [], {
+    label: "upcoming-events",
+  });
 
   return (
     <section>

@@ -223,7 +223,7 @@ export async function POST(
 }
 
 // DELETE /api/ask-the-rabbi/[id]/comments?commentId=xxx
-// Users can delete their own comments; admins/managers can delete any
+// Users can delete their own comments; admins/ATR managers can delete any (with cascade)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -246,8 +246,19 @@ export async function DELETE(
     const userId = parseInt(session.user.id);
     const isAdmin = session.user.role === "admin";
 
+    // Check if user is an ATR manager (from DB, since JWT may lag on permission changes)
+    let isManager = isAdmin || session.user.canManageAskTheRabbi;
+    if (!isManager) {
+      const [dbUser] = await db
+        .select({ canManageAskTheRabbi: users.canManageAskTheRabbi })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      isManager = dbUser?.canManageAskTheRabbi === true;
+    }
+
     const [comment] = await db
-      .select({ id: askTheRabbiComments.id, authorId: askTheRabbiComments.authorId })
+      .select({ id: askTheRabbiComments.id, authorId: askTheRabbiComments.authorId, parentId: askTheRabbiComments.parentId })
       .from(askTheRabbiComments)
       .where(and(eq(askTheRabbiComments.id, commentId), eq(askTheRabbiComments.questionId, questionId)))
       .limit(1);
@@ -256,8 +267,13 @@ export async function DELETE(
       return NextResponse.json({ error: "Comment not found" }, { status: 404 });
     }
 
-    if (!isAdmin && comment.authorId !== userId) {
+    if (!isManager && comment.authorId !== userId) {
       return NextResponse.json({ error: "You can only delete your own comments" }, { status: 403 });
+    }
+
+    // If deleting a top-level comment, cascade-delete its replies first
+    if (comment.parentId === null) {
+      await db.delete(askTheRabbiComments).where(eq(askTheRabbiComments.parentId, commentId));
     }
 
     await db.delete(askTheRabbiComments).where(eq(askTheRabbiComments.id, commentId));

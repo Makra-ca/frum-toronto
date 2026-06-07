@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { db } from "@/lib/db";
+import { safeQuery } from "@/lib/db/safe-query";
 import { businesses, businessCategories } from "@/lib/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,7 +38,9 @@ async function getFeaturedBusinesses() {
 }
 
 export async function FeaturedBusinesses() {
-  const featuredBusinesses = await getFeaturedBusinesses();
+  const featuredBusinesses = await safeQuery(getFeaturedBusinesses, [], {
+    label: "featured-businesses",
+  });
 
   return (
     <section>

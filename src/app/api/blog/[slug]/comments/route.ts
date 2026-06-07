@@ -54,7 +54,17 @@ export async function GET(
       )
       .orderBy(asc(blogComments.createdAt));
 
-    return NextResponse.json(comments);
+    const mapped = comments.map((c) => ({
+      id: c.id,
+      authorId: c.authorId,
+      content: c.content,
+      parentId: c.parentId,
+      createdAt: c.createdAt,
+      authorName:
+        [c.authorFirstName, c.authorLastName].filter(Boolean).join(" ") || "Anonymous",
+    }));
+
+    return NextResponse.json(mapped);
   } catch (error) {
     console.error("[API] Error fetching blog comments:", error);
     return NextResponse.json(
@@ -186,5 +196,67 @@ export async function POST(
       { error: "Failed to create comment" },
       { status: 500 }
     );
+  }
+}
+
+// DELETE /api/blog/[slug]/comments?commentId=xxx
+// Users can delete their own comments; admins can delete any (with cascade)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
+    const { slug } = await params;
+    const { searchParams } = new URL(request.url);
+    const commentId = parseInt(searchParams.get("commentId") || "");
+
+    if (isNaN(commentId)) {
+      return NextResponse.json({ error: "Invalid comment ID" }, { status: 400 });
+    }
+
+    const userId = parseInt(session.user.id);
+    const isAdmin = session.user.role === "admin";
+
+    // Find the post to confirm it exists
+    const [post] = await db
+      .select({ id: blogPosts.id })
+      .from(blogPosts)
+      .where(and(eq(blogPosts.slug, slug), eq(blogPosts.isActive, true)))
+      .limit(1);
+
+    if (!post) {
+      return NextResponse.json({ error: "Blog post not found" }, { status: 404 });
+    }
+
+    const [comment] = await db
+      .select({ id: blogComments.id, authorId: blogComments.authorId, parentId: blogComments.parentId })
+      .from(blogComments)
+      .where(and(eq(blogComments.id, commentId), eq(blogComments.postId, post.id)))
+      .limit(1);
+
+    if (!comment) {
+      return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+    }
+
+    if (!isAdmin && comment.authorId !== userId) {
+      return NextResponse.json({ error: "You can only delete your own comments" }, { status: 403 });
+    }
+
+    // Cascade-delete replies when deleting a top-level comment
+    if (comment.parentId === null) {
+      await db.delete(blogComments).where(eq(blogComments.parentId, commentId));
+    }
+
+    await db.delete(blogComments).where(eq(blogComments.id, commentId));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[API] Error deleting blog comment:", error);
+    return NextResponse.json({ error: "Failed to delete comment" }, { status: 500 });
   }
 }

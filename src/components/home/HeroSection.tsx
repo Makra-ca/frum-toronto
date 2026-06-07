@@ -139,31 +139,50 @@ export function HeroSection() {
   const [activeConnections, setActiveConnections] = useState<number[]>([]);
   const [stats, setStats] = useState({ businesses: 0, shuls: 0 });
 
-  // RAF-based orbit: no React state involved in the animation loop
+  // RAF-based orbit: no React state involved in the animation loop.
+  // Nodes are anchored at the container center and moved with GPU-composited
+  // transforms (not left/top) so motion stays smooth at slow speeds.
   const angleRef = useRef(0);
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const sizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
   const nodeEls = useRef<(HTMLAnchorElement | null)[]>(communityNodes.map(() => null));
   const lineBaseEls = useRef<(SVGLineElement | null)[]>(communityNodes.map(() => null));
   const lineActiveEls = useRef<(SVGLineElement | null)[]>(communityNodes.map(() => null));
 
   useEffect(() => {
-    const animate = (timestamp: number) => {
-      if (lastTimeRef.current > 0) {
-        const delta = timestamp - lastTimeRef.current;
-        angleRef.current = (angleRef.current + delta * DEG_PER_MS) % 360;
-      }
-      lastTimeRef.current = timestamp;
+    const container = containerRef.current;
 
+    const measure = () => {
+      if (container) {
+        sizeRef.current = { w: container.offsetWidth, h: container.offsetHeight };
+      }
+    };
+    measure();
+
+    const ro = new ResizeObserver(measure);
+    if (container) ro.observe(container);
+
+    // The RAF loop is the single source of truth for node positions. We
+    // re-anchor left/top to the container center every frame because React
+    // re-renders restore the JSX `left: ix%` values; without this the pixel
+    // offset would stack on top of them and fling nodes off-screen.
+    const positionAll = (angle: number) => {
+      const { w, h } = sizeRef.current;
       communityNodes.forEach((_, i) => {
-        const { x, y } = getNodeXY(i, angleRef.current);
+        const { x, y } = getNodeXY(i, angle);
+        const offX = ((x - 50) / 100) * w;
+        const offY = ((y - 50) / 100) * h;
 
         const el = nodeEls.current[i];
         if (el) {
-          el.style.left = `${x}%`;
-          el.style.top = `${y}%`;
+          el.style.left = "50%";
+          el.style.top = "50%";
+          el.style.transform = `translate(-50%, -50%) translate(${offX}px, ${offY}px)`;
         }
 
+        // SVG coordinates are sub-pixel accurate, so percentages stay smooth here.
         const lb = lineBaseEls.current[i];
         if (lb) {
           lb.setAttribute("x2", `${x}%`);
@@ -176,12 +195,28 @@ export function HeroSection() {
           la.setAttribute("y2", `${y}%`);
         }
       });
+    };
+
+    // Paint the starting positions immediately so there's no center-stack flash.
+    positionAll(angleRef.current);
+
+    const animate = (timestamp: number) => {
+      if (lastTimeRef.current > 0) {
+        const delta = timestamp - lastTimeRef.current;
+        angleRef.current = (angleRef.current + delta * DEG_PER_MS) % 360;
+      }
+      lastTimeRef.current = timestamp;
+
+      positionAll(angleRef.current);
 
       rafRef.current = requestAnimationFrame(animate);
     };
 
     rafRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(rafRef.current);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      ro.disconnect();
+    };
   }, []);
 
   useEffect(() => {
@@ -237,13 +272,6 @@ export function HeroSection() {
 
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
-        <div
-          className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl animate-pulse"
-          style={{ animationDelay: "1s" }}
-        />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/5 rounded-full blur-3xl" />
-
         <div
           className="absolute inset-0 opacity-[0.03]"
           style={{
@@ -308,6 +336,7 @@ export function HeroSection() {
           {/* Right side - Connected community network */}
           <div className="flex-1 flex items-center justify-center">
             <div
+              ref={containerRef}
               className="relative w-[300px] h-[300px] md:w-[380px] md:h-[380px] lg:w-[450px] lg:h-[450px] xl:w-[520px] xl:h-[520px] 2xl:w-[580px] 2xl:h-[580px]"
             >
 
@@ -391,7 +420,7 @@ export function HeroSection() {
                       left: `${ix}%`,
                       top: `${iy}%`,
                       transform: "translate(-50%, -50%)",
-                      willChange: "left, top",
+                      willChange: "transform",
                     }}
                     onMouseEnter={() => setHoveredNode(node.id)}
                     onMouseLeave={() => setHoveredNode(null)}

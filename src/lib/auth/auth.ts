@@ -47,20 +47,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // For credentials, user.role is already correct from the authorize() callback
         if (user.email) {
           const [dbUser] = await db
-            .select({ role: users.role, isTrusted: users.isTrusted })
+            .select({ role: users.role, isTrusted: users.isTrusted, canManageAskTheRabbi: users.canManageAskTheRabbi })
             .from(users)
             .where(eq(users.email, user.email.toLowerCase()))
             .limit(1);
           if (dbUser) {
             token.role = dbUser.role;
             token.isTrusted = dbUser.isTrusted ?? false;
+            token.canManageAskTheRabbi = dbUser.canManageAskTheRabbi ?? false;
           } else {
             token.role = user.role;
             token.isTrusted = user.isTrusted;
+            token.canManageAskTheRabbi = false;
           }
         } else {
           token.role = user.role;
           token.isTrusted = user.isTrusted;
+          token.canManageAskTheRabbi = false;
         }
       }
       // Handle session updates
@@ -75,6 +78,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id;
         session.user.role = token.role;
         session.user.isTrusted = token.isTrusted;
+        session.user.canManageAskTheRabbi = token.canManageAskTheRabbi;
       }
       return session;
     },

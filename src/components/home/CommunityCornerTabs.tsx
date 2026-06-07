@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { safeQuery } from "@/lib/db/safe-query";
 import {
   askTheRabbi,
   simchas,
@@ -147,12 +148,12 @@ export async function CommunityCornerTabs() {
     shivaItems,
     tehillimItems,
   ] = await Promise.all([
-    getRecentQuestions(),
-    getRecentSimchas(),
-    getKosherAlerts(),
-    getBulletinAlerts(),
-    getShivaNotices(),
-    getTehillimNames(),
+    safeQuery(getRecentQuestions, [], { label: "corner:questions" }),
+    safeQuery(getRecentSimchas, [], { label: "corner:simchas" }),
+    safeQuery(getKosherAlerts, [], { label: "corner:kosher-alerts" }),
+    safeQuery(getBulletinAlerts, [], { label: "corner:bulletins" }),
+    safeQuery(getShivaNotices, [], { label: "corner:shiva" }),
+    safeQuery(getTehillimNames, [], { label: "corner:tehillim" }),
   ]);
 
   // Merge all items into one unified list with tab type and sortDate

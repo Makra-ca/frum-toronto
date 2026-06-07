@@ -182,6 +182,7 @@ export function CommentThread({
 
   const currentUserId = session?.user?.id ? parseInt(session.user.id) : null;
   const isAdmin = session?.user?.role === "admin";
+  const canModerate = isAdmin || session?.user?.canManageAskTheRabbi === true;
 
   const topLevelComments = comments.filter((c) => c.parentId === null);
   const getReplies = (commentId: number) =>
@@ -298,7 +299,7 @@ export function CommentThread({
                             <CornerDownRight className="h-3 w-3 mr-1" />
                             Reply
                           </Button>
-                          {(isAdmin || currentUserId === comment.authorId) && (
+                          {(canModerate || currentUserId === comment.authorId) && (
                             <Button
                               variant="ghost"
                               size="sm"
