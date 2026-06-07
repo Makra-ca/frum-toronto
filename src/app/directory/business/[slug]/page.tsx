@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { businesses, businessCategories, subscriptionPlans } from "@/lib/db/schema";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
+import { auth } from "@/lib/auth/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -78,7 +79,13 @@ export async function generateMetadata({ params }: PageProps) {
   const business = await db
     .select({ name: businesses.name, description: businesses.description })
     .from(businesses)
-    .where(eq(businesses.slug, slug))
+    .where(
+      and(
+        eq(businesses.slug, slug),
+        eq(businesses.approvalStatus, "approved"),
+        eq(businesses.isActive, true)
+      )
+    )
     .limit(1);
 
   if (!business[0]) {
@@ -118,6 +125,9 @@ async function getBusinessData(slug: string) {
       diningType: businesses.diningType,
       isNonProfit: businesses.isNonProfit,
       nonProfitStatus: businesses.nonProfitStatus,
+      userId: businesses.userId,
+      approvalStatus: businesses.approvalStatus,
+      isActive: businesses.isActive,
     })
     .from(businesses)
     .where(eq(businesses.slug, slug))
@@ -128,6 +138,21 @@ async function getBusinessData(slug: string) {
   }
 
   const rawBusiness = businessResult[0];
+
+  // Non-approved/inactive businesses are only visible to admins and the owner
+  // (the owner dashboard links to pending listings as a preview)
+  const isPubliclyVisible =
+    rawBusiness.approvalStatus === "approved" && rawBusiness.isActive === true;
+  if (!isPubliclyVisible) {
+    const session = await auth();
+    const sessionUserId = session?.user?.id ? parseInt(session.user.id) : null;
+    const authorizedPreview =
+      session?.user?.role === "admin" ||
+      (sessionUserId !== null && rawBusiness.userId === sessionUserId);
+    if (!authorizedPreview) {
+      return null;
+    }
+  }
 
   // Fetch subscription plan if exists
   let subscriptionPlan: SubscriptionPlanData | null = null;
@@ -238,17 +263,20 @@ async function getBusinessData(slug: string) {
         .limit(5)
     : [];
 
-  // Increment view count
-  await db
-    .update(businesses)
-    .set({ viewCount: sql`COALESCE(${businesses.viewCount}, 0) + 1` })
-    .where(eq(businesses.id, business.id));
+  // Increment view count (public views only — not owner/admin previews)
+  if (isPubliclyVisible) {
+    await db
+      .update(businesses)
+      .set({ viewCount: sql`COALESCE(${businesses.viewCount}, 0) + 1` })
+      .where(eq(businesses.id, business.id));
+  }
 
   return {
     business,
     category,
     parentCategory,
     relatedBusinesses,
+    isPreview: !isPubliclyVisible,
   };
 }
 
@@ -270,7 +298,7 @@ export default async function BusinessPage({ params }: PageProps) {
     notFound();
   }
 
-  const { business, category, parentCategory, relatedBusinesses } = data;
+  const { business, category, parentCategory, relatedBusinesses, isPreview } = data;
   const plan = business.subscriptionPlan;
 
   // Feature visibility based on subscription plan
@@ -298,6 +326,12 @@ export default async function BusinessPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Preview banner for non-approved/inactive listings */}
+      {isPreview && (
+        <div className="bg-amber-100 border-b border-amber-300 text-amber-900 text-sm text-center py-2 px-4">
+          Pending approval — only visible to you
+        </div>
+      )}
       {/* Header */}
       <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-900 text-white py-8">
         <div className="container mx-auto px-4">

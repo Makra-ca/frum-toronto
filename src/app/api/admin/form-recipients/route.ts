@@ -15,8 +15,10 @@ export const FORM_TYPES = [
   { value: "classified_submission", label: "Classified Submissions" },
 ] as const;
 
+const FORM_TYPE_VALUES = FORM_TYPES.map((t) => t.value) as [string, ...string[]];
+
 const recipientSchema = z.object({
-  formType: z.string().min(1, "Form type is required"),
+  formType: z.enum(FORM_TYPE_VALUES, { message: "Invalid form type" }),
   email: z.string().email("Valid email is required"),
   name: z.string().optional(),
 });

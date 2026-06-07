@@ -404,14 +404,19 @@ function QuestionsTab() {
                     </td>
                     <td className="py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {/* View on site */}
-                        {q.isPublished && (
-                          <Link href={`/ask-the-rabbi/${q.id}`} target="_blank">
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <ExternalLink className="h-4 w-4 text-gray-500" />
-                            </Button>
-                          </Link>
-                        )}
+                        {/* View on site (published) / Preview (unpublished) */}
+                        <Link href={`/ask-the-rabbi/${q.id}`} target="_blank">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title={q.isPublished ? "View on site" : "Preview (unpublished)"}
+                          >
+                            <ExternalLink
+                              className={`h-4 w-4 ${q.isPublished ? "text-gray-500" : "text-amber-500"}`}
+                            />
+                          </Button>
+                        </Link>
                         {/* Edit */}
                         <Button
                           variant="ghost"

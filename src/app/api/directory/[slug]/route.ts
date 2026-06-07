@@ -91,6 +91,7 @@ export async function GET(
   const conditions = [
     eq(businesses.categoryId, category.id),
     eq(businesses.isActive, true),
+    eq(businesses.approvalStatus, "approved"),
   ];
 
   if (query) {

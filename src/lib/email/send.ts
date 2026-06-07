@@ -314,18 +314,38 @@ export async function sendEventLiveEmail(event: EventRow): Promise<void> {
   const subject = `New Event: ${event.title} — ${formatEventDate(event.startTime)}`;
 
   const batches = chunkArray(subscribers, 100);
-  for (const batch of batches) {
-    await resend.batch.send(
-      batch.map((s) => ({
-        from: EMAIL_FROM,
-        to: s.email,
-        subject,
-        html,
-      }))
-    );
+  let failedBatches = 0;
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+    try {
+      const { error } = await resend.batch.send(
+        batch.map((s) => ({
+          from: EMAIL_FROM,
+          to: s.email,
+          subject,
+          html,
+        }))
+      );
+      if (error) {
+        failedBatches++;
+        console.error(
+          `[EVENTS] Batch ${i + 1}/${batches.length} failed (${batch.length} recipients):`,
+          error
+        );
+      }
+    } catch (error) {
+      failedBatches++;
+      console.error(
+        `[EVENTS] Batch ${i + 1}/${batches.length} threw (${batch.length} recipients):`,
+        error
+      );
+    }
   }
 
-  console.log(`[EVENTS] Sent event live email for "${event.title}" to ${subscribers.length} subscribers`);
+  console.log(
+    `[EVENTS] Sent event live email for "${event.title}" to ${subscribers.length} subscribers` +
+      (failedBatches > 0 ? ` (${failedBatches}/${batches.length} batches failed)` : "")
+  );
 }
 
 /**

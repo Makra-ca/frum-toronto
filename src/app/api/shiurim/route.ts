@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
       .where(
         and(
           eq(shiurim.isActive, true),
+          eq(shiurim.approvalStatus, "approved"),
           or(eq(shiurim.isOnHold, false), isNull(shiurim.isOnHold))
         )
       )

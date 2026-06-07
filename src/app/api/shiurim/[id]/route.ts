@@ -65,6 +65,7 @@ export async function GET(
         and(
           eq(shiurim.id, shiurId),
           eq(shiurim.isActive, true),
+          eq(shiurim.approvalStatus, "approved"),
           or(eq(shiurim.isOnHold, false), isNull(shiurim.isOnHold))
         )
       )

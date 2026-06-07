@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { classifieds, classifiedCategories } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,13 @@ export async function generateMetadata({ params }: PageProps) {
   const classified = await db
     .select({ title: classifieds.title })
     .from(classifieds)
-    .where(eq(classifieds.id, parsedId))
+    .where(
+      and(
+        eq(classifieds.id, parsedId),
+        eq(classifieds.approvalStatus, "approved"),
+        eq(classifieds.isActive, true)
+      )
+    )
     .limit(1);
 
   if (!classified[0]) {
@@ -59,7 +65,13 @@ async function getClassified(id: number) {
     })
     .from(classifieds)
     .leftJoin(classifiedCategories, eq(classifieds.categoryId, classifiedCategories.id))
-    .where(eq(classifieds.id, id))
+    .where(
+      and(
+        eq(classifieds.id, id),
+        eq(classifieds.approvalStatus, "approved"),
+        eq(classifieds.isActive, true)
+      )
+    )
     .limit(1);
 
   return result[0] || null;

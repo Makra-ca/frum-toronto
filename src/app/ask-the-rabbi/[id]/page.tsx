@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { askTheRabbi } from "@/lib/db/schema";
-import { eq, desc, lt, gt } from "drizzle-orm";
+import { eq, and, desc, lt, gt } from "drizzle-orm";
+import { auth } from "@/lib/auth/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ChevronLeft, ChevronRight, MessageSquare, User } from "lucide-react";
@@ -18,7 +19,7 @@ export async function generateMetadata({ params }: PageProps) {
   const question = await db
     .select({ title: askTheRabbi.title, questionNumber: askTheRabbi.questionNumber })
     .from(askTheRabbi)
-    .where(eq(askTheRabbi.id, parseInt(id)))
+    .where(and(eq(askTheRabbi.id, parseInt(id)), eq(askTheRabbi.isPublished, true)))
     .limit(1);
 
   if (!question[0]) {
@@ -40,18 +41,28 @@ async function getQuestion(id: number) {
 
   if (!result[0]) return null;
 
-  // Get previous and next questions
+  // Get previous and next questions (published only — nav never leads to drafts)
   const [prevQuestion] = await db
     .select({ id: askTheRabbi.id, questionNumber: askTheRabbi.questionNumber })
     .from(askTheRabbi)
-    .where(gt(askTheRabbi.questionNumber, result[0].questionNumber || 0))
+    .where(
+      and(
+        gt(askTheRabbi.questionNumber, result[0].questionNumber || 0),
+        eq(askTheRabbi.isPublished, true)
+      )
+    )
     .orderBy(askTheRabbi.questionNumber)
     .limit(1);
 
   const [nextQuestion] = await db
     .select({ id: askTheRabbi.id, questionNumber: askTheRabbi.questionNumber })
     .from(askTheRabbi)
-    .where(lt(askTheRabbi.questionNumber, result[0].questionNumber || 0))
+    .where(
+      and(
+        lt(askTheRabbi.questionNumber, result[0].questionNumber || 0),
+        eq(askTheRabbi.isPublished, true)
+      )
+    )
     .orderBy(desc(askTheRabbi.questionNumber))
     .limit(1);
 
@@ -72,6 +83,18 @@ export default async function QuestionDetailPage({ params }: PageProps) {
 
   const { question, prevId, nextId } = data;
 
+  // Unpublished questions are only visible to admins and ATR managers (preview)
+  const isPreview = !question.isPublished;
+  if (isPreview) {
+    const session = await auth();
+    const authorizedPreview =
+      session?.user?.role === "admin" ||
+      session?.user?.canManageAskTheRabbi === true;
+    if (!authorizedPreview) {
+      notFound();
+    }
+  }
+
   // Format the question and answer text with proper paragraphs
   const formatText = (text: string | null) => {
     if (!text) return null;
@@ -85,6 +108,12 @@ export default async function QuestionDetailPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       <PageViewTracker entityType="ask_the_rabbi" entityId={question.id} />
+      {/* Preview banner for unpublished questions */}
+      {isPreview && (
+        <div className="bg-amber-100 border-b border-amber-300 text-amber-900 text-sm text-center py-2 px-4">
+          Pending approval — only visible to you
+        </div>
+      )}
       {/* Header */}
       <div className="bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 text-white py-8">
         <div className="container mx-auto px-4">
