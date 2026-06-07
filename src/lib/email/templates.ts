@@ -323,6 +323,84 @@ export function getAdminNotificationEmailHtml(params: {
   `.trim();
 }
 
+export function getDailyDigestEmailHtml(params: {
+  totalCount: number;
+  items: { label: string; count: number; linkUrl: string }[];
+}): string {
+  const { totalCount, items } = params;
+  const year = new Date().getFullYear();
+
+  const rows = items
+    .map(
+      (item) => `
+                <tr>
+                  <td style="padding: 12px 20px; border-bottom: 1px solid #e5e7eb;">
+                    <a href="${item.linkUrl}" style="color: #2563eb; text-decoration: none; font-size: 15px; font-weight: 500;">${escapeHtml(item.label)}</a>
+                  </td>
+                  <td align="right" style="padding: 12px 20px; border-bottom: 1px solid #e5e7eb;">
+                    <span style="display: inline-block; min-width: 24px; padding: 2px 10px; background-color: #fee2e2; color: #b91c1c; border-radius: 12px; font-size: 14px; font-weight: 700; text-align: center;">${item.count}</span>
+                  </td>
+                </tr>`
+    )
+    .join("");
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Pending-Approvals Digest</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
+  <table role="presentation" style="width: 100%; border-collapse: collapse;">
+    <tr>
+      <td align="center" style="padding: 40px 0;">
+        <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 20px; text-align: center; background-color: #1e3a8a; border-radius: 8px 8px 0 0;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">
+                Frum<span style="color: #60a5fa;">Toronto</span>
+              </h1>
+              <p style="margin: 8px 0 0; color: #bfdbfe; font-size: 14px;">Daily Pending-Approvals Digest</p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="margin: 0 0 8px; color: #1e3a8a; font-size: 22px;">
+                ${totalCount} item${totalCount === 1 ? "" : "s"} awaiting review
+              </h2>
+              <p style="margin: 0 0 24px; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                The following submissions are pending admin approval. Click a category to review.
+              </p>
+
+              <table role="presentation" style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 6px;">
+                ${rows}
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 40px; background-color: #f9fafb; border-radius: 0 0 8px 8px; text-align: center;">
+              <p style="margin: 0; color: #9ca3af; font-size: 12px; line-height: 1.6;">
+                This is an automated daily digest from FrumToronto.<br>
+                &copy; ${year} FrumToronto. The Toronto Jewish Orthodox Community Gateway.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
 export function generateAtrAnswerNotificationEmail(params: {
   questionTitle: string;
   questionUrl: string;
