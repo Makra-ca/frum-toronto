@@ -73,7 +73,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
         `Shul: ${shulName}\n` +
         `Tefilah: ${tefilahType || "Unknown"} at ${time || "?"}\n` +
         `Updated by: ${session.user.name || session.user.email || "Unknown user"}`,
-      linkUrl: `/admin/shuls/${shulId}`,
+      linkUrl: `/admin/shuls/${shulId}/davening`,
       status: "auto_approved",
     });
 
@@ -123,7 +123,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       body:
         `Shul: ${shulName}\n` +
         `Deleted by: ${session.user.name || session.user.email || "Unknown user"}`,
-      linkUrl: `/admin/shuls/${shulId}`,
+      linkUrl: `/admin/shuls/${shulId}/davening`,
       status: "auto_approved",
     });
 

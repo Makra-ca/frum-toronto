@@ -75,7 +75,7 @@ export async function PATCH(
         `Shul: ${shulName}\n` +
         `Document: ${updated.title} (${updated.type})\n` +
         `Updated by: ${session.user.name || session.user.email || "Unknown user"}`,
-      linkUrl: `/admin/shuls/${shulId}`,
+      linkUrl: "/admin/shuls",
       status: "auto_approved",
     });
 
@@ -133,7 +133,7 @@ export async function DELETE(
         `Shul: ${shulName}\n` +
         `Document: ${document.title} (${document.type})\n` +
         `Deleted by: ${session.user.name || session.user.email || "Unknown user"}`,
-      linkUrl: `/admin/shuls/${shulId}`,
+      linkUrl: "/admin/shuls",
       status: "auto_approved",
     });
 

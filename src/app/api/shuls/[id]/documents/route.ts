@@ -112,7 +112,7 @@ export async function POST(
         `Shul: ${shulName}\n` +
         `Document: ${result.data.title} (${result.data.type})\n` +
         `Uploaded by: ${session.user.name || session.user.email || "Unknown user"}`,
-      linkUrl: `/admin/shuls/${shulId}`,
+      linkUrl: "/admin/shuls",
       status: "auto_approved",
     });
 

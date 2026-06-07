@@ -104,7 +104,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       body:
         `Shul: ${body.name || `#${shulId}`}\n` +
         `Updated by: ${session.user.name || session.user.email || "Unknown user"}`,
-      linkUrl: `/admin/shuls/${shulId}`,
+      linkUrl: "/admin/shuls",
       status: "auto_approved",
     });
 

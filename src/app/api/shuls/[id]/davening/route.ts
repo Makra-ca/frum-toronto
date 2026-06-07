@@ -103,7 +103,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         `Shul: ${shulName}\n` +
         `Tefilah: ${tefilahType || "Unknown"} at ${time || "?"}\n` +
         `Added by: ${session.user.name || session.user.email || "Unknown user"}`,
-      linkUrl: `/admin/shuls/${shulId}`,
+      linkUrl: `/admin/shuls/${shulId}/davening`,
       status: "auto_approved",
     });
 
