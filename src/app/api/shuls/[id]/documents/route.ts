@@ -1,10 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { shulDocuments } from "@/lib/db/schema";
+import { shulDocuments, shuls } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { canUserManageShul } from "@/lib/auth/permissions";
 import { z } from "zod";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
+
+// Notification prep only — never let a name lookup fail the request
+async function getShulName(shulId: number): Promise<string> {
+  try {
+    const [shul] = await db
+      .select({ name: shuls.name })
+      .from(shuls)
+      .where(eq(shuls.id, shulId))
+      .limit(1);
+    return shul?.name || `Shul #${shulId}`;
+  } catch {
+    return `Shul #${shulId}`;
+  }
+}
 
 const createDocumentSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
@@ -87,6 +102,19 @@ export async function POST(
         uploadedBy: parseInt(session.user.id),
       })
       .returning();
+
+    // Notify admins (Tier C FYI — document uploads go live without review)
+    const shulName = await getShulName(shulId);
+    await notifyAdminOfSubmission({
+      contentType: "shul_document",
+      title: `Shul document uploaded: ${shulName}`,
+      body:
+        `Shul: ${shulName}\n` +
+        `Document: ${result.data.title} (${result.data.type})\n` +
+        `Uploaded by: ${session.user.name || session.user.email || "Unknown user"}`,
+      linkUrl: `/admin/shuls/${shulId}`,
+      status: "auto_approved",
+    });
 
     return NextResponse.json(document, { status: 201 });
   } catch (error) {

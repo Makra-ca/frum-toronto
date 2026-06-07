@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { kosherAlerts, users } from "@/lib/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 const submissionSchema = z.object({
   productName: z.string().min(1, "Product name is required").max(200),
@@ -91,6 +92,21 @@ export async function POST(request: NextRequest) {
         isActive: true,
       })
       .returning();
+
+    // Notify admins (in-app for all; instant email to kosher_alert recipients when pending)
+    await notifyAdminOfSubmission({
+      contentType: "kosher_alert",
+      title: `New kosher alert: ${result.data.productName}`,
+      body:
+        `Product: ${result.data.productName}\n` +
+        (result.data.brand ? `Brand: ${result.data.brand}\n` : "") +
+        (result.data.alertType ? `Type: ${result.data.alertType}\n` : "") +
+        (result.data.certifyingAgency ? `Agency: ${result.data.certifyingAgency}\n` : "") +
+        `Submitted by: ${session.user.name || session.user.email || "Unknown user"}\n\n` +
+        result.data.description,
+      linkUrl: "/admin/community/kosher-alerts",
+      status: autoApprove ? "auto_approved" : "pending",
+    });
 
     return NextResponse.json({
       alert: newAlert,

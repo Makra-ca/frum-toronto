@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { askTheRabbi, askTheRabbiComments, users } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -102,7 +103,7 @@ export async function POST(
 
     // Verify the question exists and is published
     const [question] = await db
-      .select({ id: askTheRabbi.id })
+      .select({ id: askTheRabbi.id, title: askTheRabbi.title })
       .from(askTheRabbi)
       .where(and(eq(askTheRabbi.id, questionId), eq(askTheRabbi.isPublished, true)))
       .limit(1);
@@ -204,6 +205,18 @@ export async function POST(
 
     const authorName =
       [dbUser?.firstName, dbUser?.lastName].filter(Boolean).join(" ") || "Anonymous";
+
+    // Notify admins (Tier B: in-app only; digest picks up pending rows)
+    await notifyAdminOfSubmission({
+      contentType: "atr_comment",
+      title: `New Ask the Rabbi comment on "${question.title}"`,
+      body:
+        `Question: ${question.title}\n` +
+        `By: ${authorName}\n\n` +
+        content.trim(),
+      linkUrl: "/admin/programs/rabbi/comments",
+      status: approvalStatus === "pending" ? "pending" : "auto_approved",
+    });
 
     return NextResponse.json(
       {

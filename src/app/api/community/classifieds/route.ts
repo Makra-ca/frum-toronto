@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { classifieds, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -77,6 +78,17 @@ export async function POST(request: NextRequest) {
         isActive: true,
       })
       .returning();
+
+    // Notify admins (Tier B: in-app only; digest picks up pending rows)
+    await notifyAdminOfSubmission({
+      contentType: "classified",
+      title: `New classified submitted: ${title.trim()}`,
+      body:
+        `${title.trim()}\n` +
+        `Submitted by: ${session.user.name || session.user.email || "Unknown user"}`,
+      linkUrl: "/admin/programs/classifieds",
+      status: autoApprove ? "auto_approved" : "pending",
+    });
 
     return NextResponse.json(
       {

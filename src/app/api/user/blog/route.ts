@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { blogPosts, blogCategories, users } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { blogPostSchema } from "@/lib/validations/blog";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 function generateSlug(name: string): string {
   return name
@@ -128,6 +129,17 @@ export async function POST(request: NextRequest) {
         publishedAt,
       })
       .returning();
+
+    // Notify admins (Tier B: in-app only; digest picks up pending rows)
+    await notifyAdminOfSubmission({
+      contentType: "blog_post",
+      title: `New blog post submitted: ${title}`,
+      body:
+        `${title}\n` +
+        `Submitted by: ${session.user.name || session.user.email || "Unknown user"}`,
+      linkUrl: "/admin/programs/blog",
+      status: canAutoApprove ? "auto_approved" : "pending",
+    });
 
     return NextResponse.json(newPost, { status: 201 });
   } catch (error) {

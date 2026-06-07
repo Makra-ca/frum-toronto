@@ -3,12 +3,9 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { businesses } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { resend, EMAIL_FROM } from "@/lib/email/resend";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
-
-const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.EMAIL_FROM || "admin@frumtoronto.com";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 // POST /api/businesses/[id]/non-profit - Submit non-profit verification application
 export async function POST(
@@ -83,24 +80,17 @@ export async function POST(
       })
       .where(eq(businesses.id, businessId));
 
-    // Notify admin
-    if (resend) {
-      try {
-        await resend.emails.send({
-          from: EMAIL_FROM,
-          to: ADMIN_EMAIL,
-          subject: `Non-profit application submitted — ${business.name}`,
-          html: `
-            <p>A business has submitted a non-profit verification application.</p>
-            <p><strong>Business:</strong> ${business.name}</p>
-            <p><strong>Document:</strong> <a href="${documentUrl}">${documentUrl}</a></p>
-            <p><a href="${APP_URL}/admin/businesses">Review in Admin Panel</a></p>
-          `,
-        });
-      } catch (emailErr) {
-        console.error("[Non-Profit Apply] Failed to send admin notification:", emailErr);
-      }
-    }
+    // Notify admins (in-app + instant email to non_profit recipients)
+    await notifyAdminOfSubmission({
+      contentType: "non_profit",
+      title: `Non-profit application submitted — ${business.name}`,
+      body:
+        `Business: ${business.name}\n` +
+        `Document: ${documentUrl}\n` +
+        `Submitted by: ${session.user.name || session.user.email || "Unknown user"}`,
+      linkUrl: "/admin/businesses/non-profit",
+      status: "pending",
+    });
 
     return NextResponse.json({
       success: true,

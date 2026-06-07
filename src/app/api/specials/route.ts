@@ -4,6 +4,7 @@ import { specials, businesses, users } from "@/lib/db/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth/auth";
 import { specialSchema } from "@/lib/validations/specials";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 export async function GET(request: NextRequest) {
   try {
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
 
     // Verify the business exists
     const [business] = await db
-      .select({ id: businesses.id })
+      .select({ id: businesses.id, name: businesses.name })
       .from(businesses)
       .where(eq(businesses.id, businessId))
       .limit(1);
@@ -130,6 +131,19 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date(),
       })
       .returning();
+
+    // Notify admins (Tier B: in-app only; digest picks up pending rows)
+    await notifyAdminOfSubmission({
+      contentType: "special",
+      title: `New special submitted: ${title.trim()}`,
+      body:
+        `${title.trim()}\n` +
+        `Business: ${business.name}\n` +
+        `Valid: ${startDate} to ${endDate}\n` +
+        `Submitted by: ${session.user.name || session.user.email || "Unknown user"}`,
+      linkUrl: "/admin/programs/specials",
+      status: approvalStatus === "pending" ? "pending" : "auto_approved",
+    });
 
     return NextResponse.json(newSpecial, { status: 201 });
   } catch (error) {

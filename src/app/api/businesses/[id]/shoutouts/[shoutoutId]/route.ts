@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { businesses, businessShoutouts } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export async function PATCH(
 
     // Verify business ownership
     const [business] = await db
-      .select({ id: businesses.id, userId: businesses.userId })
+      .select({ id: businesses.id, userId: businesses.userId, name: businesses.name })
       .from(businesses)
       .where(eq(businesses.id, businessId))
       .limit(1);
@@ -90,6 +91,20 @@ export async function PATCH(
       .set(updateFields)
       .where(eq(businessShoutouts.id, shoutoutIdNum))
       .returning();
+
+    // Notify admins on re-submit after rejection (in-app + instant email)
+    if (shoutout.status === "rejected") {
+      await notifyAdminOfSubmission({
+        contentType: "shoutout",
+        title: `Shoutout re-submitted after rejection — ${business.name}`,
+        body:
+          `Business: ${business.name}\n` +
+          `Scheduled Date: ${updated.scheduledDate}\n` +
+          `Re-submitted by: ${session.user.name || session.user.email || "Unknown user"}`,
+        linkUrl: "/admin/businesses/shoutouts",
+        status: "pending",
+      });
+    }
 
     return NextResponse.json(updated);
   } catch (error) {

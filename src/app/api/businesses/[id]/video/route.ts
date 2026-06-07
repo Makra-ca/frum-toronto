@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { businesses, subscriptionPlans } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { createDirectUpload, deleteAsset } from "@/lib/mux/client";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,7 @@ export async function POST(
     const [business] = await db
       .select({
         id: businesses.id,
+        name: businesses.name,
         userId: businesses.userId,
         muxAssetId: businesses.muxAssetId,
         subscriptionPlanId: businesses.subscriptionPlanId,
@@ -85,6 +87,17 @@ export async function POST(
         updatedAt: new Date(),
       })
       .where(eq(businesses.id, businessId));
+
+    // Notify admins (Tier B: in-app only; digest counts videoApprovalStatus='pending')
+    await notifyAdminOfSubmission({
+      contentType: "business_video",
+      title: `New business video uploaded — ${business.name}`,
+      body:
+        `Business: ${business.name}\n` +
+        `Uploaded by: ${session.user.name || session.user.email || "Unknown user"}`,
+      linkUrl: "/admin/businesses/video-review",
+      status: "pending",
+    });
 
     return NextResponse.json({ uploadUrl, uploadId });
   } catch (error) {

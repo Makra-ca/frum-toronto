@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { askTheRabbi, users } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +80,17 @@ export async function POST(request: NextRequest) {
         publishedAt: new Date(),
       })
       .returning();
+
+    // Notify admins (Tier C FYI — published instantly by an ATR manager)
+    await notifyAdminOfSubmission({
+      contentType: "atr_quick_post",
+      title: `Ask the Rabbi Q&A published: ${title}`,
+      body:
+        `Question #${nextQuestionNumber}: ${title}\n` +
+        `Published by: ${session.user.name || session.user.email || "Unknown user"}`,
+      linkUrl: `/ask-the-rabbi/${newQuestion.id}`,
+      status: "auto_approved",
+    });
 
     return NextResponse.json(newQuestion, { status: 201 });
   } catch (error) {

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { askTheRabbiSubmissions, formEmailRecipients } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { askTheRabbiSubmissions } from "@/lib/db/schema";
 import { z } from "zod";
-import { resend, EMAIL_FROM } from "@/lib/email/resend";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 const submitSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
@@ -50,75 +49,19 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    // Get email recipients for Ask the Rabbi submissions
-    const recipients = await db
-      .select()
-      .from(formEmailRecipients)
-      .where(
-        and(
-          eq(formEmailRecipients.formType, "ask_the_rabbi"),
-          eq(formEmailRecipients.isActive, true)
-        )
-      );
-
-    // Send notification emails to configured recipients
-    if (resend && recipients.length > 0) {
-      const recipientEmails = recipients.map((r) => r.email);
-      const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-      const emailHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #7c3aed; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-            .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
-            .question-box { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #7c3aed; }
-            .meta { color: #6b7280; font-size: 14px; }
-            .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
-            .btn { display: inline-block; background: #7c3aed; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; margin-top: 15px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h2 style="margin: 0;">New Ask The Rabbi Question</h2>
-            </div>
-            <div class="content">
-              <p class="meta"><strong>Submitted by:</strong> ${name} (${email})</p>
-              <p class="meta"><strong>Submission ID:</strong> #${submission.id}</p>
-
-              <div class="question-box">
-                <p style="margin: 0; white-space: pre-wrap;">${question}</p>
-              </div>
-
-              ${imageUrl ? `<p class="meta"><strong>Image attached:</strong> <a href="${imageUrl}">View Image</a></p>` : ""}
-
-              <a href="${APP_URL}/admin" class="btn">View in Admin Panel</a>
-            </div>
-            <div class="footer">
-              <p>This is an automated notification from FrumToronto</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
-
-      try {
-        await resend.emails.send({
-          from: EMAIL_FROM,
-          to: recipientEmails,
-          subject: `New Ask The Rabbi Question from ${name}`,
-          html: emailHtml,
-          replyTo: email,
-        });
-      } catch (emailError) {
-        // Log but don't fail the submission if email fails
-        console.error("[API] Failed to send notification email:", emailError);
-      }
-    }
+    // Notify admins (in-app + instant email to ask_the_rabbi recipients)
+    await notifyAdminOfSubmission({
+      contentType: "ask_the_rabbi",
+      title: `New Ask The Rabbi Question from ${name}`,
+      body:
+        `Submitted by: ${name} (${email})\n` +
+        `Submission ID: #${submission.id}\n\n` +
+        `${question}` +
+        (imageUrl ? `\n\nImage attached: ${imageUrl}` : ""),
+      linkUrl: "/admin/programs/rabbi",
+      status: "pending",
+      replyTo: email,
+    });
 
     return NextResponse.json(
       {

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { businesses, subscriptionPlans, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 const createBusinessSchema = z.object({
   name: z.string().min(1, "Business name is required").max(200),
@@ -174,6 +175,21 @@ export async function POST(request: NextRequest) {
         viewCount: 0,
       })
       .returning();
+
+    // Notify admins — skip pending_payment (not reviewable until PayPal confirms;
+    // the business only becomes "pending" after the webhook fires)
+    if (approvalStatus !== "pending_payment") {
+      await notifyAdminOfSubmission({
+        contentType: "business",
+        title: `New business listing: ${data.name}`,
+        body:
+          `Business: ${data.name}\n` +
+          (data.city ? `City: ${data.city}\n` : "") +
+          `Submitted by: ${session.user.name || session.user.email || "Unknown user"}`,
+        linkUrl: "/admin/businesses",
+        status: approvalStatus === "pending" ? "pending" : "auto_approved",
+      });
+    }
 
     return NextResponse.json(
       {

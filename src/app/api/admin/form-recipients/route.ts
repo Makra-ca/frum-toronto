@@ -13,6 +13,12 @@ export const FORM_TYPES = [
   { value: "shul_registration", label: "Shul Registration Requests" },
   { value: "event_submission", label: "Event Submissions" },
   { value: "classified_submission", label: "Classified Submissions" },
+  { value: "shiva", label: "Shiva Notices" },
+  { value: "tehillim", label: "Tehillim Submissions" },
+  { value: "kosher_alert", label: "Kosher Alert Submissions" },
+  { value: "non_profit", label: "Non-Profit Applications" },
+  { value: "shoutout", label: "Newsletter Shoutouts" },
+  { value: "daily_digest", label: "Daily Pending-Approvals Digest" },
 ] as const;
 
 const FORM_TYPE_VALUES = FORM_TYPES.map((t) => t.value) as [string, ...string[]];

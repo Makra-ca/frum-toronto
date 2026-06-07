@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { shivaNotifications, formEmailRecipients, users } from "@/lib/db/schema";
+import { shivaNotifications, users } from "@/lib/db/schema";
 import { eq, and, gte } from "drizzle-orm";
-import { resend, EMAIL_FROM } from "@/lib/email/resend";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 // GET - Fetch all approved, active shiva notices
 export async function GET() {
@@ -105,64 +105,26 @@ export async function POST(request: Request) {
       })
       .returning();
 
-    // Send admin notification email (only if needs approval)
-    if (approvalStatus === "pending") {
-      try {
-        // Get admin email recipients for shiva form type
-        const recipients = await db
-          .select({ email: formEmailRecipients.email })
-          .from(formEmailRecipients)
-          .where(
-            and(
-              eq(formEmailRecipients.formType, "shiva"),
-              eq(formEmailRecipients.isActive, true)
-            )
-          );
+    // Notify admins (in-app for all; instant email to shiva recipients when pending)
+    {
+      const userName = session.user.name || session.user.email || "Unknown user";
+      const mournersList = validMournerNames.join(", ") || "Not provided";
 
-        const adminEmails = recipients.map((r) => r.email);
-
-        if (adminEmails.length > 0 && resend) {
-          const userName = session.user.name || session.user.email || "Unknown user";
-          const mournersList = validMournerNames.join(", ") || "Not provided";
-
-          await resend.emails.send({
-            from: EMAIL_FROM,
-            to: adminEmails,
-            subject: `New Shiva Notice: ${niftarName.trim()}`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #1e3a5f;">New Shiva Notice Submitted</h2>
-                <p>A new shiva notice has been submitted and is awaiting approval.</p>
-
-                <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                  <p><strong>Niftar:</strong> ${niftarName.trim()}</p>
-                  ${niftarNameHebrew ? `<p><strong>Hebrew Name:</strong> ${niftarNameHebrew.trim()}</p>` : ""}
-                  <p><strong>Mourners:</strong> ${mournersList}</p>
-                  <p><strong>Address:</strong> ${shivaAddress?.trim() || "Not provided"}</p>
-                  <p><strong>Dates:</strong> ${shivaStart} to ${shivaEnd}</p>
-                  <p><strong>Hours:</strong> ${shivaHours?.trim() || "Not provided"}</p>
-                  <p><strong>Contact:</strong> ${contactPhone?.trim() || "Not provided"}</p>
-                  <p><strong>Submitted by:</strong> ${userName}</p>
-                </div>
-
-                <p>
-                  <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/admin/community/shiva"
-                     style="display: inline-block; padding: 10px 20px; background: #1e3a5f; color: white; text-decoration: none; border-radius: 5px;">
-                    Review in Admin Panel
-                  </a>
-                </p>
-
-                <p style="color: #666; font-size: 12px; margin-top: 30px;">
-                  This is an automated message from FrumToronto.
-                </p>
-              </div>
-            `,
-          });
-        }
-      } catch (emailError) {
-        // Don't fail the submission if email fails
-        console.error("Failed to send admin notification email:", emailError);
-      }
+      await notifyAdminOfSubmission({
+        contentType: "shiva",
+        title: `New Shiva Notice: ${niftarName.trim()}`,
+        body:
+          `Niftar: ${niftarName.trim()}\n` +
+          (niftarNameHebrew?.trim() ? `Hebrew Name: ${niftarNameHebrew.trim()}\n` : "") +
+          `Mourners: ${mournersList}\n` +
+          `Address: ${shivaAddress?.trim() || "Not provided"}\n` +
+          `Dates: ${shivaStart} to ${shivaEnd}\n` +
+          `Hours: ${shivaHours?.trim() || "Not provided"}\n` +
+          `Contact: ${contactPhone?.trim() || "Not provided"}\n` +
+          `Submitted by: ${userName}`,
+        linkUrl: "/admin/community/shiva",
+        status: approvalStatus === "pending" ? "pending" : "auto_approved",
+      });
     }
 
     const message = canAutoApprove

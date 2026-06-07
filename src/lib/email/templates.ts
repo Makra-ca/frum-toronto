@@ -244,6 +244,85 @@ export function getClassifiedContactEmailHtml(params: {
   `.trim();
 }
 
+export function getAdminNotificationEmailHtml(params: {
+  heading: string;
+  body: string;
+  linkUrl: string;
+  linkLabel?: string;
+}): string {
+  const { heading, body, linkUrl, linkLabel } = params;
+  const year = new Date().getFullYear();
+
+  const safeHeading = escapeHtml(heading);
+  const safeBody = escapeHtml(body);
+  const safeLinkLabel = escapeHtml(linkLabel || "Review in Admin Panel");
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${safeHeading}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
+  <table role="presentation" style="width: 100%; border-collapse: collapse;">
+    <tr>
+      <td align="center" style="padding: 40px 0;">
+        <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 20px; text-align: center; background-color: #1e3a8a; border-radius: 8px 8px 0 0;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">
+                Frum<span style="color: #60a5fa;">Toronto</span>
+              </h1>
+              <p style="margin: 8px 0 0; color: #bfdbfe; font-size: 14px;">Admin Notification</p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="margin: 0 0 20px; color: #1e3a8a; font-size: 22px;">${safeHeading}</h2>
+
+              <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f9fafb; border-left: 4px solid #2563eb; border-radius: 4px; margin-bottom: 24px;">
+                <tr>
+                  <td style="padding: 16px 20px;">
+                    <p style="margin: 0; color: #374151; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${safeBody}</p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td align="center" style="padding: 8px 0;">
+                    <a href="${linkUrl}" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600;">
+                      ${safeLinkLabel}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 40px; background-color: #f9fafb; border-radius: 0 0 8px 8px; text-align: center;">
+              <p style="margin: 0; color: #9ca3af; font-size: 12px; line-height: 1.6;">
+                This is an automated notification from FrumToronto.<br>
+                &copy; ${year} FrumToronto. The Toronto Jewish Orthodox Community Gateway.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
 export function generateAtrAnswerNotificationEmail(params: {
   questionTitle: string;
   questionUrl: string;

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { simchas, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,6 +41,18 @@ export async function POST(request: NextRequest) {
         isActive: true,
       })
       .returning();
+
+    // Notify admins (Tier B: in-app only; digest picks up pending rows)
+    await notifyAdminOfSubmission({
+      contentType: "simcha",
+      title: `New simcha submitted: ${familyName.trim()}`,
+      body:
+        `Family: ${familyName.trim()}\n` +
+        `Submitted by: ${session.user.name || session.user.email || "Unknown user"}\n\n` +
+        announcement.trim(),
+      linkUrl: "/admin/community/simchas",
+      status: autoApprove ? "auto_approved" : "pending",
+    });
 
     return NextResponse.json({
       simcha: created,

@@ -9,12 +9,9 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, or, desc, gte } from "drizzle-orm";
 import { HDate } from "@hebcal/core";
-import { resend, EMAIL_FROM } from "@/lib/email/resend";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.EMAIL_FROM || "admin@frumtoronto.com";
 
 /**
  * Check if a date falls on Shabbat (Friday or Saturday).
@@ -288,24 +285,17 @@ export async function POST(
       })
       .returning();
 
-    // Notify admin
-    if (resend) {
-      try {
-        await resend.emails.send({
-          from: EMAIL_FROM,
-          to: ADMIN_EMAIL,
-          subject: `Newsletter shoutout submitted for review — ${business.name}`,
-          html: `
-            <p>A business has submitted a newsletter shoutout for review.</p>
-            <p><strong>Business:</strong> ${business.name}</p>
-            <p><strong>Scheduled Date:</strong> ${scheduledDate}</p>
-            <p><a href="${APP_URL}/admin/programs/shoutouts">Review in Admin Panel</a></p>
-          `,
-        });
-      } catch (emailErr) {
-        console.error("[Shoutouts POST] Failed to send admin notification:", emailErr);
-      }
-    }
+    // Notify admins (in-app + instant email to shoutout recipients)
+    await notifyAdminOfSubmission({
+      contentType: "shoutout",
+      title: `Newsletter shoutout submitted for review — ${business.name}`,
+      body:
+        `Business: ${business.name}\n` +
+        `Scheduled Date: ${scheduledDate}\n` +
+        `Submitted by: ${session.user.name || session.user.email || "Unknown user"}`,
+      linkUrl: "/admin/businesses/shoutouts",
+      status: "pending",
+    });
 
     return NextResponse.json(newShoutout, { status: 201 });
   } catch (error) {

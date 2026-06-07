@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { shulRegistrationRequests, userShuls } from "@/lib/db/schema";
+import { shulRegistrationRequests, userShuls, shuls } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 // POST - create a request to manage a shul
 export async function POST(request: Request) {
@@ -68,6 +69,31 @@ export async function POST(request: Request) {
         status: "pending",
       })
       .returning();
+
+    // Notify admins (in-app + instant email to shul_registration recipients)
+    // Name lookup is notification prep only — never let it fail the submission
+    let shulName: string | null = null;
+    try {
+      const [shul] = await db
+        .select({ name: shuls.name })
+        .from(shuls)
+        .where(eq(shuls.id, shulId))
+        .limit(1);
+      shulName = shul?.name ?? null;
+    } catch (error) {
+      console.error("[NOTIFY] Failed to look up shul name:", error);
+    }
+
+    await notifyAdminOfSubmission({
+      contentType: "shul_request",
+      title: `New shul management request: ${shulName || `Shul #${shulId}`}`,
+      body:
+        `Shul: ${shulName || `#${shulId}`}\n` +
+        `Requested by: ${session.user.name || session.user.email || "Unknown user"}` +
+        (message ? `\n\nMessage: ${message}` : ""),
+      linkUrl: "/admin/shuls/requests",
+      status: "pending",
+    });
 
     return NextResponse.json(newRequest, { status: 201 });
   } catch (error) {

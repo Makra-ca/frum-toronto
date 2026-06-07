@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { blogPosts, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { blogPostSchema } from "@/lib/validations/blog";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 function generateSlug(name: string): string {
   return name
@@ -170,6 +171,17 @@ export async function PATCH(
       })
       .where(eq(blogPosts.id, postId))
       .returning();
+
+    // Notify admins of the re-submission (Tier B: in-app only)
+    await notifyAdminOfSubmission({
+      contentType: "blog_post",
+      title: `Blog post re-submitted: ${title}`,
+      body:
+        `${title}\n` +
+        `Re-submitted by: ${session.user.name || session.user.email || "Unknown user"}`,
+      linkUrl: "/admin/programs/blog",
+      status: canAutoApprove ? "auto_approved" : "pending",
+    });
 
     return NextResponse.json(updatedPost);
   } catch (error) {

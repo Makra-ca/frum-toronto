@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { shuls, daveningSchedules } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { canUserManageShul } from "@/lib/auth/permissions";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -95,6 +96,17 @@ export async function PUT(request: Request, { params }: RouteParams) {
         updatedAt: new Date(),
       })
       .where(eq(shuls.id, shulId));
+
+    // Notify admins (Tier C FYI — shul manager edits go live without review)
+    await notifyAdminOfSubmission({
+      contentType: "shul_edit",
+      title: `Shul details updated: ${body.name || `Shul #${shulId}`}`,
+      body:
+        `Shul: ${body.name || `#${shulId}`}\n` +
+        `Updated by: ${session.user.name || session.user.email || "Unknown user"}`,
+      linkUrl: `/admin/shuls/${shulId}`,
+      status: "auto_approved",
+    });
 
     return NextResponse.json({ message: "Shul updated successfully" });
   } catch (error) {

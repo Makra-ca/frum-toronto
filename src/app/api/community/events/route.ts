@@ -6,6 +6,7 @@ import { publicEventSchema } from "@/lib/validations/content";
 import { and, eq, sql } from "drizzle-orm";
 import { canUserManageShul } from "@/lib/auth/permissions";
 import { sendEventLiveEmail, sendEventConflictNotificationEmail } from "@/lib/email/send";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -110,6 +111,18 @@ export async function POST(request: NextRequest) {
         isActive: true,
       })
       .returning();
+
+    // Notify admins (Tier B: in-app only; digest picks up pending rows)
+    await notifyAdminOfSubmission({
+      contentType: "event",
+      title: `New event submitted: ${validatedData.title}`,
+      body:
+        `${validatedData.title}\n` +
+        `Starts: ${new Date(validatedData.startTime).toLocaleString("en-CA", { timeZone: "America/Toronto" })}\n` +
+        `Submitted by: ${session.user.name || session.user.email || "Unknown user"}`,
+      linkUrl: "/admin/programs/events",
+      status: approvalStatus === "pending" ? "pending" : "auto_approved",
+    });
 
     // If event is approved, send subscriber broadcast and conflict notifications
     if (approvalStatus === "approved") {

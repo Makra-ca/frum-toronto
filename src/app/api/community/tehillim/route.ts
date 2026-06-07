@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { tehillimList, formEmailRecipients, users } from "@/lib/db/schema";
+import { tehillimList, users } from "@/lib/db/schema";
 import { eq, and, or, gt, isNull } from "drizzle-orm";
-import { resend, EMAIL_FROM } from "@/lib/email/resend";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 // GET - Fetch all approved, active, non-expired tehillim names
 export async function GET() {
@@ -91,62 +91,24 @@ export async function POST(request: Request) {
       })
       .returning();
 
-    // Send admin notification email (only if needs approval)
-    if (approvalStatus === "pending") {
-      try {
-        // Get admin email recipients for tehillim form type
-        const recipients = await db
-          .select({ email: formEmailRecipients.email })
-          .from(formEmailRecipients)
-          .where(
-            and(
-              eq(formEmailRecipients.formType, "tehillim"),
-              eq(formEmailRecipients.isActive, true)
-            )
-          );
+    // Notify admins (in-app for all; instant email to tehillim recipients when pending)
+    {
+      const displayName = hebrewName?.trim() || englishName?.trim() || "Unknown";
+      const userName = session.user.name || session.user.email || "Unknown user";
 
-        const adminEmails = recipients.map((r) => r.email);
-
-        if (adminEmails.length > 0 && resend) {
-        const displayName = hebrewName?.trim() || englishName?.trim() || "Unknown";
-        const userName = session.user.name || session.user.email || "Unknown user";
-
-        await resend.emails.send({
-          from: EMAIL_FROM,
-          to: adminEmails,
-          subject: `New Tehillim Submission: ${displayName}`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #1e3a5f;">New Tehillim Name Submitted</h2>
-              <p>A new name has been submitted to the Tehillim list and is awaiting approval.</p>
-
-              <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <p><strong>Hebrew Name:</strong> ${hebrewName?.trim() || "Not provided"}</p>
-                <p><strong>English Name:</strong> ${englishName?.trim() || "Not provided"}</p>
-                <p><strong>Mother's Hebrew Name:</strong> ${motherHebrewName?.trim() || "Not provided"}</p>
-                <p><strong>Reason:</strong> ${reason?.trim() || "Not provided"}</p>
-                <p><strong>Duration:</strong> ${days} days (expires ${expiresAtStr})</p>
-                <p><strong>Submitted by:</strong> ${userName}</p>
-              </div>
-
-              <p>
-                <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/admin/community/tehillim"
-                   style="display: inline-block; padding: 10px 20px; background: #1e3a5f; color: white; text-decoration: none; border-radius: 5px;">
-                  Review in Admin Panel
-                </a>
-              </p>
-
-              <p style="color: #666; font-size: 12px; margin-top: 30px;">
-                This is an automated message from FrumToronto.
-              </p>
-            </div>
-          `,
-          });
-        }
-      } catch (emailError) {
-        // Don't fail the submission if email fails
-        console.error("Failed to send admin notification email:", emailError);
-      }
+      await notifyAdminOfSubmission({
+        contentType: "tehillim",
+        title: `New Tehillim Submission: ${displayName}`,
+        body:
+          `Hebrew Name: ${hebrewName?.trim() || "Not provided"}\n` +
+          `English Name: ${englishName?.trim() || "Not provided"}\n` +
+          `Mother's Hebrew Name: ${motherHebrewName?.trim() || "Not provided"}\n` +
+          `Reason: ${reason?.trim() || "Not provided"}\n` +
+          `Duration: ${days} days (expires ${expiresAtStr})\n` +
+          `Submitted by: ${userName}`,
+        linkUrl: "/admin/community/tehillim",
+        status: approvalStatus === "pending" ? "pending" : "auto_approved",
+      });
     }
 
     const message = canAutoApprove

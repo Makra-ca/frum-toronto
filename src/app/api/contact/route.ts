@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { contactSubmissions } from "@/lib/db/schema";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 const VALID_CATEGORIES = [
   "General Inquiries",
@@ -53,6 +54,20 @@ export async function POST(request: Request) {
       subject: subject?.trim() || null,
       message: message.trim(),
       status: "new",
+    });
+
+    // Notify admins (in-app + instant email to contact_form recipients)
+    await notifyAdminOfSubmission({
+      contentType: "contact_form",
+      title: `New contact message: ${subject?.trim() || category}`,
+      body:
+        `Category: ${category}\n` +
+        `From: ${name.trim()} (${email.trim().toLowerCase()})\n` +
+        (subject?.trim() ? `Subject: ${subject.trim()}\n` : "") +
+        `\n${message.trim()}`,
+      linkUrl: "/admin/contacts",
+      status: "pending",
+      replyTo: email.trim().toLowerCase(),
     });
 
     return NextResponse.json(

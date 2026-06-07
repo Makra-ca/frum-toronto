@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { blogPosts, blogComments, users, siteSettings } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { blogCommentSchema } from "@/lib/validations/blog";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 export async function GET(
   request: NextRequest,
@@ -93,6 +94,7 @@ export async function POST(
     const [post] = await db
       .select({
         id: blogPosts.id,
+        title: blogPosts.title,
         commentModeration: blogPosts.commentModeration,
       })
       .from(blogPosts)
@@ -188,6 +190,18 @@ export async function POST(
         approvalStatus,
       })
       .returning();
+
+    // Notify admins (Tier B: in-app only; digest picks up pending rows)
+    await notifyAdminOfSubmission({
+      contentType: "blog_comment",
+      title: `New blog comment on "${post.title}"`,
+      body:
+        `Post: ${post.title}\n` +
+        `By: ${session.user.name || session.user.email || "Unknown user"}\n\n` +
+        content,
+      linkUrl: "/admin/programs/blog/comments",
+      status: approvalStatus === "pending" ? "pending" : "auto_approved",
+    });
 
     return NextResponse.json(newComment, { status: 201 });
   } catch (error) {
