@@ -1528,3 +1528,23 @@ Three-tier cascade: post-level override → global site setting (`blog_comment_m
 #### Design Spec
 
 `docs/superpowers/specs/2026-03-18-blog-system-design.md`
+
+---
+
+### 2026-06-07 - Admin Notification Coverage & Approval Gating
+
+**Spec:** `docs/superpowers/specs/2026-06-07-admin-notification-coverage-design.md` (4 phases, committed separately)
+
+**Phase 0 — Approval gating:** pending/unpublished content now 404s publicly. ATR detail + business detail use post-query owner/admin preview bypasses (with "Pending approval — only visible to you" banner); classifieds/directory-category-API/shiurim got blanket filters. F1: `formType` is now `z.enum(FORM_TYPES)`. F2: event broadcast batches are individually try/caught.
+
+**Phase 1 — `notifyAdminOfSubmission()`** in `src/lib/notifications.ts`: single entry point wired into all ~24 submission points (28 calls). Always inserts in-app notifications for all admins; Tier A pending (+ tehillim) also emails `formEmailRecipients`; fully try/caught (`[NOTIFY]` prefix) — never breaks a submission. Non-profit/shoutout migrated off `ADMIN_NOTIFICATION_EMAIL` env var. New FORM_TYPES: shiva, tehillim, kosher_alert, non_profit, shoutout, daily_digest. Migration script (NOT yet run): `scripts/migrate-digest-recipients.ts`.
+
+**Phase 2 — Pusher:** channel `private-admin-notifications`, auth at `POST /api/pusher/auth` (explicit auth() + admin + channel check). `src/lib/pusher.ts` no-ops without env vars (PUSHER_APP_ID/KEY/SECRET/CLUSTER + NEXT_PUBLIC_PUSHER_KEY/CLUSTER — **not yet set in .env or Vercel**). Both notification `setInterval`s deleted; `AdminNotificationsProvider` context = single count source (one fetch on mount + one subscription) shared by sidebar badge + header bell.
+
+**Phase 3 — Daily digest:** cron `0 13 * * *` → `/api/cron/notification-digest` (CRON_SECRET bearer). count(*) per Tier B type; zero pending → no email; otherwise one email to `formEmailRecipients(form_type='daily_digest')`. Business videos counted as `videoStatus='ready' AND videoApprovalStatus='pending'` (matches admin video-review queue; bare pending would count video-less businesses).
+
+**TODO:**
+- Create Pusher Channels app and set the 6 env vars (Vercel + .env) — until then bell works minus live updates
+- Run `npx tsx scripts/migrate-digest-recipients.ts` once in prod
+- Configure recipients in Admin → Settings for new form types (kosher_alert, non_profit, shoutout, daily_digest)
+- Business `pending_payment` creations intentionally don't notify (admin can't act until PayPal webhook flips to pending) — consider notifying from the webhook later
