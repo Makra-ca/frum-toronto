@@ -25,7 +25,7 @@ A full audit of the site found three related problems:
 
 | # | Surface | File | Missing filter | Preview constraint |
 |---|---------|------|----------------|--------------------|
-| L1 | ATR question detail | `src/app/ask-the-rabbi/[id]/page.tsx` — getQuestion (line ~34), generateMetadata (~16), prev/next nav queries (~44, ~51) | `isPublished = true` | **ATR dashboard previews drafts via this page** (`dashboard/ask-the-rabbi/page.tsx:409` links `/ask-the-rabbi/{id}`). Needs admin/manager bypass. |
+| L1 | ATR question detail | `src/app/ask-the-rabbi/[id]/page.tsx` — getQuestion (line ~34), generateMetadata (~16), prev/next nav queries (~44, ~51) | `isPublished = true` | Dashboard's view link (`dashboard/ask-the-rabbi/page.tsx:409`) is gated by `isPublished`, so no draft-preview flow exists today. Add admin/manager bypass anyway (preview pending user submissions + manager drafts) and add a "Preview" link for unpublished questions in the ATR dashboard. |
 | L2 | Classified detail | `src/app/classifieds/[id]/page.tsx` — getClassified (~43), generateMetadata (~26) | `approvalStatus = 'approved' AND isActive = true` | No dashboard preview links found. Blanket filter safe. |
 | L3 | Business detail | `src/app/directory/business/[slug]/page.tsx` — main query (~95), generateMetadata (~76) | `approvalStatus = 'approved' AND isActive = true` (related-businesses query at ~235 IS filtered) | **Owner dashboard has "View Public Listing" button for pending businesses** (`dashboard/business/[id]/page.tsx:210`). Needs owner/admin bypass. |
 | L4 | Directory category browse | `src/app/api/directory/[slug]/route.ts` — conditions array (~91) | `approvalStatus = 'approved'` (has isActive only; the search API has both) | n/a (list API) |
@@ -109,7 +109,10 @@ content returns `notFound()` on detail pages and is excluded from list APIs —
   admin or has `canManageAskTheRabbi`. Implementation: query without the filter,
   then `if (!q.isPublished && !authorizedPreview) notFound()`. Prev/next nav and
   generateMetadata get the blanket `isPublished` filter (preview pages may show
-  default metadata; acceptable).
+  default metadata; acceptable). Companion change: the ATR dashboard's view link
+  is currently rendered only for published questions
+  (`dashboard/ask-the-rabbi/page.tsx:408-409`) — add a "Preview" link for
+  unpublished questions so the bypass has an entry point.
 - **L3 (business detail):** non-approved/inactive business renders only if
   session user is admin or the business owner (`businesses.userId === session
   user id`). Same post-query check pattern. generateMetadata gets the blanket
