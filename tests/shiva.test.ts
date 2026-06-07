@@ -1,7 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, gte, sql } from 'drizzle-orm';
 import { testDb, createTestUser, cleanupTestUsers, cleanupTestShiva } from './utils/test-db';
 import * as schema from '@/lib/db/schema';
+
+// Returns a yyyy-mm-dd string `days` from today (negative = past).
+function dateStr(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
+const TODAY = dateStr(0);
 
 describe('Shiva Submission System', () => {
   let adminUserId: number;
@@ -43,21 +52,16 @@ describe('Shiva Submission System', () => {
   });
 
   it('admin can create shiva notice with approved status', async () => {
-    const shivaEnd = new Date();
-    shivaEnd.setDate(shivaEnd.getDate() + 7); // 7 days from now
-
     const [notice] = await testDb
       .insert(schema.shivaNotifications)
       .values({
         userId: adminUserId,
         niftarName: '[TEST] Admin Created Notice',
-        niftarRelation: 'Father',
         mournerNames: ['Test Mourner 1', 'Test Mourner 2'],
-        address: '123 Test St',
-        city: 'Toronto',
-        shivaEnd: shivaEnd.toISOString().split('T')[0],
+        shivaAddress: '123 Test St, Toronto',
+        shivaStart: TODAY,
+        shivaEnd: dateStr(7),
         approvalStatus: 'approved',
-        isActive: true,
       })
       .returning();
 
@@ -67,21 +71,16 @@ describe('Shiva Submission System', () => {
   });
 
   it('regular member submission goes to pending', async () => {
-    const shivaEnd = new Date();
-    shivaEnd.setDate(shivaEnd.getDate() + 5);
-
     const [notice] = await testDb
       .insert(schema.shivaNotifications)
       .values({
         userId: memberUserId,
         niftarName: '[TEST] Member Submitted Notice',
-        niftarRelation: 'Mother',
         mournerNames: ['Test Mourner'],
-        address: '456 Test Ave',
-        city: 'Toronto',
-        shivaEnd: shivaEnd.toISOString().split('T')[0],
+        shivaAddress: '456 Test Ave, Toronto',
+        shivaStart: TODAY,
+        shivaEnd: dateStr(5),
         approvalStatus: 'pending',
-        isActive: true,
       })
       .returning();
 
@@ -103,21 +102,16 @@ describe('Shiva Submission System', () => {
     // Simulating the API logic: if user has permission, status = approved
     const approvalStatus = user.canAutoApproveShiva ? 'approved' : 'pending';
 
-    const shivaEnd = new Date();
-    shivaEnd.setDate(shivaEnd.getDate() + 6);
-
     const [notice] = await testDb
       .insert(schema.shivaNotifications)
       .values({
         userId: trustedUserId,
         niftarName: '[TEST] Trusted User Notice',
-        niftarRelation: 'Spouse',
         mournerNames: ['Trusted Mourner'],
-        address: '789 Trust Blvd',
-        city: 'Toronto',
-        shivaEnd: shivaEnd.toISOString().split('T')[0],
+        shivaAddress: '789 Trust Blvd, Toronto',
+        shivaStart: TODAY,
+        shivaEnd: dateStr(6),
         approvalStatus,
-        isActive: true,
       })
       .returning();
 
@@ -126,9 +120,6 @@ describe('Shiva Submission System', () => {
   });
 
   it('admin can approve pending shiva notice', async () => {
-    const shivaEnd = new Date();
-    shivaEnd.setDate(shivaEnd.getDate() + 7);
-
     // Create pending notice
     const [pendingNotice] = await testDb
       .insert(schema.shivaNotifications)
@@ -136,11 +127,10 @@ describe('Shiva Submission System', () => {
         userId: memberUserId,
         niftarName: '[TEST] Pending Notice to Approve',
         mournerNames: ['Pending Mourner'],
-        address: '111 Pending St',
-        city: 'Toronto',
-        shivaEnd: shivaEnd.toISOString().split('T')[0],
+        shivaAddress: '111 Pending St, Toronto',
+        shivaStart: TODAY,
+        shivaEnd: dateStr(7),
         approvalStatus: 'pending',
-        isActive: true,
       })
       .returning();
 
@@ -157,20 +147,16 @@ describe('Shiva Submission System', () => {
   });
 
   it('admin can reject pending shiva notice', async () => {
-    const shivaEnd = new Date();
-    shivaEnd.setDate(shivaEnd.getDate() + 7);
-
     const [pendingNotice] = await testDb
       .insert(schema.shivaNotifications)
       .values({
         userId: memberUserId,
         niftarName: '[TEST] Notice to Reject',
         mournerNames: ['Test Mourner'],
-        address: '222 Reject Ave',
-        city: 'Toronto',
-        shivaEnd: shivaEnd.toISOString().split('T')[0],
+        shivaAddress: '222 Reject Ave, Toronto',
+        shivaStart: TODAY,
+        shivaEnd: dateStr(7),
         approvalStatus: 'pending',
-        isActive: true,
       })
       .returning();
 
@@ -183,53 +169,46 @@ describe('Shiva Submission System', () => {
     expect(rejected.approvalStatus).toBe('rejected');
   });
 
-  it('only approved and active shiva notices are publicly visible', async () => {
-    const shivaEnd = new Date();
-    shivaEnd.setDate(shivaEnd.getDate() + 7);
-    const shivaEndStr = shivaEnd.toISOString().split('T')[0];
-
-    // Create multiple notices with different statuses
+  it('only approved, non-expired shiva notices are publicly visible', async () => {
+    // Mirrors the real public query in /api/community/shiva:
+    //   approvalStatus = 'approved' AND shivaEnd >= today
     await testDb.insert(schema.shivaNotifications).values([
       {
         userId: adminUserId,
         niftarName: '[TEST] Approved Active',
         mournerNames: ['Visible Mourner'],
-        address: '100 Visible St',
-        city: 'Toronto',
-        shivaEnd: shivaEndStr,
+        shivaAddress: '100 Visible St, Toronto',
+        shivaStart: TODAY,
+        shivaEnd: dateStr(7),
         approvalStatus: 'approved',
-        isActive: true,
       },
       {
         userId: memberUserId,
         niftarName: '[TEST] Pending Notice',
         mournerNames: ['Hidden Mourner'],
-        address: '200 Hidden St',
-        city: 'Toronto',
-        shivaEnd: shivaEndStr,
+        shivaAddress: '200 Hidden St, Toronto',
+        shivaStart: TODAY,
+        shivaEnd: dateStr(7),
         approvalStatus: 'pending',
-        isActive: true,
       },
       {
         userId: adminUserId,
-        niftarName: '[TEST] Approved Inactive',
-        mournerNames: ['Inactive Mourner'],
-        address: '300 Inactive St',
-        city: 'Toronto',
-        shivaEnd: shivaEndStr,
+        niftarName: '[TEST] Approved Expired',
+        mournerNames: ['Expired Mourner'],
+        shivaAddress: '300 Expired St, Toronto',
+        shivaStart: dateStr(-10),
+        shivaEnd: dateStr(-3), // ended in the past — should be hidden
         approvalStatus: 'approved',
-        isActive: false,
       },
     ]);
 
-    // Query public notices (approved AND active)
     const publicNotices = await testDb
       .select()
       .from(schema.shivaNotifications)
       .where(
         and(
           eq(schema.shivaNotifications.approvalStatus, 'approved'),
-          eq(schema.shivaNotifications.isActive, true),
+          gte(schema.shivaNotifications.shivaEnd, TODAY),
           sql`${schema.shivaNotifications.niftarName} LIKE '[TEST]%'`
         )
       );
@@ -239,9 +218,6 @@ describe('Shiva Submission System', () => {
   });
 
   it('shiva notice stores mourner names as array', async () => {
-    const shivaEnd = new Date();
-    shivaEnd.setDate(shivaEnd.getDate() + 7);
-
     const mournerNames = ['Mourner One', 'Mourner Two', 'Mourner Three'];
 
     const [notice] = await testDb
@@ -250,15 +226,14 @@ describe('Shiva Submission System', () => {
         userId: adminUserId,
         niftarName: '[TEST] Multiple Mourners',
         mournerNames,
-        address: '400 Family St',
-        city: 'Toronto',
-        shivaEnd: shivaEnd.toISOString().split('T')[0],
+        shivaAddress: '400 Family St, Toronto',
+        shivaStart: TODAY,
+        shivaEnd: dateStr(7),
         approvalStatus: 'approved',
-        isActive: true,
       })
       .returning();
 
     expect(notice.mournerNames).toEqual(mournerNames);
-    expect(notice.mournerNames.length).toBe(3);
+    expect((notice.mournerNames as string[]).length).toBe(3);
   });
 });
