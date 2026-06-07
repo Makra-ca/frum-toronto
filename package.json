@@ -13,7 +13,9 @@
     "db:studio": "dotenv -e .env -- npx drizzle-kit studio",
     "db:check": "dotenv -e .env -- npx tsx scripts/db-check.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",
