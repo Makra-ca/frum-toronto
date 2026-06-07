@@ -1,36 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAdminNotifications } from "@/components/notifications/AdminNotificationsProvider";
 
 interface NotificationBellProps {
   href: string;
-  apiEndpoint: string; // e.g. '/api/admin/notifications'
 }
 
-export function NotificationBell({ href, apiEndpoint }: NotificationBellProps) {
+// Unread count comes from the shared AdminNotificationsProvider (one fetch on
+// mount + one Pusher subscription) — no polling.
+export function NotificationBell({ href }: NotificationBellProps) {
   const router = useRouter();
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  const fetchUnreadCount = async () => {
-    try {
-      const res = await fetch(`${apiEndpoint}/unread-count`, { cache: "no-store" });
-      if (!res.ok) return;
-      const json = await res.json();
-      setUnreadCount(json.count ?? 0);
-    } catch {
-      // Silently ignore errors
-    }
-  };
-
-  useEffect(() => {
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 60_000);
-    return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiEndpoint]);
+  const { unreadCount } = useAdminNotifications();
 
   const displayCount = unreadCount > 9 ? "9+" : unreadCount;
 

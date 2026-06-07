@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import {
+  AdminNotificationsProvider,
+  useAdminNotifications,
+} from "@/components/notifications/AdminNotificationsProvider";
 import {
   LayoutDashboard,
   Users,
@@ -40,14 +44,10 @@ const navItems = [
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
-function SidebarContent({
-  onNavigate,
-  unreadCount,
-}: {
-  onNavigate?: () => void;
-  unreadCount: number;
-}) {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  // Shared unread-count source (one fetch on mount + one Pusher subscription)
+  const { unreadCount } = useAdminNotifications();
   const displayCount = unreadCount > 9 ? "9+" : unreadCount;
 
   return (
@@ -110,35 +110,13 @@ function SidebarContent({
 
 export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    const fetchUnread = async () => {
-      try {
-        const res = await fetch("/api/admin/notifications?limit=200&page=1", {
-          cache: "no-store",
-        });
-        if (!res.ok) return;
-        const json = await res.json();
-        const count = (json.data ?? []).filter(
-          (n: { isRead: boolean }) => !n.isRead
-        ).length;
-        setUnreadCount(count);
-      } catch {
-        // Silently ignore
-      }
-    };
-
-    fetchUnread();
-    const interval = setInterval(fetchUnread, 60_000);
-    return () => clearInterval(interval);
-  }, []);
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <AdminNotificationsProvider>
+      <div className="flex min-h-screen bg-gray-100">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 bg-blue-900 text-white min-h-screen flex-col">
-        <SidebarContent unreadCount={unreadCount} />
+        <SidebarContent />
       </aside>
 
       {/* Mobile Header */}
@@ -164,10 +142,7 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
           className="w-64 p-0 bg-blue-900 text-white border-none"
         >
           <SheetTitle className="sr-only">Admin Navigation</SheetTitle>
-          <SidebarContent
-            onNavigate={() => setSidebarOpen(false)}
-            unreadCount={unreadCount}
-          />
+          <SidebarContent onNavigate={() => setSidebarOpen(false)} />
         </SheetContent>
       </Sheet>
 
@@ -177,6 +152,7 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
         <div className="h-14 md:hidden" />
         {children}
       </div>
-    </div>
+      </div>
+    </AdminNotificationsProvider>
   );
 }

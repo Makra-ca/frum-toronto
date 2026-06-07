@@ -3,6 +3,11 @@ import { notifications, users, formEmailRecipients } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { resend, EMAIL_FROM } from "@/lib/email/resend";
 import { getAdminNotificationEmailHtml } from "@/lib/email/templates";
+import {
+  getPusherServer,
+  ADMIN_NOTIFICATIONS_CHANNEL,
+  NEW_NOTIFICATION_EVENT,
+} from "@/lib/pusher";
 
 interface NotificationPayload {
   userId: number;
@@ -171,9 +176,19 @@ export async function notifyAdminOfSubmission(
       }
     }
 
-    // 3. Real-time push to admin clients.
-    // TODO(Phase 2): trigger Pusher event "new-notification" on channel
-    // "private-admin-notifications" with payload { title, linkUrl }.
+    // 3. Real-time push to admin clients (no sensitive payload — body is
+    //    fetched from the DB when the bell opens). No-op without Pusher env vars.
+    try {
+      const pusher = getPusherServer();
+      if (pusher) {
+        await pusher.trigger(ADMIN_NOTIFICATIONS_CHANNEL, NEW_NOTIFICATION_EVENT, {
+          title,
+          linkUrl,
+        });
+      }
+    } catch (error) {
+      console.error("[NOTIFY] Failed to trigger Pusher event:", error);
+    }
   } catch (error) {
     // Absolute backstop — notification failures never propagate to the caller.
     console.error("[NOTIFY] notifyAdminOfSubmission failed:", error);

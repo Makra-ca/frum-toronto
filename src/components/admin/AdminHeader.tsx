@@ -28,10 +28,7 @@ export function AdminHeader({ user }: AdminHeaderProps) {
         </h2>
 
         <div className="flex items-center gap-2">
-          <NotificationBell
-            href="/admin/notifications"
-            apiEndpoint="/api/admin/notifications"
-          />
+          <NotificationBell href="/admin/notifications" />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
