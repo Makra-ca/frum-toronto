@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { businessSubscriptions, businesses, subscriptionPlans } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { verifyPayPalWebhookSignature, getPayPalSubscription } from "@/lib/paypal/config";
+import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 const PAYPAL_WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID;
 
@@ -219,22 +220,37 @@ async function handleSubscriptionActivated(resource: {
 
   // Get current business to check status
   const [business] = await db
-    .select({ approvalStatus: businesses.approvalStatus })
+    .select({ approvalStatus: businesses.approvalStatus, name: businesses.name })
     .from(businesses)
     .where(eq(businesses.id, businessId))
     .limit(1);
 
   // Update business with new subscription plan
   // If status is pending_payment, change to pending (awaiting admin approval)
+  const becomesReviewable = business?.approvalStatus === "pending_payment";
   await db
     .update(businesses)
     .set({
       subscriptionPlanId: plan.id,
-      ...(business?.approvalStatus === "pending_payment" ? { approvalStatus: "pending" } : {}),
+      ...(becomesReviewable ? { approvalStatus: "pending" } : {}),
     })
     .where(eq(businesses.id, businessId));
 
   console.log(`[PayPal Webhook] Subscription activated for business ${businessId}, plan: ${plan.name}`);
+
+  // Now that payment cleared and the listing is in the approval queue, notify
+  // admins (Tier A) — this is the moment it first becomes reviewable. The
+  // helper is fully self-contained/non-fatal, so it can never affect the
+  // payment flow even if email/Pusher fails.
+  if (becomesReviewable) {
+    await notifyAdminOfSubmission({
+      contentType: "business",
+      title: "New business awaiting approval (payment completed)",
+      body: `${business?.name ?? `Business #${businessId}`} — ${plan.name} plan — paid and ready for review.`,
+      linkUrl: "/admin/businesses?status=pending",
+      status: "pending",
+    });
+  }
 }
 
 /**
