@@ -49,6 +49,7 @@ export const mainNavigation: NavItem[] = [
     href: "/shuls",
     children: [
       { label: "Shul Directory", href: "/shuls" },
+      { label: "Newsletters", href: "/newsletters" },
       { label: "Tehillim List", href: "/community/tehillim" },
     ],
   },
@@ -58,6 +59,7 @@ export const mainNavigation: NavItem[] = [
     href: "/community",
     children: [
       { label: "Blog", href: "/blog" },
+      { label: "Newsletters", href: "/newsletters" },
       { label: "Simchas", href: "/simchas" },
       { label: "Shiva Notices", href: "/shiva" },
       { label: "Tehillim List", href: "/community/tehillim" },

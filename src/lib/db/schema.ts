@@ -479,6 +479,24 @@ export const shulDocuments = pgTable("shul_documents", {
   index("idx_shul_documents_type").on(table.type),
 ]);
 
+// Community (non-shul) newsletters — uploaded PDFs not tied to any shul,
+// e.g. "Israeli News". Page-only (shown in the global newsletter list); not
+// emailed. Distinct from the `newsletters` email-blast system.
+export const communityNewsletters = pgTable("community_newsletters", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  publisher: varchar("publisher", { length: 200 }), // e.g. "Israeli News"
+  fileUrl: varchar("file_url", { length: 500 }).notNull(),
+  fileSize: integer("file_size"), // bytes
+  description: text("description"),
+  publishedAt: timestamp("published_at").defaultNow(),
+  uploadedBy: integer("uploaded_by").references(() => users.id),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_community_newsletters_active").on(table.isActive),
+]);
+
 // ============================================
 // ASK THE RABBI
 // ============================================
