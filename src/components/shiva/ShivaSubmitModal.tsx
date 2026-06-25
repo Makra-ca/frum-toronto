@@ -29,6 +29,7 @@ export function ShivaSubmitModal() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   // Form state
@@ -71,6 +72,7 @@ export function ShivaSubmitModal() {
     setContactPhone("");
     setError(null);
     setSuccess(false);
+    setSuccessMessage("");
   };
 
   const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,6 +177,10 @@ export function ShivaSubmitModal() {
         return;
       }
 
+      setSuccessMessage(
+        data.message ||
+          "Your submission has been received and will be reviewed shortly."
+      );
       setSuccess(true);
       // Refresh the page data after a short delay
       setTimeout(() => {
@@ -229,7 +235,8 @@ export function ShivaSubmitModal() {
               Shiva Notice Submitted
             </h3>
             <p className="text-gray-600 mb-4">
-              Your submission has been received and will be reviewed shortly.
+              {successMessage ||
+                "Your submission has been received and will be reviewed shortly."}
             </p>
             <Button onClick={() => handleOpenChange(false)}>Close</Button>
           </div>

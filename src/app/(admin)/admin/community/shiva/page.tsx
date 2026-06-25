@@ -411,6 +411,12 @@ export default function ShivaManagementPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           {getStatusBadge(entry)}
+                          {entry.attachmentUrl && (
+                            <Badge variant="outline" className="gap-1 text-blue-700 border-blue-200">
+                              <FileText className="h-3 w-3" />
+                              Attachment
+                            </Badge>
+                          )}
                           <span className="text-xs text-gray-400">#{entry.id}</span>
                         </div>
 

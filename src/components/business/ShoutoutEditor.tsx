@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { uploadFile } from "@/lib/upload-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -72,26 +73,18 @@ export function ShoutoutEditor({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 15 * 1024 * 1024) {
+      setError("Image must be less than 15MB");
+      e.target.value = "";
+      return;
+    }
+
     setSelectedImageFile(file);
     setIsUploadingImage(true);
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "shoutouts");
-
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!uploadRes.ok) {
-        const data = await uploadRes.json();
-        throw new Error(data.error || "Image upload failed");
-      }
-
-      const { url } = await uploadRes.json();
+      const { url } = await uploadFile(file, "shoutouts");
       setImageUrl(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Image upload failed");

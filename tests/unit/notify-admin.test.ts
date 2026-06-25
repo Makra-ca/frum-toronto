@@ -100,7 +100,7 @@ describe('notifyAdminOfSubmission — tier routing', () => {
 
     // Instant email to configured recipients
     expect(mocks.sendMock).toHaveBeenCalledTimes(1);
-    const sendArgs = mocks.sendMock.mock.calls[0][0] as unknown as Record<string, unknown>;
+    const sendArgs = (mocks.sendMock.mock.calls[0] as unknown[])[0] as Record<string, unknown>;
     expect(sendArgs.to).toEqual(['rav@frumtoronto.com']);
     expect(sendArgs.subject).toBe('New contact form message');
 
@@ -166,7 +166,7 @@ describe('notifyAdminOfSubmission — tier routing', () => {
   it('forwards replyTo into the email', async () => {
     await notifyAdminOfSubmission(basePayload({ replyTo: 'asker@example.com' }));
 
-    const sendArgs = mocks.sendMock.mock.calls[0][0] as unknown as Record<string, unknown>;
+    const sendArgs = (mocks.sendMock.mock.calls[0] as unknown[])[0] as Record<string, unknown>;
     expect(sendArgs.replyTo).toBe('asker@example.com');
   });
 });

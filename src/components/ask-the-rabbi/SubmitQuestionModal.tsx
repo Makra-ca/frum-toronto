@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { uploadFile } from "@/lib/upload-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -84,22 +85,10 @@ export function SubmitQuestionModal({ trigger }: SubmitQuestionModalProps) {
     };
     reader.readAsDataURL(file);
 
-    // Upload to Vercel Blob
+    // Upload directly to Vercel Blob (bypasses the 4.5MB serverless body limit)
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const data = await res.json();
+      const data = await uploadFile(file, "ask-the-rabbi");
       setImageUrl(data.url);
       toast.success("Image uploaded");
     } catch (error) {
