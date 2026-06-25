@@ -85,8 +85,8 @@ export function ShivaSubmitModal() {
       e.target.value = "";
       return;
     }
-    if (file.size > 15 * 1024 * 1024) {
-      setError("Attachment must be less than 15MB");
+    if (file.size > 30 * 1024 * 1024) {
+      setError("Maximum file size is 30MB");
       e.target.value = "";
       return;
     }

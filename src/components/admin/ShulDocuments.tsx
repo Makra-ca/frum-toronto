@@ -234,8 +234,8 @@ export function ShulDocuments({ shulId, apiBasePath = "/api/admin/shuls" }: Shul
               className="cursor-pointer file:cursor-pointer"
               onChange={(e) => {
                 const file = e.target.files?.[0] || null;
-                if (file && file.size > 15 * 1024 * 1024) {
-                  toast.error("File must be less than 15MB");
+                if (file && file.size > 30 * 1024 * 1024) {
+                  toast.error("Maximum file size is 30MB");
                   e.target.value = "";
                   return;
                 }
@@ -495,8 +495,8 @@ function DocumentCard({
                 accept="application/pdf,image/jpeg,image/png,image/webp"
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null;
-                  if (file && file.size > 15 * 1024 * 1024) {
-                    toast.error("File must be less than 15MB");
+                  if (file && file.size > 30 * 1024 * 1024) {
+                    toast.error("Maximum file size is 30MB");
                     e.target.value = "";
                     return;
                   }

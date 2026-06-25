@@ -11,7 +11,7 @@ import { auth } from "@/lib/auth/auth";
 // file straight to Vercel Blob and only exchange a small JSON token here, so
 // they aren't bound by the function body limit (supports very large files).
 
-const MAX_UPLOAD_SIZE = 15 * 1024 * 1024; // 15 MB (covers large newsletter PDFs)
+const MAX_UPLOAD_SIZE = 30 * 1024 * 1024; // 30 MB (covers large newsletter PDFs)
 
 const ALLOWED_CONTENT_TYPES = [
   "image/jpeg",

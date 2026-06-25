@@ -43,3 +43,4 @@ login.txt
 *.tsbuildinfo
 next-env.d.ts
 .claude/worktrees/
+setup-intergration.txt

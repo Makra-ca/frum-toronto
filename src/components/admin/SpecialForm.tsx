@@ -99,8 +99,8 @@ export function SpecialForm({ initialData, onSubmit, onCancel, isLoading }: Spec
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("File size must be less than 10MB");
+    if (file.size > 30 * 1024 * 1024) {
+      toast.error("Maximum file size is 30MB");
       return;
     }
 
@@ -228,7 +228,7 @@ export function SpecialForm({ initialData, onSubmit, onCancel, isLoading }: Spec
               <span className="mt-2 text-sm text-gray-500">
                 {isUploading ? "Uploading..." : "Click to upload flyer"}
               </span>
-              <span className="text-xs text-gray-400">PDF, PNG, JPG up to 10MB</span>
+              <span className="text-xs text-gray-400">PDF, PNG, JPG up to 30MB</span>
               <input
                 type="file"
                 accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"

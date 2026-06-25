@@ -73,8 +73,8 @@ export function ShoutoutEditor({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 15 * 1024 * 1024) {
-      setError("Image must be less than 15MB");
+    if (file.size > 30 * 1024 * 1024) {
+      setError("Maximum file size is 30MB");
       e.target.value = "";
       return;
     }

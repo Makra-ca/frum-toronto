@@ -72,9 +72,9 @@ export function SubmitQuestionModal({ trigger }: SubmitQuestionModalProps) {
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be less than 5MB");
+    // Validate file size (max 30MB)
+    if (file.size > 30 * 1024 * 1024) {
+      toast.error("Maximum file size is 30MB");
       return;
     }
 

@@ -106,8 +106,8 @@ export function NonProfitApplicationForm({
       setError("Please upload a PDF, JPG, or PNG file");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setError("File must be less than 10MB");
+    if (file.size > 30 * 1024 * 1024) {
+      setError("Maximum file size is 30MB");
       return;
     }
 
@@ -230,7 +230,7 @@ export function NonProfitApplicationForm({
             )}
           </div>
           <p className="text-xs text-gray-400">
-            Accepted formats: PDF, JPG, PNG — Max 10MB
+            Accepted formats: PDF, JPG, PNG — Max 30MB
           </p>
         </div>
 

@@ -216,8 +216,8 @@ export function EventForm({
       toast.error("Please upload a JPG, PNG, WebP, or GIF image");
       return;
     }
-    if (file.size > 4 * 1024 * 1024) {
-      toast.error("Image must be less than 4MB");
+    if (file.size > 30 * 1024 * 1024) {
+      toast.error("Maximum file size is 30MB");
       return;
     }
 
@@ -248,8 +248,8 @@ export function EventForm({
       toast.error("Please upload a PDF, JPG, or PNG file");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Flyer must be less than 10MB");
+    if (file.size > 30 * 1024 * 1024) {
+      toast.error("Maximum file size is 30MB");
       return;
     }
 
