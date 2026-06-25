@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type BlockType = "omer" | "shoutout" | "atr" | "events" | "simchas" | "blogs" | "tehillim";
+type BlockType = "omer" | "shoutout" | "atr" | "events" | "simchas" | "shiva" | "blogs" | "tehillim";
 
 interface BlockSetting {
   blockType: BlockType;
@@ -65,6 +65,11 @@ const BLOCKS: BlockMeta[] = [
     type: "simchas",
     label: "Recent Simchas",
     description: "Mazel Tov announcements from the past 7 days",
+  },
+  {
+    type: "shiva",
+    label: "Shiva Notices",
+    description: "Current (non-expired) shiva notices",
   },
   {
     type: "blogs",
@@ -215,6 +220,25 @@ function renderPreviewSummary(blockType: BlockType, previewData: BlockPreviewDat
         {items.slice(0, 2).map((s, i) => (
           <p key={i} className="text-xs text-gray-500 truncate pl-1">
             &bull; {s.familyName} ({s.typeName})
+          </p>
+        ))}
+      </div>
+    );
+  }
+
+  if (blockType === "shiva") {
+    const items = data as Array<{ niftarName: string }> | null;
+    if (isEmpty || !items || items.length === 0) {
+      return <span className="text-xs text-gray-400">No current shiva notices</span>;
+    }
+    return (
+      <div className="space-y-0.5">
+        <span className="text-xs text-green-700 font-medium">
+          {items.length} notice{items.length !== 1 ? "s" : ""}
+        </span>
+        {items.slice(0, 2).map((n, i) => (
+          <p key={i} className="text-xs text-gray-500 truncate pl-1">
+            &bull; {n.niftarName}
           </p>
         ))}
       </div>

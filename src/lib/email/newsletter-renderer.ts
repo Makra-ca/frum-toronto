@@ -53,6 +53,18 @@ export interface SimchaData {
   typeSlug: string;
 }
 
+export interface ShivaData {
+  id: number;
+  niftarName: string;
+  niftarNameHebrew: string | null;
+  mournerNames: string[] | null;
+  shivaAddress: string | null;
+  shivaStart: string;
+  shivaEnd: string;
+  shivaHours: string | null;
+  daveningTimes: string | null;
+}
+
 export interface BlogPostData {
   id: number;
   title: string;
@@ -82,6 +94,7 @@ export interface NewsletterRenderInput {
     atr?: AtrQuestion[] | null;
     events?: EventData[] | null;
     simchas?: SimchaData[] | null;
+    shiva?: ShivaData[] | null;
     blog?: BlogPostData[] | null;
     tehillim?: TehillimEntry[] | null;
   };
@@ -291,6 +304,47 @@ function renderSimchasBlock(simchas: SimchaData[]): string {
   </tr>`;
 }
 
+function renderShivaBlock(notices: ShivaData[]): string {
+  const fmt = (d: string) => {
+    const [y, m, day] = d.split("-").map(Number);
+    if (!y || !m || !day) return d;
+    return new Intl.DateTimeFormat("en-CA", { month: "short", day: "numeric" }).format(
+      new Date(y, m - 1, day)
+    );
+  };
+
+  const items = notices
+    .map((n) => {
+      const mourners = Array.isArray(n.mournerNames)
+        ? n.mournerNames.filter((x) => typeof x === "string" && x.trim()).join(", ")
+        : "";
+      return `
+        <tr>
+          <td style="padding-bottom: 16px;">
+            <p style="font-size: 16px; font-weight: 600; color: #111827; margin: 0 0 2px 0;">${n.niftarName}${n.niftarNameHebrew ? ` · ${n.niftarNameHebrew}` : ""}</p>
+            ${mourners ? `<p style="font-size: 14px; color: #6b7280; margin: 0 0 2px 0;">Mourners: ${mourners}</p>` : ""}
+            ${n.shivaAddress ? `<p style="font-size: 14px; color: #374151; margin: 0 0 2px 0;">${n.shivaAddress}</p>` : ""}
+            <p style="font-size: 14px; color: #6b7280; margin: 0 0 2px 0;">${fmt(n.shivaStart)} – ${fmt(n.shivaEnd)}${n.shivaHours ? ` · ${n.shivaHours}` : ""}</p>
+            ${n.daveningTimes ? `<p style="font-size: 14px; color: #374151; margin: 0;">Davening: ${n.daveningTimes}</p>` : ""}
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  return `
+  <tr>
+    <td style="padding: 24px 0;">
+      ${sectionHeader("Shiva Notices")}
+      <table role="presentation" style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+        ${items}
+      </table>
+      <p style="font-size: 13px; color: #6b7280; margin: 8px 0 0 0;">
+        <a href="${APP_URL}/shiva" style="color: #2563eb; text-decoration: underline;">View all shiva notices →</a>
+      </p>
+    </td>
+  </tr>`;
+}
+
 function renderBlogBlock(posts: BlogPostData[]): string {
   const items = posts
     .map((p) => {
@@ -432,6 +486,12 @@ export function renderNewsletterHTML(input: NewsletterRenderInput): string {
   if (blocks.simchas && blocks.simchas.length > 0) {
     blockRows.push(SEPARATOR);
     blockRows.push(renderSimchasBlock(blocks.simchas));
+  }
+
+  // 6b. Shiva
+  if (blocks.shiva && blocks.shiva.length > 0) {
+    blockRows.push(SEPARATOR);
+    blockRows.push(renderShivaBlock(blocks.shiva));
   }
 
   // 7. Blog

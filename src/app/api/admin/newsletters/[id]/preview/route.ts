@@ -12,6 +12,7 @@ import {
   tehillimList,
   businessShoutouts,
   businesses,
+  shivaNotifications,
 } from "@/lib/db/schema";
 import { eq, and, gte, lte, desc, asc, inArray, sql } from "drizzle-orm";
 import { HDate, OmerEvent, HebrewCalendar, flags } from "@hebcal/core";
@@ -22,6 +23,7 @@ import {
   type AtrQuestion,
   type EventData,
   type SimchaData,
+  type ShivaData,
   type BlogPostData,
   type TehillimEntry,
 } from "@/lib/email/newsletter-renderer";
@@ -133,6 +135,31 @@ async function getEventsData(): Promise<EventData[]> {
     )
     .orderBy(asc(events.startTime))
     .limit(5);
+}
+
+async function getShivaData(): Promise<ShivaData[]> {
+  const today = new Date().toISOString().split("T")[0];
+  return db
+    .select({
+      id: shivaNotifications.id,
+      niftarName: shivaNotifications.niftarName,
+      niftarNameHebrew: shivaNotifications.niftarNameHebrew,
+      mournerNames: shivaNotifications.mournerNames,
+      shivaAddress: shivaNotifications.shivaAddress,
+      shivaStart: shivaNotifications.shivaStart,
+      shivaEnd: shivaNotifications.shivaEnd,
+      shivaHours: shivaNotifications.shivaHours,
+      daveningTimes: shivaNotifications.daveningTimes,
+    })
+    .from(shivaNotifications)
+    .where(
+      and(
+        eq(shivaNotifications.approvalStatus, "approved"),
+        gte(shivaNotifications.shivaEnd, today)
+      )
+    )
+    .orderBy(asc(shivaNotifications.shivaEnd))
+    .limit(10) as Promise<ShivaData[]>;
 }
 
 async function getSimchasData(typeSlugs?: string[]): Promise<SimchaData[]> {
@@ -280,7 +307,7 @@ export async function POST(
     const sendDate = new Date().toISOString().split("T")[0];
 
     // Fetch data for all enabled blocks in parallel
-    const [omerData, shoutoutData, atrData, eventsData, simchasData, blogsData, tehillimData] =
+    const [omerData, shoutoutData, atrData, eventsData, simchasData, shivaData, blogsData, tehillimData] =
       await Promise.all([
         isEnabled("omer") ? Promise.resolve(getOmerData()) : Promise.resolve(null),
         isEnabled("shoutout") ? getShoutoutData(sendDate) : Promise.resolve(null),
@@ -291,6 +318,7 @@ export async function POST(
               (settingsMap["simchas"]?.config as { simchaTypes?: string[] })?.simchaTypes
             )
           : Promise.resolve([]),
+        isEnabled("shiva") ? getShivaData() : Promise.resolve([]),
         isEnabled("blogs") ? getBlogsData() : Promise.resolve([]),
         isEnabled("tehillim") ? getTehillimData() : Promise.resolve([]),
       ]);
@@ -318,6 +346,10 @@ export async function POST(
       if (simchasData.length > 0) blocksIncluded.push("simchas");
       else blocksSkipped.push("simchas");
     }
+    if (isEnabled("shiva")) {
+      if (shivaData.length > 0) blocksIncluded.push("shiva");
+      else blocksSkipped.push("shiva");
+    }
     if (isEnabled("blogs")) {
       if (blogsData.length > 0) blocksIncluded.push("blogs");
       else blocksSkipped.push("blogs");
@@ -341,6 +373,7 @@ export async function POST(
         atr: atrData.length > 0 ? atrData : null,
         events: eventsData.length > 0 ? eventsData : null,
         simchas: simchasData.length > 0 ? simchasData : null,
+        shiva: shivaData.length > 0 ? shivaData : null,
         blog: blogsData.length > 0 ? blogsData : null,
         tehillim: tehillimData.length > 0 ? tehillimData : null,
       },

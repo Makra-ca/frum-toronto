@@ -11,6 +11,7 @@ import {
   businessShoutouts,
   businesses,
   newsletters,
+  shivaNotifications,
 } from "@/lib/db/schema";
 import { eq, and, gte, lte, sql, desc, asc, inArray } from "drizzle-orm";
 import { HDate, OmerEvent, HebrewCalendar, flags } from "@hebcal/core";
@@ -23,6 +24,7 @@ type BlockType =
   | "atr"
   | "events"
   | "simchas"
+  | "shiva"
   | "blogs"
   | "tehillim";
 
@@ -163,6 +165,36 @@ async function getEventsData() {
   return rows;
 }
 
+// ─── Shiva ───────────────────────────────────────────────────────────────────
+
+async function getShivaData() {
+  const today = new Date().toISOString().split("T")[0];
+
+  const rows = await db
+    .select({
+      id: shivaNotifications.id,
+      niftarName: shivaNotifications.niftarName,
+      niftarNameHebrew: shivaNotifications.niftarNameHebrew,
+      mournerNames: shivaNotifications.mournerNames,
+      shivaAddress: shivaNotifications.shivaAddress,
+      shivaStart: shivaNotifications.shivaStart,
+      shivaEnd: shivaNotifications.shivaEnd,
+      shivaHours: shivaNotifications.shivaHours,
+      daveningTimes: shivaNotifications.daveningTimes,
+    })
+    .from(shivaNotifications)
+    .where(
+      and(
+        eq(shivaNotifications.approvalStatus, "approved"),
+        gte(shivaNotifications.shivaEnd, today)
+      )
+    )
+    .orderBy(asc(shivaNotifications.shivaEnd))
+    .limit(10);
+
+  return rows;
+}
+
 // ─── Simchas ─────────────────────────────────────────────────────────────────
 
 async function getSimchasData(simchaTypeSlugs?: string[]) {
@@ -287,7 +319,7 @@ export async function GET(
       return NextResponse.json({ error: "blockType query param required" }, { status: 400 });
     }
 
-    const validTypes: BlockType[] = ["omer", "shoutout", "atr", "events", "simchas", "blogs", "tehillim"];
+    const validTypes: BlockType[] = ["omer", "shoutout", "atr", "events", "simchas", "shiva", "blogs", "tehillim"];
     if (!validTypes.includes(blockType)) {
       return NextResponse.json({ error: `Invalid blockType. Must be one of: ${validTypes.join(", ")}` }, { status: 400 });
     }
@@ -318,6 +350,11 @@ export async function GET(
       }
       case "simchas": {
         data = await getSimchasData(simchaTypeSlugs);
+        isEmpty = (data as unknown[]).length === 0;
+        break;
+      }
+      case "shiva": {
+        data = await getShivaData();
         isEmpty = (data as unknown[]).length === 0;
         break;
       }
