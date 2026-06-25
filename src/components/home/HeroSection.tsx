@@ -12,7 +12,7 @@ import {
   MessageCircle,
   Clock,
   Heart,
-  Flame,
+  HandHeart,
   ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ const communityNodes = [
   { id: "ask-the-rabbi", label: "Ask Rabbi", description: "Torah Q&A", icon: MessageCircle, href: "/ask-the-rabbi", color: "from-pink-500 to-pink-600" },
   { id: "zmanim", label: "Zmanim", description: "Daily times", icon: Clock, href: "/zmanim", color: "from-amber-500 to-amber-600" },
   { id: "simchas", label: "Simchas", description: "Celebrate together", icon: Heart, href: "/simchas", color: "from-rose-500 to-rose-600" },
-  { id: "shiva", label: "Shiva", description: "Shiva notices", icon: Flame, href: "/shiva", color: "from-slate-500 to-slate-600" },
+  { id: "shiva", label: "Shiva", description: "Shiva notices", icon: HandHeart, href: "/shiva", color: "from-slate-500 to-slate-600" },
 ];
 
 // Star particle data (pre-generated static values to avoid hydration mismatch)
