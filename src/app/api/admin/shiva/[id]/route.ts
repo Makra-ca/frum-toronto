@@ -13,6 +13,11 @@ const updateSchema = z.object({
   shivaStart: z.string().optional(),
   shivaEnd: z.string().optional(),
   shivaHours: z.string().max(200).optional().nullable(),
+  daveningTimes: z.string().optional().nullable(),
+  levayaInfo: z.string().optional().nullable(),
+  zoomInfo: z.string().optional().nullable(),
+  minyanInfo: z.string().optional().nullable(),
+  attachmentUrl: z.string().max(500).optional().nullable(),
   mealInfo: z.string().optional().nullable(),
   donationInfo: z.string().optional().nullable(),
   contactPhone: z.string().max(40).optional().nullable(),
@@ -103,6 +108,21 @@ export async function PATCH(
     }
     if (result.data.shivaHours !== undefined) {
       updates.shivaHours = result.data.shivaHours?.trim() || null;
+    }
+    if (result.data.daveningTimes !== undefined) {
+      updates.daveningTimes = result.data.daveningTimes?.trim() || null;
+    }
+    if (result.data.levayaInfo !== undefined) {
+      updates.levayaInfo = result.data.levayaInfo?.trim() || null;
+    }
+    if (result.data.zoomInfo !== undefined) {
+      updates.zoomInfo = result.data.zoomInfo?.trim() || null;
+    }
+    if (result.data.minyanInfo !== undefined) {
+      updates.minyanInfo = result.data.minyanInfo?.trim() || null;
+    }
+    if (result.data.attachmentUrl !== undefined) {
+      updates.attachmentUrl = result.data.attachmentUrl || null;
     }
     if (result.data.mealInfo !== undefined) {
       updates.mealInfo = result.data.mealInfo?.trim() || null;

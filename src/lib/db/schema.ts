@@ -539,6 +539,11 @@ export const shivaNotifications = pgTable("shiva_notifications", {
   shivaStart: date("shiva_start").notNull(),
   shivaEnd: date("shiva_end").notNull(),
   shivaHours: varchar("shiva_hours", { length: 200 }),
+  daveningTimes: text("davening_times"), // Shacharis/Mincha/Maariv times at the shiva house
+  levayaInfo: text("levaya_info"), // Funeral details (time, location)
+  zoomInfo: text("zoom_info"), // Zoom link / dial-in for remote participation
+  minyanInfo: text("minyan_info"), // "Help making the minyan" — needs/times
+  attachmentUrl: varchar("attachment_url", { length: 500 }), // Original Misaskim JPEG/PDF
   mealInfo: text("meal_info"),
   donationInfo: text("donation_info"),
   contactPhone: varchar("contact_phone", { length: 40 }),

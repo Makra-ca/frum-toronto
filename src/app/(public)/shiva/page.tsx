@@ -14,6 +14,9 @@ import {
   Utensils,
   Info,
   BookOpen,
+  Users,
+  Video,
+  FileText,
 } from "lucide-react";
 import { ShivaSubmitModal } from "@/components/shiva/ShivaSubmitModal";
 
@@ -188,6 +191,69 @@ export default async function ShivaPage() {
                       )}
                     </div>
 
+                    {/* Levaya Info */}
+                    {notice.levayaInfo && (
+                      <div className="pt-3 border-t">
+                        <div className="flex items-start gap-2">
+                          <Info className="h-4 w-4 mt-0.5 text-gray-500 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-500 mb-1">Levaya (Funeral)</p>
+                            <p className="text-gray-700 text-sm whitespace-pre-wrap">{notice.levayaInfo}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Davening Times */}
+                    {notice.daveningTimes && (
+                      <div className="pt-3 border-t">
+                        <div className="flex items-start gap-2">
+                          <Clock className="h-4 w-4 mt-0.5 text-gray-500 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-500 mb-1">Davening Times</p>
+                            <p className="text-gray-700 text-sm whitespace-pre-wrap">{notice.daveningTimes}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Minyan Help */}
+                    {notice.minyanInfo && (
+                      <div className="pt-3 border-t">
+                        <div className="flex items-start gap-2">
+                          <Users className="h-4 w-4 mt-0.5 text-gray-500 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-500 mb-1">Help Making the Minyan</p>
+                            <p className="text-gray-700 text-sm whitespace-pre-wrap">{notice.minyanInfo}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Zoom / Remote */}
+                    {notice.zoomInfo && (
+                      <div className="pt-3 border-t">
+                        <div className="flex items-start gap-2">
+                          <Video className="h-4 w-4 mt-0.5 text-gray-500 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-500 mb-1">Zoom / Remote Access</p>
+                            {notice.zoomInfo.trim().startsWith("http") ? (
+                              <a
+                                href={notice.zoomInfo.trim()}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline text-sm break-all"
+                              >
+                                {notice.zoomInfo.trim()}
+                              </a>
+                            ) : (
+                              <p className="text-gray-700 text-sm whitespace-pre-wrap">{notice.zoomInfo}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Meal Info */}
                     {notice.mealInfo && (
                       <div className="pt-3 border-t">
@@ -219,6 +285,21 @@ export default async function ShivaPage() {
                             </p>
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Attachment (original notice/flyer) */}
+                    {notice.attachmentUrl && (
+                      <div className="pt-3 border-t">
+                        <a
+                          href={notice.attachmentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                        >
+                          <FileText className="h-4 w-4" />
+                          View full notice
+                        </a>
                       </div>
                     )}
                   </CardContent>

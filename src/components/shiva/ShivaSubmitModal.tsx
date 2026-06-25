@@ -15,7 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Loader2, X, CheckCircle } from "lucide-react";
+import { Plus, Loader2, X, CheckCircle, FileText } from "lucide-react";
+import { uploadFile } from "@/lib/upload-client";
 
 interface MournerEntry {
   id: string;
@@ -40,6 +41,13 @@ export function ShivaSubmitModal() {
   const [shivaStart, setShivaStart] = useState("");
   const [shivaEnd, setShivaEnd] = useState("");
   const [shivaHours, setShivaHours] = useState("");
+  const [daveningTimes, setDaveningTimes] = useState("");
+  const [levayaInfo, setLevayaInfo] = useState("");
+  const [zoomInfo, setZoomInfo] = useState("");
+  const [minyanInfo, setMinyanInfo] = useState("");
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
+  const [attachmentName, setAttachmentName] = useState("");
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [mealInfo, setMealInfo] = useState("");
   const [donationInfo, setDonationInfo] = useState("");
   const [contactPhone, setContactPhone] = useState("");
@@ -52,11 +60,46 @@ export function ShivaSubmitModal() {
     setShivaStart("");
     setShivaEnd("");
     setShivaHours("");
+    setDaveningTimes("");
+    setLevayaInfo("");
+    setZoomInfo("");
+    setMinyanInfo("");
+    setAttachmentUrl(null);
+    setAttachmentName("");
     setMealInfo("");
     setDonationInfo("");
     setContactPhone("");
     setError(null);
     setSuccess(false);
+  };
+
+  const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      setError("Attachment must be a PDF or image (JPG, PNG, WebP)");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setError("Attachment must be less than 15MB");
+      e.target.value = "";
+      return;
+    }
+
+    setError(null);
+    setIsUploadingAttachment(true);
+    try {
+      const { url } = await uploadFile(file, "shiva-attachments");
+      setAttachmentUrl(url);
+      setAttachmentName(file.name);
+    } catch {
+      setError("Failed to upload attachment");
+    } finally {
+      setIsUploadingAttachment(false);
+    }
   };
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -114,6 +157,11 @@ export function ShivaSubmitModal() {
           shivaStart,
           shivaEnd,
           shivaHours: shivaHours.trim() || null,
+          daveningTimes: daveningTimes.trim() || null,
+          levayaInfo: levayaInfo.trim() || null,
+          zoomInfo: zoomInfo.trim() || null,
+          minyanInfo: minyanInfo.trim() || null,
+          attachmentUrl: attachmentUrl || null,
           mealInfo: mealInfo.trim() || null,
           donationInfo: donationInfo.trim() || null,
           contactPhone: contactPhone.trim() || null,
@@ -192,6 +240,35 @@ export function ShivaSubmitModal() {
                 {error}
               </div>
             )}
+
+            {/* Attachment (Misaskim notice shortcut) */}
+            <div className="space-y-2 bg-blue-50/60 border border-blue-100 rounded-lg p-3">
+              <Label htmlFor="shivaAttachment" className="text-sm">
+                Attach notice (PDF or image) — optional
+              </Label>
+              <p className="text-xs text-gray-500">
+                Have a Misaskim notice or flyer? Attach it here and fill in whatever
+                details you can below.
+              </p>
+              <Input
+                id="shivaAttachment"
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                onChange={handleAttachmentUpload}
+                disabled={isUploadingAttachment}
+                className="cursor-pointer file:cursor-pointer"
+              />
+              {isUploadingAttachment && (
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Uploading…
+                </p>
+              )}
+              {attachmentUrl && !isUploadingAttachment && (
+                <p className="text-xs text-green-700 flex items-center gap-1">
+                  <FileText className="h-3 w-3" /> {attachmentName || "Attached"}
+                </p>
+              )}
+            </div>
 
             {/* Niftar Name */}
             <div className="space-y-2">
@@ -295,6 +372,54 @@ export function ShivaSubmitModal() {
                 value={shivaHours}
                 onChange={(e) => setShivaHours(e.target.value)}
                 placeholder="e.g., 10am-12pm, 3pm-9pm"
+              />
+            </div>
+
+            {/* Davening Times */}
+            <div className="space-y-2">
+              <Label htmlFor="daveningTimes">Davening Times</Label>
+              <Textarea
+                id="daveningTimes"
+                value={daveningTimes}
+                onChange={(e) => setDaveningTimes(e.target.value)}
+                placeholder="e.g., Shacharis 7:30am, Mincha 6:45pm, Maariv 9pm"
+                rows={2}
+              />
+            </div>
+
+            {/* Levaya Info */}
+            <div className="space-y-2">
+              <Label htmlFor="levayaInfo">Levaya (Funeral) Information</Label>
+              <Textarea
+                id="levayaInfo"
+                value={levayaInfo}
+                onChange={(e) => setLevayaInfo(e.target.value)}
+                placeholder="Levaya time and location"
+                rows={2}
+              />
+            </div>
+
+            {/* Zoom Info */}
+            <div className="space-y-2">
+              <Label htmlFor="zoomInfo">Zoom / Remote Access</Label>
+              <Textarea
+                id="zoomInfo"
+                value={zoomInfo}
+                onChange={(e) => setZoomInfo(e.target.value)}
+                placeholder="Zoom link or dial-in details (if available)"
+                rows={2}
+              />
+            </div>
+
+            {/* Minyan Help */}
+            <div className="space-y-2">
+              <Label htmlFor="minyanInfo">Help Making the Minyan</Label>
+              <Textarea
+                id="minyanInfo"
+                value={minyanInfo}
+                onChange={(e) => setMinyanInfo(e.target.value)}
+                placeholder="e.g., Help needed for Shacharis — please come at 7:30am"
+                rows={2}
               />
             </div>
 

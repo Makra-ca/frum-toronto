@@ -46,6 +46,7 @@ import {
   Clock,
   X,
   Plus,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -58,6 +59,11 @@ interface ShivaEntry {
   shivaStart: string;
   shivaEnd: string;
   shivaHours: string | null;
+  daveningTimes: string | null;
+  levayaInfo: string | null;
+  zoomInfo: string | null;
+  minyanInfo: string | null;
+  attachmentUrl: string | null;
   mealInfo: string | null;
   donationInfo: string | null;
   contactPhone: string | null;
@@ -101,6 +107,11 @@ export default function ShivaManagementPage() {
     shivaStart: "",
     shivaEnd: "",
     shivaHours: "",
+    daveningTimes: "",
+    levayaInfo: "",
+    zoomInfo: "",
+    minyanInfo: "",
+    attachmentUrl: "",
     mealInfo: "",
     donationInfo: "",
     contactPhone: "",
@@ -164,6 +175,11 @@ export default function ShivaManagementPage() {
       shivaStart: entry.shivaStart || "",
       shivaEnd: entry.shivaEnd || "",
       shivaHours: entry.shivaHours || "",
+      daveningTimes: entry.daveningTimes || "",
+      levayaInfo: entry.levayaInfo || "",
+      zoomInfo: entry.zoomInfo || "",
+      minyanInfo: entry.minyanInfo || "",
+      attachmentUrl: entry.attachmentUrl || "",
       mealInfo: entry.mealInfo || "",
       donationInfo: entry.donationInfo || "",
       contactPhone: entry.contactPhone || "",
@@ -219,6 +235,11 @@ export default function ShivaManagementPage() {
           shivaStart: editForm.shivaStart,
           shivaEnd: editForm.shivaEnd,
           shivaHours: editForm.shivaHours || null,
+          daveningTimes: editForm.daveningTimes || null,
+          levayaInfo: editForm.levayaInfo || null,
+          zoomInfo: editForm.zoomInfo || null,
+          minyanInfo: editForm.minyanInfo || null,
+          attachmentUrl: editForm.attachmentUrl || null,
           mealInfo: editForm.mealInfo || null,
           donationInfo: editForm.donationInfo || null,
           contactPhone: editForm.contactPhone || null,
@@ -601,6 +622,76 @@ export default function ShivaManagementPage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="daveningTimes">Davening Times</Label>
+              <Textarea
+                id="daveningTimes"
+                value={editForm.daveningTimes}
+                onChange={(e) => setEditForm({ ...editForm, daveningTimes: e.target.value })}
+                placeholder="e.g., Shacharis 7:30am, Mincha 6:45pm, Maariv 9pm"
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="levayaInfo">Levaya (Funeral) Information</Label>
+              <Textarea
+                id="levayaInfo"
+                value={editForm.levayaInfo}
+                onChange={(e) => setEditForm({ ...editForm, levayaInfo: e.target.value })}
+                placeholder="Levaya time and location"
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="zoomInfo">Zoom / Remote Access</Label>
+              <Textarea
+                id="zoomInfo"
+                value={editForm.zoomInfo}
+                onChange={(e) => setEditForm({ ...editForm, zoomInfo: e.target.value })}
+                placeholder="Zoom link or dial-in details"
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="minyanInfo">Help Making the Minyan</Label>
+              <Textarea
+                id="minyanInfo"
+                value={editForm.minyanInfo}
+                onChange={(e) => setEditForm({ ...editForm, minyanInfo: e.target.value })}
+                placeholder="e.g., Help needed for Shacharis — please come at 7:30am"
+                rows={2}
+              />
+            </div>
+
+            {/* Attachment (submitter-provided notice/flyer) */}
+            {editForm.attachmentUrl && (
+              <div className="space-y-2">
+                <Label>Attached Notice</Label>
+                <div className="flex items-center gap-3">
+                  <a
+                    href={editForm.attachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                  >
+                    <FileText className="h-4 w-4" />
+                    View attachment
+                  </a>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditForm({ ...editForm, attachmentUrl: "" })}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
               <Label htmlFor="contactPhone">Contact Phone</Label>
               <Input
                 id="contactPhone"
@@ -676,7 +767,7 @@ export default function ShivaManagementPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Shiva Notice?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove the shiva notice for "{deleteEntry?.niftarName}". This action cannot be undone.
+              This will permanently remove the shiva notice for &quot;{deleteEntry?.niftarName}&quot;. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
