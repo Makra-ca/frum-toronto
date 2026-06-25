@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { uploadFile } from "@/lib/upload-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -100,27 +101,23 @@ export function NonProfitApplicationForm({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const allowed = ["application/pdf", "image/jpeg", "image/png"];
+    if (!allowed.includes(file.type)) {
+      setError("Please upload a PDF, JPG, or PNG file");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File must be less than 10MB");
+      return;
+    }
+
     setSelectedFile(file);
     setUploadedUrl(null);
     setError(null);
     setIsUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "non-profit-docs");
-
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!uploadRes.ok) {
-        const data = await uploadRes.json();
-        throw new Error(data.error || "File upload failed");
-      }
-
-      const { url } = await uploadRes.json();
+      const { url } = await uploadFile(file, "non-profit-docs");
       setUploadedUrl(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");

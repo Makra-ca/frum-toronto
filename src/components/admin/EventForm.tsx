@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { uploadFile } from "@/lib/upload-client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -222,14 +223,7 @@ export function EventForm({
 
     setIsUploadingImage(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "events");
-
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      if (!res.ok) throw new Error("Upload failed");
-
-      const data = await res.json();
+      const data = await uploadFile(file, "events");
       setValue("imageUrl", data.url);
       toast.success("Cover image uploaded");
     } catch {
@@ -261,14 +255,7 @@ export function EventForm({
 
     setIsUploadingFlyer(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "event-flyers");
-
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      if (!res.ok) throw new Error("Upload failed");
-
-      const data = await res.json();
+      const data = await uploadFile(file, "event-flyers");
       setValue("flyerUrl", data.url);
       toast.success("Flyer uploaded");
     } catch {

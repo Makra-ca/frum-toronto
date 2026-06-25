@@ -429,6 +429,14 @@ export default function EventsPage() {
                             {MONTHS[new Date(event.startTime).getMonth()].slice(0, 3)}
                           </div>
                         </div>
+                        {event.imageUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={event.imageUrl}
+                            alt={event.title}
+                            className="w-full h-40 sm:w-28 sm:h-28 object-cover rounded-lg flex-shrink-0"
+                          />
+                        )}
                         <div className="flex-1">
                           <div className="flex items-start justify-between gap-4">
                             <div>

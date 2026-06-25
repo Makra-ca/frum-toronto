@@ -14,6 +14,7 @@ import {
   DollarSign,
   ArrowLeft,
   Building2,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EventActions } from "@/components/calendar/EventActions";
@@ -42,6 +43,7 @@ async function getEvent(id: number) {
       contactPhone: events.contactPhone,
       cost: events.cost,
       imageUrl: events.imageUrl,
+      flyerUrl: events.flyerUrl,
     })
     .from(events)
     .leftJoin(shuls, eq(events.shulId, shuls.id))
@@ -122,6 +124,15 @@ export default async function EventDetailPage({ params }: PageProps) {
         <div className="max-w-4xl mx-auto">
           {/* Main content card */}
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+            {/* Cover image (if provided) — contain so portrait images aren't cropped */}
+            {event.imageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={event.imageUrl}
+                alt={event.title}
+                className="w-full max-h-[28rem] object-contain bg-slate-100"
+              />
+            )}
             {/* Event header with subtle gradient */}
             <div className="p-6 md:p-8 bg-gradient-to-r from-slate-50 via-white to-blue-50/50 border-b">
               <div className="flex flex-col md:flex-row md:items-start gap-6">
@@ -242,6 +253,31 @@ export default async function EventDetailPage({ params }: PageProps) {
                         View on Google Maps
                         <ArrowLeft className="h-3 w-3 rotate-[135deg]" />
                       </a>
+                    </div>
+                  )}
+
+                  {/* Flyer (image shown inline; PDF shown as a download/view card) */}
+                  {event.flyerUrl && (
+                    <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+                      <h2 className="text-lg font-semibold text-gray-900 mb-4">Event Flyer</h2>
+                      {event.flyerUrl.toLowerCase().includes(".pdf") ? (
+                        <a
+                          href={event.flyerUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+                        >
+                          <FileText className="h-4 w-4" />
+                          View Flyer (PDF)
+                        </a>
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={event.flyerUrl}
+                          alt={`${event.title} flyer`}
+                          className="w-full max-h-[40rem] object-contain bg-slate-100 rounded-lg"
+                        />
+                      )}
                     </div>
                   )}
                 </div>

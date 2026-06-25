@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { FileText, Upload, Trash2, Loader2, Newspaper, BookOpen, Download, Calendar, Pencil, X, Check } from "lucide-react";
 import { toast } from "sonner";
+import { uploadFile } from "@/lib/upload-client";
 
 interface ShulDocument {
   id: number;
@@ -102,22 +103,9 @@ export function ShulDocuments({ shulId, apiBasePath = "/api/admin/shuls" }: Shul
 
     setIsUploading(true);
     try {
-      // 1. Upload file to Vercel Blob
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("folder", `shul-documents/${shulId}`);
-
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!uploadRes.ok) {
-        const err = await uploadRes.json();
-        throw new Error(err.error || "Upload failed");
-      }
-
-      const { url } = await uploadRes.json();
+      // 1. Upload file directly to Vercel Blob (handles large PDFs — bypasses
+      //    the ~4.5 MB serverless body limit that broke newsletter uploads).
+      const { url } = await uploadFile(selectedFile, `shul-documents/${shulId}`);
 
       // 2. Create document record
       const docRes = await fetch(`${apiBasePath}/${shulId}/documents`, {
@@ -246,6 +234,11 @@ export function ShulDocuments({ shulId, apiBasePath = "/api/admin/shuls" }: Shul
               className="cursor-pointer file:cursor-pointer"
               onChange={(e) => {
                 const file = e.target.files?.[0] || null;
+                if (file && file.size > 15 * 1024 * 1024) {
+                  toast.error("File must be less than 15MB");
+                  e.target.value = "";
+                  return;
+                }
                 setSelectedFile(file);
                 if (file) {
                   setFilePreviewUrl(URL.createObjectURL(file));
@@ -402,17 +395,9 @@ function DocumentCard({
     try {
       let newFileUrl: string | undefined;
 
-      // Upload replacement file if selected
+      // Upload replacement file if selected (direct-to-Blob, large-PDF safe)
       if (replaceFile) {
-        const formData = new FormData();
-        formData.append("file", replaceFile);
-        formData.append("folder", `shul-documents/${shulId}`);
-        const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
-        if (!uploadRes.ok) {
-          const err = await uploadRes.json();
-          throw new Error(err.error || "File upload failed");
-        }
-        const { url } = await uploadRes.json();
+        const { url } = await uploadFile(replaceFile, `shul-documents/${shulId}`);
         newFileUrl = url;
       }
 
@@ -508,7 +493,15 @@ function DocumentCard({
                 ref={replaceFileRef}
                 type="file"
                 accept="application/pdf,image/jpeg,image/png,image/webp"
-                onChange={(e) => setReplaceFile(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (file && file.size > 15 * 1024 * 1024) {
+                    toast.error("File must be less than 15MB");
+                    e.target.value = "";
+                    return;
+                  }
+                  setReplaceFile(file);
+                }}
                 className="h-8 text-xs cursor-pointer file:cursor-pointer"
               />
               {replaceFile && (
