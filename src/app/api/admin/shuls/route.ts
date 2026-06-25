@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
         name: validatedData.name,
         slug,
         description: validatedData.description,
+        neighborhood: validatedData.neighborhood || null,
         address: validatedData.address,
         city: validatedData.city || "Toronto",
         postalCode: validatedData.postalCode,

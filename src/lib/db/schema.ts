@@ -253,6 +253,7 @@ export const shuls = pgTable("shuls", {
   slug: varchar("slug", { length: 200 }).notNull().unique(),
   description: text("description"),
   // Location
+  neighborhood: varchar("neighborhood", { length: 100 }), // e.g. Thornhill, Lawrence Manor
   address: varchar("address", { length: 500 }),
   city: varchar("city", { length: 100 }).default("Toronto"),
   postalCode: varchar("postal_code", { length: 20 }),
@@ -478,6 +479,16 @@ export const shulDocuments = pgTable("shul_documents", {
   index("idx_shul_documents_shul").on(table.shulId),
   index("idx_shul_documents_type").on(table.type),
 ]);
+
+// Admin-managed list of shul neighborhoods (filter options). Admins can add
+// new areas anytime; shuls.neighborhood stores the chosen name.
+export const shulNeighborhoods = pgTable("shul_neighborhoods", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
 
 // Community (non-shul) newsletters — uploaded PDFs not tied to any shul,
 // e.g. "Israeli News". Page-only (shown in the global newsletter list); not

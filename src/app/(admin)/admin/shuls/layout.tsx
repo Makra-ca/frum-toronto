@@ -2,12 +2,13 @@
 
 import { usePathname } from "next/navigation";
 import { AdminTabs } from "@/components/admin/AdminTabs";
-import { Building, ClipboardList, UserCog } from "lucide-react";
+import { Building, ClipboardList, UserCog, MapPin } from "lucide-react";
 
 const shulTabs = [
   { href: "/admin/shuls", label: "All Shuls", icon: Building, exact: true },
   { href: "/admin/shuls/requests", label: "Requests", icon: ClipboardList },
   { href: "/admin/shuls/managers", label: "Managers", icon: UserCog },
+  { href: "/admin/shuls/neighborhoods", label: "Neighborhoods", icon: MapPin },
 ];
 
 export default function ShulsLayout({ children }: { children: React.ReactNode }) {

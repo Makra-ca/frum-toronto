@@ -168,6 +168,7 @@ export default function AdminShulsPage() {
                     name: editingShul.name,
                     slug: editingShul.slug,
                     description: editingShul.description,
+                    neighborhood: editingShul.neighborhood,
                     address: editingShul.address,
                     city: editingShul.city,
                     postalCode: editingShul.postalCode,

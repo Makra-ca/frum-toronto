@@ -113,6 +113,7 @@ export async function PUT(
         name: validatedData.name,
         slug,
         description: validatedData.description,
+        neighborhood: validatedData.neighborhood || null,
         address: validatedData.address,
         city: validatedData.city || "Toronto",
         postalCode: validatedData.postalCode,

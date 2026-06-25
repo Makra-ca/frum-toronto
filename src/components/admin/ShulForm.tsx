@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { shulSchema, ShulFormData, DENOMINATIONS, NUSACH_OPTIONS } from "@/lib/validations/content";
@@ -22,6 +23,7 @@ interface ShulFormProps {
     name: string;
     slug?: string;
     description?: string | null;
+    neighborhood?: string | null;
     address?: string | null;
     city?: string | null;
     postalCode?: string | null;
@@ -56,6 +58,7 @@ export function ShulForm({
       name: initialData?.name || "",
       slug: initialData?.slug || "",
       description: initialData?.description || "",
+      neighborhood: initialData?.neighborhood || "",
       address: initialData?.address || "",
       city: initialData?.city || "Toronto",
       postalCode: initialData?.postalCode || "",
@@ -70,6 +73,14 @@ export function ShulForm({
   });
 
   const hasMinyan = watch("hasMinyan");
+
+  const [neighborhoods, setNeighborhoods] = useState<{ id: number; name: string }[]>([]);
+  useEffect(() => {
+    fetch("/api/shul-neighborhoods")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => Array.isArray(data) && setNeighborhoods(data))
+      .catch(() => {});
+  }, []);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -167,6 +178,39 @@ export function ShulForm({
       {/* Location */}
       <div className="space-y-4 pt-4 border-t">
         <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Location</h3>
+
+        <div className="space-y-2">
+          <Label htmlFor="neighborhood">Neighborhood</Label>
+          <Select
+            value={watch("neighborhood") || "none"}
+            onValueChange={(value) =>
+              setValue("neighborhood", value === "none" ? "" : value)
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select neighborhood" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">— None —</SelectItem>
+              {/* Preserve the shul's current value even if it's no longer in
+                  the active list (deactivated/deleted) so editing won't lose it. */}
+              {watch("neighborhood") &&
+                !neighborhoods.some((n) => n.name === watch("neighborhood")) && (
+                  <SelectItem value={watch("neighborhood") as string}>
+                    {watch("neighborhood")} (inactive)
+                  </SelectItem>
+                )}
+              {neighborhoods.map((n) => (
+                <SelectItem key={n.id} value={n.name}>
+                  {n.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-gray-400">
+            Manage the list under Shuls → Neighborhoods.
+          </p>
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="address">Address</Label>

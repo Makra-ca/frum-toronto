@@ -35,6 +35,8 @@ export default function ShulsPage() {
   const [loading, setLoading] = useState(true);
   const [denominationFilter, setDenominationFilter] = useState<string>("");
   const [nusachFilter, setNusachFilter] = useState<string>("");
+  const [neighborhoodFilter, setNeighborhoodFilter] = useState<string>("");
+  const [neighborhoods, setNeighborhoods] = useState<{ id: number; name: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const filteredShuls = useMemo(() => {
@@ -55,6 +57,7 @@ export default function ShulsPage() {
         const params = new URLSearchParams();
         if (denominationFilter) params.append("denomination", denominationFilter);
         if (nusachFilter) params.append("nusach", nusachFilter);
+        if (neighborhoodFilter) params.append("neighborhood", neighborhoodFilter);
 
         const response = await fetch(`/api/shuls?${params.toString()}`);
         if (response.ok) {
@@ -68,7 +71,14 @@ export default function ShulsPage() {
       }
     }
     fetchShuls();
-  }, [denominationFilter, nusachFilter]);
+  }, [denominationFilter, nusachFilter, neighborhoodFilter]);
+
+  useEffect(() => {
+    fetch("/api/shul-neighborhoods")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => Array.isArray(data) && setNeighborhoods(data))
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -121,13 +131,29 @@ export default function ShulsPage() {
                 ))}
               </SelectContent>
             </Select>
-            {(denominationFilter || nusachFilter) && (
+            {neighborhoods.length > 0 && (
+              <Select value={neighborhoodFilter || "all"} onValueChange={(v) => setNeighborhoodFilter(v === "all" ? "" : v)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Neighborhood" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Neighborhoods</SelectItem>
+                  {neighborhoods.map((n) => (
+                    <SelectItem key={n.id} value={n.name}>
+                      {n.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {(denominationFilter || nusachFilter || neighborhoodFilter) && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
                   setDenominationFilter("");
                   setNusachFilter("");
+                  setNeighborhoodFilter("");
                 }}
               >
                 Clear filters

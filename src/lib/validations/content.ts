@@ -10,6 +10,7 @@ export const shulSchema = z.object({
   slug: z.string().max(200).optional(), // Auto-generated if not provided
   description: z.string().optional().nullable(),
   // Location
+  neighborhood: z.string().max(100).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
   city: z.string().max(100).optional().nullable(),
   postalCode: z.string().max(20).optional().nullable(),

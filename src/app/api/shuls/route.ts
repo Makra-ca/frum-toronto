@@ -8,6 +8,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const denomination = searchParams.get("denomination");
     const nusach = searchParams.get("nusach");
+    const neighborhood = searchParams.get("neighborhood");
 
     // Build conditions array
     const conditions = [eq(shuls.isActive, true)];
@@ -18,6 +19,10 @@ export async function GET(request: Request) {
 
     if (nusach) {
       conditions.push(eq(shuls.nusach, nusach));
+    }
+
+    if (neighborhood) {
+      conditions.push(eq(shuls.neighborhood, neighborhood));
     }
 
     const results = await db

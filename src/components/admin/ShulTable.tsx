@@ -18,6 +18,7 @@ export interface Shul {
   name: string;
   slug: string;
   description: string | null;
+  neighborhood: string | null;
   address: string | null;
   city: string | null;
   postalCode: string | null;
