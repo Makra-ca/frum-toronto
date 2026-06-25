@@ -348,6 +348,159 @@ export async function sendEventLiveEmail(event: EventRow): Promise<void> {
   );
 }
 
+// ============================================
+// SHIVA NOTICE BROADCAST
+// ============================================
+
+export type ShivaNoticeRow = {
+  id: number;
+  niftarName: string;
+  niftarNameHebrew: string | null;
+  mournerNames: unknown;
+  shivaAddress: string | null;
+  shivaStart: string;
+  shivaEnd: string;
+  shivaHours: string | null;
+  daveningTimes: string | null;
+  levayaInfo: string | null;
+  zoomInfo: string | null;
+  minyanInfo: string | null;
+  contactPhone: string | null;
+};
+
+function formatShivaDate(date: string): string {
+  // shivaStart/shivaEnd are date-only strings (yyyy-mm-dd); avoid TZ shifting.
+  const [y, m, d] = date.split("-").map(Number);
+  if (!y || !m || !d) return date;
+  return new Intl.DateTimeFormat("en-CA", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(y, m - 1, d));
+}
+
+function shivaMournerList(mournerNames: unknown): string {
+  if (Array.isArray(mournerNames)) {
+    return mournerNames.filter((n) => typeof n === "string" && n.trim()).join(", ");
+  }
+  return "";
+}
+
+function buildShivaNoticeEmailHtml(notice: ShivaNoticeRow): string {
+  const shivaUrl = `${APP_URL}/shiva`;
+  const mourners = shivaMournerList(notice.mournerNames);
+  const row = (label: string, value: string | null) =>
+    value && value.trim()
+      ? `<tr><td style="padding:4px 0;color:#6b7280;font-size:14px;width:140px;vertical-align:top;">${label}</td><td style="padding:4px 0;color:#111827;font-size:14px;">${value}</td></tr>`
+      : "";
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;">
+        <tr>
+          <td style="background:#334155;padding:24px 32px;">
+            <p style="color:#cbd5e1;font-size:13px;margin:0 0 4px;">Shiva Notice</p>
+            <h1 style="color:#ffffff;font-size:22px;margin:0;">${notice.niftarName}</h1>
+            ${notice.niftarNameHebrew ? `<p style="color:#e2e8f0;font-size:18px;margin:6px 0 0;" dir="rtl">${notice.niftarNameHebrew}</p>` : ""}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              ${row("Mourners", mourners)}
+              ${row("Address", notice.shivaAddress)}
+              ${row("Dates", `${formatShivaDate(notice.shivaStart)} – ${formatShivaDate(notice.shivaEnd)}`)}
+              ${row("Visiting Hours", notice.shivaHours)}
+              ${row("Davening", notice.daveningTimes)}
+              ${row("Levaya", notice.levayaInfo)}
+              ${row("Zoom", notice.zoomInfo)}
+              ${row("Help w/ Minyan", notice.minyanInfo)}
+              ${row("Contact", notice.contactPhone)}
+            </table>
+            <p style="margin:24px 0 0;">
+              <a href="${shivaUrl}" style="display:inline-block;background:#334155;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:6px;font-size:14px;">View on FrumToronto</a>
+            </p>
+            <p style="color:#6b7280;font-size:13px;margin:24px 0 0;font-style:italic;">המקום ינחם אתכם בתוך שאר אבלי ציון וירושלים</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 32px;text-align:center;">
+            <p style="color:#6b7280;font-size:12px;margin:0 0 8px;">You're receiving this because you subscribed to shiva notifications.</p>
+            <p style="color:#6b7280;font-size:12px;margin:0;">
+              <a href="${APP_URL}/dashboard/settings" style="color:#334155;">Manage preferences</a>
+              &nbsp;|&nbsp;
+              <a href="${APP_URL}/newsletter/unsubscribe" style="color:#334155;">Unsubscribe</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Broadcast a shiva notice to all subscribers who opted into shiva notifications.
+ * Called when a notice's approvalStatus transitions to "approved" (as-posted).
+ * Errors are caught by the caller — this function throws on failure.
+ */
+export async function sendShivaNoticeEmail(notice: ShivaNoticeRow): Promise<void> {
+  if (!resend) {
+    console.warn("[SHIVA] Resend not initialized — skipping shiva email");
+    return;
+  }
+
+  const subscribers = await db
+    .select({ email: emailSubscribers.email })
+    .from(emailSubscribers)
+    .where(
+      and(
+        eq(emailSubscribers.shiva, true),
+        eq(emailSubscribers.isActive, true),
+        isNotNull(emailSubscribers.userId),
+        sql`${emailSubscribers.unsubscribedAt} IS NULL`
+      )
+    );
+
+  if (subscribers.length === 0) {
+    console.log("[SHIVA] No shiva subscribers — skipping broadcast");
+    return;
+  }
+
+  const html = buildShivaNoticeEmailHtml(notice);
+  const subject = `Shiva Notice: ${notice.niftarName}`;
+
+  const batches = chunkArray(subscribers, 100);
+  let failedBatches = 0;
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+    try {
+      const { error } = await resend.batch.send(
+        batch.map((s) => ({ from: EMAIL_FROM, to: s.email, subject, html }))
+      );
+      if (error) {
+        failedBatches++;
+        console.error(`[SHIVA] Batch ${i + 1}/${batches.length} failed:`, error);
+      }
+    } catch (error) {
+      failedBatches++;
+      console.error(`[SHIVA] Batch ${i + 1}/${batches.length} threw:`, error);
+    }
+  }
+
+  console.log(
+    `[SHIVA] Sent shiva notice for "${notice.niftarName}" to ${subscribers.length} subscribers` +
+      (failedBatches > 0 ? ` (${failedBatches}/${batches.length} batches failed)` : "")
+  );
+}
+
 /**
  * Send a conflict notification email to an existing event organizer.
  * Called when a new approved event is force-scheduled on the same day.

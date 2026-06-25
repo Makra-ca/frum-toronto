@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { shivaNotifications, users } from "@/lib/db/schema";
 import { eq, and, gte } from "drizzle-orm";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
+import { sendShivaNoticeEmail } from "@/lib/email/send";
 
 // GET - Fetch all approved, active shiva notices
 export async function GET() {
@@ -135,6 +136,16 @@ export async function POST(request: Request) {
         linkUrl: "/admin/community/shiva",
         status: approvalStatus === "pending" ? "pending" : "auto_approved",
       });
+    }
+
+    // As-posted broadcast: if auto-approved, email subscribers who opted in.
+    // Non-fatal — a mail failure must not break the submission.
+    if (approvalStatus === "approved") {
+      try {
+        await sendShivaNoticeEmail(newNotice);
+      } catch (err) {
+        console.error("[SHIVA] Failed to send as-posted broadcast:", err);
+      }
     }
 
     const message = canAutoApprove

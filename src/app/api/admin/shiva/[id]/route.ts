@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { shivaNotifications } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { sendShivaNoticeEmail } from "@/lib/email/send";
 
 const updateSchema = z.object({
   niftarName: z.string().max(200).optional(),
@@ -86,6 +87,14 @@ export async function PATCH(
       return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
     }
 
+    // Capture prior status so we can detect a transition into "approved"
+    // and broadcast the notice once (as-posted).
+    const [prior] = await db
+      .select({ approvalStatus: shivaNotifications.approvalStatus })
+      .from(shivaNotifications)
+      .where(eq(shivaNotifications.id, shivaId))
+      .limit(1);
+
     const updates: Record<string, unknown> = {};
 
     if (result.data.niftarName !== undefined) {
@@ -145,6 +154,19 @@ export async function PATCH(
 
     if (!updated) {
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+    }
+
+    // As-posted broadcast: only when transitioning INTO approved (not on edits
+    // of an already-approved notice). Non-fatal.
+    if (
+      prior?.approvalStatus !== "approved" &&
+      updated.approvalStatus === "approved"
+    ) {
+      try {
+        await sendShivaNoticeEmail(updated);
+      } catch (err) {
+        console.error("[SHIVA] Failed to send as-posted broadcast on approval:", err);
+      }
     }
 
     return NextResponse.json(updated);
