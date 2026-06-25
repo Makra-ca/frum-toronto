@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import { uploadFile } from "@/lib/upload-client";
 import { ImageIcon, X, Loader2, Upload, Crop } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -60,9 +61,9 @@ export function CoverImageUploader({
       return;
     }
 
-    // Validate size (4MB max)
-    if (file.size > 4 * 1024 * 1024) {
-      toast.error("Image must be smaller than 4MB");
+    // Validate size (30MB max)
+    if (file.size > 30 * 1024 * 1024) {
+      toast.error("Maximum file size is 30MB");
       e.target.value = "";
       return;
     }
@@ -138,20 +139,7 @@ export function CoverImageUploader({
 
       const croppedFile = new File([blob], "cover.jpg", { type: "image/jpeg" });
 
-      const formData = new FormData();
-      formData.append("file", croppedFile);
-      formData.append("folder", "blog-covers");
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const data = await res.json();
+      const data = await uploadFile(croppedFile, "blog-covers");
       onChange(data.url);
       clearCropState();
       toast.success("Cover image uploaded");
@@ -334,7 +322,7 @@ export function CoverImageUploader({
                 Click to upload cover image
               </span>
               <span className="text-xs text-gray-400">
-                JPG, PNG, WebP — Max 4MB — auto-cropped to 16:9
+                JPG, PNG, WebP — Max 30MB — auto-cropped to 16:9
               </span>
             </>
           )}

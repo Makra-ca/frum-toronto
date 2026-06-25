@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { Upload, X, ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "./button";
 import { cn } from "@/lib/utils";
+import { uploadFile as uploadToBlob } from "@/lib/upload-client";
 
 interface ImageDropzoneProps {
   value?: string | null;
@@ -58,27 +59,13 @@ export function ImageDropzone({
         throw new Error("Invalid file type. Please use JPEG, PNG, WebP, or GIF.");
       }
 
-      // Validate file size (4MB max)
-      if (file.size > 4 * 1024 * 1024) {
-        throw new Error("File is too large. Maximum size is 4MB.");
+      // Validate file size (30MB max)
+      if (file.size > 30 * 1024 * 1024) {
+        throw new Error("Maximum file size is 30MB");
       }
 
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", folder);
-
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Upload failed");
-      }
-
-      const data = await response.json();
-      onChange(data.url);
+      const { url } = await uploadToBlob(file, folder);
+      onChange(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -199,7 +186,7 @@ export function ImageDropzone({
               {isDragging ? "Drop image here" : "Drag & drop or click to upload"}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              JPEG, PNG, WebP, or GIF (max 4MB)
+              JPEG, PNG, WebP, or GIF (max 30MB)
             </p>
           </div>
         )}

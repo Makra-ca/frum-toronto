@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { uploadFile } from "@/lib/upload-client";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +34,7 @@ interface SimchaType {
   slug: string;
 }
 
-const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export function SimchaSubmitModal() {
@@ -80,29 +81,15 @@ export function SimchaSubmitModal() {
       return;
     }
     if (file.size > MAX_FILE_SIZE) {
-      toast.error("Image must be under 4MB");
+      toast.error("Maximum file size is 30MB");
       return;
     }
 
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "simchas");
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setForm((prev) => ({ ...prev, photoUrl: data.url }));
-        toast.success("Photo uploaded");
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Failed to upload photo");
-      }
+      const data = await uploadFile(file, "simchas");
+      setForm((prev) => ({ ...prev, photoUrl: data.url }));
+      toast.success("Photo uploaded");
     } catch {
       toast.error("Failed to upload photo");
     } finally {
@@ -321,7 +308,7 @@ export function SimchaSubmitModal() {
                           Click to upload a photo
                         </span>
                         <span className="text-xs text-gray-400">
-                          JPEG, PNG, or WebP (max 4MB)
+                          JPEG, PNG, or WebP (max 30MB)
                         </span>
                       </div>
                     )}

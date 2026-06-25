@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { Loader2, ImageIcon, X, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { uploadFile } from "@/lib/upload-client";
 
 interface Category {
   id: number;
@@ -26,7 +27,7 @@ interface Category {
   slug: string;
 }
 
-const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export default function NewClassifiedPage() {
@@ -79,24 +80,13 @@ export default function NewClassifiedPage() {
       return;
     }
     if (file.size > MAX_FILE_SIZE) {
-      toast.error("Image must be under 4MB");
+      toast.error("Maximum file size is 30MB");
       return;
     }
 
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "classifieds");
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) throw new Error("Upload failed");
-
-      const data = await res.json();
+      const data = await uploadFile(file, "classifieds");
       setForm((prev) => ({ ...prev, imageUrl: data.url }));
       toast.success("Image uploaded");
     } catch {
@@ -365,7 +355,7 @@ export default function NewClassifiedPage() {
                           Click to upload a photo (optional)
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
-                          JPEG, PNG, or WebP, max 4MB
+                          JPEG, PNG, or WebP, max 30MB
                         </p>
                       </>
                     )}
