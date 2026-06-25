@@ -99,6 +99,7 @@ export default function ShivaManagementPage() {
 
   // Edit dialog
   const [editEntry, setEditEntry] = useState<ShivaEntry | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const [editForm, setEditForm] = useState({
     niftarName: "",
     niftarNameHebrew: "",
@@ -211,10 +212,12 @@ export default function ShivaManagementPage() {
   };
 
   const handleSave = async () => {
-    if (!editEntry) return;
-
     if (!editForm.niftarName.trim()) {
       toast.error("Niftar name is required");
+      return;
+    }
+    if (!editForm.shivaStart || !editForm.shivaEnd) {
+      toast.error("Start and end dates are required");
       return;
     }
 
@@ -224,42 +227,74 @@ export default function ShivaManagementPage() {
         .map((m) => m.name.trim())
         .filter((n) => n);
 
-      const res = await fetch(`/api/admin/shiva/${editEntry.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          niftarName: editForm.niftarName,
-          niftarNameHebrew: editForm.niftarNameHebrew || null,
-          mournerNames,
-          shivaAddress: editForm.shivaAddress || null,
-          shivaStart: editForm.shivaStart,
-          shivaEnd: editForm.shivaEnd,
-          shivaHours: editForm.shivaHours || null,
-          daveningTimes: editForm.daveningTimes || null,
-          levayaInfo: editForm.levayaInfo || null,
-          zoomInfo: editForm.zoomInfo || null,
-          minyanInfo: editForm.minyanInfo || null,
-          attachmentUrl: editForm.attachmentUrl || null,
-          mealInfo: editForm.mealInfo || null,
-          donationInfo: editForm.donationInfo || null,
-          contactPhone: editForm.contactPhone || null,
-          approvalStatus: editForm.approvalStatus,
-        }),
-      });
+      const payload: Record<string, unknown> = {
+        niftarName: editForm.niftarName,
+        niftarNameHebrew: editForm.niftarNameHebrew || null,
+        mournerNames,
+        shivaAddress: editForm.shivaAddress || null,
+        shivaStart: editForm.shivaStart,
+        shivaEnd: editForm.shivaEnd,
+        shivaHours: editForm.shivaHours || null,
+        daveningTimes: editForm.daveningTimes || null,
+        levayaInfo: editForm.levayaInfo || null,
+        zoomInfo: editForm.zoomInfo || null,
+        minyanInfo: editForm.minyanInfo || null,
+        attachmentUrl: editForm.attachmentUrl || null,
+        mealInfo: editForm.mealInfo || null,
+        donationInfo: editForm.donationInfo || null,
+        contactPhone: editForm.contactPhone || null,
+      };
+      // PATCH allows changing the status; POST is admin-created → auto-approved.
+      if (!isCreating) payload.approvalStatus = editForm.approvalStatus;
+
+      const res = await fetch(
+        isCreating ? "/api/admin/shiva" : `/api/admin/shiva/${editEntry!.id}`,
+        {
+          method: isCreating ? "POST" : "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (res.ok) {
-        toast.success("Entry updated");
+        toast.success(isCreating ? "Shiva notice created" : "Entry updated");
         setEditEntry(null);
+        setIsCreating(false);
         fetchEntries();
       } else {
         const data = await res.json();
-        toast.error(data.error || "Failed to update");
+        toast.error(data.error || "Failed to save");
       }
     } catch (error) {
-      toast.error("Failed to update entry");
+      toast.error("Failed to save entry");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const blankForm = {
+    niftarName: "",
+    niftarNameHebrew: "",
+    mourners: [{ id: crypto.randomUUID(), name: "" }] as MournerEntry[],
+    shivaAddress: "",
+    shivaStart: "",
+    shivaEnd: "",
+    shivaHours: "",
+    daveningTimes: "",
+    levayaInfo: "",
+    zoomInfo: "",
+    minyanInfo: "",
+    attachmentUrl: "",
+    mealInfo: "",
+    donationInfo: "",
+    contactPhone: "",
+    approvalStatus: "approved" as "pending" | "approved" | "rejected",
+  };
+
+  const startCreate = () => {
+    setEditEntry(null);
+    setEditForm(blankForm);
+    setIsCreating(true);
   };
 
   const handleDelete = async () => {
@@ -334,6 +369,14 @@ export default function ShivaManagementPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header action */}
+      <div className="flex justify-end">
+        <Button onClick={startCreate}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Shiva Notice
+        </Button>
+      </div>
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -522,12 +565,24 @@ export default function ShivaManagementPage() {
         </>
       )}
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editEntry} onOpenChange={() => setEditEntry(null)}>
+      {/* Create / Edit Dialog */}
+      <Dialog
+        open={!!editEntry || isCreating}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditEntry(null);
+            setIsCreating(false);
+          }
+        }}
+      >
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Shiva Notice</DialogTitle>
-            <DialogDescription>Update the details for this shiva notice</DialogDescription>
+            <DialogTitle>{isCreating ? "New Shiva Notice" : "Edit Shiva Notice"}</DialogTitle>
+            <DialogDescription>
+              {isCreating
+                ? "Create a shiva notice. It will be published immediately."
+                : "Update the details for this shiva notice"}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
@@ -750,7 +805,7 @@ export default function ShivaManagementPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditEntry(null)}>
+            <Button variant="outline" onClick={() => { setEditEntry(null); setIsCreating(false); }}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>

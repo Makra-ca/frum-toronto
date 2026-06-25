@@ -3,6 +3,20 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { tehillimList } from "@/lib/db/schema";
 import { desc, eq, and, or, ilike, sql } from "drizzle-orm";
+import { z } from "zod";
+
+const createSchema = z
+  .object({
+    hebrewName: z.string().trim().max(200).optional().nullable(),
+    englishName: z.string().trim().max(200).optional().nullable(),
+    motherHebrewName: z.string().trim().max(200).optional().nullable(),
+    reason: z.string().trim().max(200).optional().nullable(),
+    expiresAt: z.string().optional().nullable(),
+    isPermanent: z.boolean().optional(),
+  })
+  .refine((d) => (d.hebrewName?.trim() || d.englishName?.trim()), {
+    message: "Either Hebrew or English name is required",
+  });
 
 // GET - List all tehillim with pagination and filtering
 export async function GET(request: NextRequest) {
@@ -75,5 +89,43 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[API] Error fetching tehillim:", error);
     return NextResponse.json({ error: "Failed to fetch entries" }, { status: 500 });
+  }
+}
+
+// POST - Admin creates a tehillim entry (auto-approved)
+export async function POST(request: NextRequest) {
+  const session = await auth();
+
+  if (!session?.user || session.user.role !== "admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const result = createSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
+    }
+
+    const d = result.data;
+    const [created] = await db
+      .insert(tehillimList)
+      .values({
+        userId: parseInt(session.user.id),
+        hebrewName: d.hebrewName?.trim() || null,
+        englishName: d.englishName?.trim() || null,
+        motherHebrewName: d.motherHebrewName?.trim() || null,
+        reason: d.reason?.trim() || null,
+        expiresAt: d.expiresAt || null,
+        isPermanent: d.isPermanent ?? false,
+        approvalStatus: "approved",
+        isActive: true,
+      })
+      .returning();
+
+    return NextResponse.json(created, { status: 201 });
+  } catch (error) {
+    console.error("[API] Error creating tehillim entry:", error);
+    return NextResponse.json({ error: "Failed to create entry" }, { status: 500 });
   }
 }

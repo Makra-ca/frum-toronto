@@ -3,6 +3,16 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { simchas, simchaTypes } from "@/lib/db/schema";
 import { desc, eq, and, or, ilike, sql } from "drizzle-orm";
+import { z } from "zod";
+
+const createSchema = z.object({
+  familyName: z.string().trim().min(1, "Family name is required").max(200),
+  announcement: z.string().trim().min(1, "Announcement is required"),
+  typeId: z.number().int().nullable().optional(),
+  eventDate: z.string().optional().nullable(),
+  location: z.string().trim().max(200).optional().nullable(),
+  photoUrl: z.string().max(500).optional().nullable(),
+});
 
 // GET - List all simchas with pagination and filtering
 export async function GET(request: NextRequest) {
@@ -83,5 +93,43 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[API] Error fetching simchas:", error);
     return NextResponse.json({ error: "Failed to fetch entries" }, { status: 500 });
+  }
+}
+
+// POST - Admin creates a simcha (auto-approved)
+export async function POST(request: NextRequest) {
+  const session = await auth();
+
+  if (!session?.user || session.user.role !== "admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const result = createSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
+    }
+
+    const d = result.data;
+    const [created] = await db
+      .insert(simchas)
+      .values({
+        userId: parseInt(session.user.id),
+        familyName: d.familyName.trim(),
+        announcement: d.announcement.trim(),
+        typeId: d.typeId ?? null,
+        eventDate: d.eventDate || null,
+        location: d.location?.trim() || null,
+        photoUrl: d.photoUrl || null,
+        approvalStatus: "approved",
+        isActive: true,
+      })
+      .returning();
+
+    return NextResponse.json(created, { status: 201 });
+  } catch (error) {
+    console.error("[API] Error creating simcha:", error);
+    return NextResponse.json({ error: "Failed to create entry" }, { status: 500 });
   }
 }

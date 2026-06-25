@@ -42,6 +42,7 @@ import {
   RefreshCw,
   Calendar,
   MapPin,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -88,6 +89,7 @@ export default function SimchasManagementPage() {
 
   // Edit dialog
   const [editEntry, setEditEntry] = useState<SimchaEntry | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const [editForm, setEditForm] = useState({
     familyName: "",
     announcement: "",
@@ -171,37 +173,66 @@ export default function SimchasManagementPage() {
   };
 
   const handleSave = async () => {
-    if (!editEntry) return;
-
     if (!editForm.familyName.trim()) {
       toast.error("Family name is required");
+      return;
+    }
+    if (!editForm.announcement.trim()) {
+      toast.error("Announcement is required");
       return;
     }
 
     setIsSaving(true);
     try {
-      const res = await fetch(`/api/admin/simchas/${editEntry.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...editForm,
-          typeId: editForm.typeId ? parseInt(editForm.typeId) : null,
-        }),
-      });
+      const typeId = editForm.typeId ? parseInt(editForm.typeId) : null;
+      const res = await fetch(
+        isCreating ? "/api/admin/simchas" : `/api/admin/simchas/${editEntry!.id}`,
+        {
+          method: isCreating ? "POST" : "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            isCreating
+              ? {
+                  familyName: editForm.familyName,
+                  announcement: editForm.announcement,
+                  typeId,
+                  eventDate: editForm.eventDate || null,
+                  location: editForm.location || null,
+                  photoUrl: editForm.photoUrl || null,
+                }
+              : { ...editForm, typeId }
+          ),
+        }
+      );
 
       if (res.ok) {
-        toast.success("Simcha updated");
+        toast.success(isCreating ? "Simcha created" : "Simcha updated");
         setEditEntry(null);
+        setIsCreating(false);
         fetchEntries();
       } else {
         const data = await res.json();
-        toast.error(data.error || "Failed to update");
+        toast.error(data.error || "Failed to save");
       }
     } catch (error) {
-      toast.error("Failed to update");
+      toast.error("Failed to save");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const startCreate = () => {
+    setEditEntry(null);
+    setEditForm({
+      familyName: "",
+      announcement: "",
+      eventDate: "",
+      location: "",
+      photoUrl: "",
+      typeId: "",
+      isActive: true,
+    });
+    setIsCreating(true);
   };
 
   const handleDelete = async () => {
@@ -242,6 +273,14 @@ export default function SimchasManagementPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header action */}
+      <div className="flex justify-end">
+        <Button onClick={startCreate}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Simcha
+        </Button>
+      </div>
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -393,12 +432,24 @@ export default function SimchasManagementPage() {
         </>
       )}
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editEntry} onOpenChange={() => setEditEntry(null)}>
-        <DialogContent className="max-w-lg">
+      {/* Create / Edit Dialog */}
+      <Dialog
+        open={!!editEntry || isCreating}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditEntry(null);
+            setIsCreating(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Simcha</DialogTitle>
-            <DialogDescription>Update the details for this simcha</DialogDescription>
+            <DialogTitle>{isCreating ? "New Simcha" : "Edit Simcha"}</DialogTitle>
+            <DialogDescription>
+              {isCreating
+                ? "Create a simcha. It will be published immediately."
+                : "Update the details for this simcha"}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
@@ -482,7 +533,7 @@ export default function SimchasManagementPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditEntry(null)}>
+            <Button variant="outline" onClick={() => { setEditEntry(null); setIsCreating(false); }}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
@@ -505,7 +556,7 @@ export default function SimchasManagementPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Simcha?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the simcha for "{deleteEntry?.familyName}". This action cannot be undone.
+              This will permanently delete the simcha for &quot;{deleteEntry?.familyName}&quot;. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
