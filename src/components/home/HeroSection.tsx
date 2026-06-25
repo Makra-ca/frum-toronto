@@ -12,6 +12,7 @@ import {
   MessageCircle,
   Clock,
   Heart,
+  Flame,
   ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ const communityNodes = [
   { id: "ask-the-rabbi", label: "Ask Rabbi", description: "Torah Q&A", icon: MessageCircle, href: "/ask-the-rabbi", color: "from-pink-500 to-pink-600" },
   { id: "zmanim", label: "Zmanim", description: "Daily times", icon: Clock, href: "/zmanim", color: "from-amber-500 to-amber-600" },
   { id: "simchas", label: "Simchas", description: "Celebrate together", icon: Heart, href: "/simchas", color: "from-rose-500 to-rose-600" },
+  { id: "shiva", label: "Shiva", description: "Shiva notices", icon: Flame, href: "/shiva", color: "from-slate-500 to-slate-600" },
 ];
 
 // Star particle data (pre-generated static values to avoid hydration mismatch)
@@ -236,7 +238,7 @@ export function HeroSection() {
       const numConnections = Math.floor(Math.random() * 2) + 2;
       const newConnections: number[] = [];
       for (let i = 0; i < numConnections; i++) {
-        newConnections.push(Math.floor(Math.random() * 8));
+        newConnections.push(Math.floor(Math.random() * communityNodes.length));
       }
       setActiveConnections(newConnections);
     }, 2000);

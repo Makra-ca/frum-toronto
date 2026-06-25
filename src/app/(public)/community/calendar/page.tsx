@@ -111,6 +111,22 @@ function getEventTypeLabel(type: string | null): string {
   return EVENT_TYPES.find((t) => t.value === type)?.label || type || "General";
 }
 
+// Color per event type so multiple events on one day are visually distinct.
+// Keys match EVENT_TYPES (community, fundraising, school, youth); extras kept
+// for any legacy/shul-sourced types. Unknown types fall back to blue.
+const eventTypeColors: Record<string, string> = {
+  community: "bg-green-100 text-green-800 hover:bg-green-200",
+  fundraising: "bg-orange-100 text-orange-800 hover:bg-orange-200",
+  school: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+  youth: "bg-pink-100 text-pink-800 hover:bg-pink-200",
+  shiur: "bg-purple-100 text-purple-800 hover:bg-purple-200",
+  shul: "bg-blue-100 text-blue-800 hover:bg-blue-200",
+};
+
+function getEventColor(type: string | null): string {
+  return eventTypeColors[type ?? ""] ?? "bg-blue-100 text-blue-800 hover:bg-blue-200";
+}
+
 export default function EventsPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -244,7 +260,7 @@ export default function EventsPage() {
           <div className="space-y-1">
             {dayEvents.slice(0, 2).map((event) => (
               <Link key={event.id} href={`/community/calendar/${event.id}`}>
-                <div className="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded truncate hover:bg-blue-200 cursor-pointer">
+                <div className={`text-xs px-1 py-0.5 rounded truncate cursor-pointer border-l-2 border-current ${getEventColor(event.eventType)}`}>
                   {event.title}
                 </div>
               </Link>
@@ -444,7 +460,7 @@ export default function EventsPage() {
                                 {event.title}
                               </h3>
                               <div className="flex flex-wrap gap-2 mb-2">
-                                <Badge variant="secondary">
+                                <Badge className={getEventColor(event.eventType)}>
                                   {getEventTypeLabel(event.eventType)}
                                 </Badge>
                                 {event.shulName && (

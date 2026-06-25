@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PartyPopper, Calendar, MapPin, Info } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { SimchaSubmitModal } from "@/components/simchas/SimchaSubmitModal";
 
 export const metadata = {
@@ -14,7 +15,15 @@ export const metadata = {
 
 export const revalidate = 300; // Cache for 5 minutes
 
-async function getSimchas() {
+async function getSimchas(typeSlug?: string) {
+  const conditions = [
+    eq(simchas.isActive, true),
+    eq(simchas.approvalStatus, "approved"),
+  ];
+  if (typeSlug) {
+    conditions.push(eq(simchaTypes.slug, typeSlug));
+  }
+
   const simchasList = await db
     .select({
       id: simchas.id,
@@ -29,7 +38,7 @@ async function getSimchas() {
     })
     .from(simchas)
     .leftJoin(simchaTypes, eq(simchas.typeId, simchaTypes.id))
-    .where(and(eq(simchas.isActive, true), eq(simchas.approvalStatus, "approved")))
+    .where(and(...conditions))
     .orderBy(desc(simchas.createdAt));
 
   return simchasList;
@@ -44,8 +53,16 @@ async function getSimchaTypes() {
   return types;
 }
 
-export default async function SimchasPage() {
-  const [simchasList, types] = await Promise.all([getSimchas(), getSimchaTypes()]);
+export default async function SimchasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string }>;
+}) {
+  const { type: activeType } = await searchParams;
+  const [simchasList, types] = await Promise.all([
+    getSimchas(activeType),
+    getSimchaTypes(),
+  ]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -72,15 +89,27 @@ export default async function SimchasPage() {
       {types.length > 0 && (
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-wrap gap-2">
-            {types.map((type) => (
+            <Link href="/simchas">
               <Badge
-                key={type.id}
-                variant="outline"
-                className="cursor-pointer hover:bg-purple-50"
+                variant={!activeType ? "default" : "outline"}
+                className={`cursor-pointer ${!activeType ? "bg-purple-600 hover:bg-purple-700" : "hover:bg-purple-50"}`}
               >
-                {type.name}
+                All
               </Badge>
-            ))}
+            </Link>
+            {types.map((type) => {
+              const isActive = activeType === type.slug;
+              return (
+                <Link key={type.id} href={`/simchas?type=${type.slug}`}>
+                  <Badge
+                    variant={isActive ? "default" : "outline"}
+                    className={`cursor-pointer ${isActive ? "bg-purple-600 hover:bg-purple-700" : "hover:bg-purple-50"}`}
+                  >
+                    {type.name}
+                  </Badge>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}
@@ -92,11 +121,19 @@ export default async function SimchasPage() {
             <CardContent className="py-12 text-center">
               <Info className="h-12 w-12 mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No Simchas Posted
+                {activeType ? "No simchas of this type yet" : "No Simchas Posted"}
               </h3>
               <p className="text-gray-500">
-                There are currently no simchas to display.
-                Check back later to celebrate with our community!
+                {activeType ? (
+                  <>
+                    There are no simchas in this category right now.{" "}
+                    <Link href="/simchas" className="text-purple-600 hover:underline">
+                      View all simchas
+                    </Link>
+                  </>
+                ) : (
+                  "There are currently no simchas to display. Check back later to celebrate with our community!"
+                )}
               </p>
             </CardContent>
           </Card>

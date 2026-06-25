@@ -213,20 +213,7 @@ export default async function ShulPage({ params }: PageProps) {
               </CardContent>
             </Card>
 
-            {/* Events Calendar */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Events & Special Programs
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ShulEventsCalendar events={upcomingEvents} />
-              </CardContent>
-            </Card>
-
-            {/* Newsletters */}
+            {/* Newsletters (above the calendar per community request) */}
             {newsletters.length > 0 && (
               <Card>
                 <CardHeader>
@@ -244,6 +231,19 @@ export default async function ShulPage({ params }: PageProps) {
                 </CardContent>
               </Card>
             )}
+
+            {/* Events Calendar */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Events & Special Programs
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ShulEventsCalendar events={upcomingEvents} />
+              </CardContent>
+            </Card>
 
             {/* Tefillos */}
             {tefillos.length > 0 && (
