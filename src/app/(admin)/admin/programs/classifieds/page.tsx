@@ -584,6 +584,7 @@ export default function ClassifiedsManagementPage() {
                 value={editForm.imageUrl}
                 folder="classifieds"
                 aspectRatio="square"
+                disabled={isSaving}
                 onChange={(url) => setEditForm({ ...editForm, imageUrl: url || "" })}
               />
             </div>

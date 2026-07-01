@@ -346,10 +346,11 @@ export function BusinessForm({
               value={watch("bannerImageUrl") || null}
               folder="business-banners"
               aspectRatio="banner"
+              disabled={isLoading}
               onChange={(url) => setValue("bannerImageUrl", url || "")}
             />
             <p className="text-xs text-gray-500">
-              Wide rectangular image (recommended: 1200x400px). Businesses without a banner image will not appear in homepage ads.
+              Wide rectangular image (recommended: 1200x600px). Businesses without a banner image will not appear in homepage ads.
             </p>
           </div>
         </div>

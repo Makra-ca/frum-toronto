@@ -517,6 +517,7 @@ export default function SimchasManagementPage() {
                 value={editForm.photoUrl}
                 folder="simchas"
                 aspectRatio="video"
+                disabled={isSaving}
                 onChange={(url) => setEditForm({ ...editForm, photoUrl: url || "" })}
               />
             </div>
