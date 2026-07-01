@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ImageDropzone } from "@/components/ui/image-dropzone";
 import {
   Select,
   SelectContent,
@@ -340,11 +341,12 @@ export function BusinessForm({
             </p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="bannerImageUrl">Banner Image URL</Label>
-            <Input
-              id="bannerImageUrl"
-              {...register("bannerImageUrl")}
-              placeholder="https://example.com/banner.jpg"
+            <Label htmlFor="bannerImageUrl">Banner Image</Label>
+            <ImageDropzone
+              value={watch("bannerImageUrl") || null}
+              folder="business-banners"
+              aspectRatio="banner"
+              onChange={(url) => setValue("bannerImageUrl", url || "")}
             />
             <p className="text-xs text-gray-500">
               Wide rectangular image (recommended: 1200x400px). Businesses without a banner image will not appear in homepage ads.

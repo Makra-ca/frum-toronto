@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { ImageDropzone } from "@/components/ui/image-dropzone";
 import {
   Select,
   SelectContent,
@@ -578,12 +579,12 @@ export default function ClassifiedsManagementPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="imageUrl">Image URL</Label>
-              <Input
-                id="imageUrl"
+              <Label>Image</Label>
+              <ImageDropzone
                 value={editForm.imageUrl}
-                onChange={(e) => setEditForm({ ...editForm, imageUrl: e.target.value })}
-                placeholder="https://..."
+                folder="classifieds"
+                aspectRatio="square"
+                onChange={(url) => setEditForm({ ...editForm, imageUrl: url || "" })}
               />
             </div>
 

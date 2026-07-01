@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { ImageDropzone } from "@/components/ui/image-dropzone";
 import {
   Select,
   SelectContent,
@@ -511,12 +512,12 @@ export default function SimchasManagementPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="photoUrl">Photo URL</Label>
-              <Input
-                id="photoUrl"
+              <Label>Photo</Label>
+              <ImageDropzone
                 value={editForm.photoUrl}
-                onChange={(e) => setEditForm({ ...editForm, photoUrl: e.target.value })}
-                placeholder="https://..."
+                folder="simchas"
+                aspectRatio="video"
+                onChange={(url) => setEditForm({ ...editForm, photoUrl: url || "" })}
               />
             </div>
 
