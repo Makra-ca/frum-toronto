@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { simchas, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
+import { revalidatePath } from "next/cache";
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,6 +54,11 @@ export async function POST(request: NextRequest) {
       linkUrl: "/admin/community/simchas",
       status: autoApprove ? "auto_approved" : "pending",
     });
+
+    // If it's live immediately (auto-approved), refresh the public page.
+    if (autoApprove) {
+      revalidatePath("/simchas");
+    }
 
     return NextResponse.json({
       simcha: created,

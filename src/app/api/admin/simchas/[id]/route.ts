@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { simchas } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 
 const updateSchema = z.object({
   familyName: z.string().max(200).optional(),
@@ -115,6 +116,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
     }
 
+    // Bust the /simchas cache so approvals/edits show up immediately.
+    revalidatePath("/simchas");
+
     return NextResponse.json(updated);
   } catch (error) {
     console.error("[API] Error updating simcha:", error);
@@ -149,6 +153,8 @@ export async function DELETE(
     if (!deleted) {
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
     }
+
+    revalidatePath("/simchas");
 
     return NextResponse.json({ success: true, deleted });
   } catch (error) {

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { simchas, simchaTypes } from "@/lib/db/schema";
 import { desc, eq, and, or, ilike, sql } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -126,6 +127,8 @@ export async function POST(request: NextRequest) {
         isActive: true,
       })
       .returning();
+
+    revalidatePath("/simchas");
 
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
