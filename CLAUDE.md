@@ -1548,3 +1548,29 @@ Three-tier cascade: post-level override → global site setting (`blog_comment_m
 - Run `npx tsx scripts/migrate-digest-recipients.ts` once in prod
 - Configure recipients in Admin → Settings for new form types (kosher_alert, non_profit, shoutout, daily_digest)
 - Business `pending_payment` creations intentionally don't notify (admin can't act until PayPal webhook flips to pending) — consider notifying from the webhook later
+
+---
+
+### 2026-06 / 07 — Rochel (client) Feedback: 6 Phases
+
+Client feedback brain-dump → 6 phases, all committed/pushed to `main`, deployed, DB migrations run. Each phase was adversarially reviewed + `eslint`/`tsc` to 0 errors before commit.
+
+**P1 — Uploads + event media.** Root-caused the "Unexpected token 'R'" newsletter upload failure: files were streamed through the serverless `/api/upload` (Vercel ~4.5 MB request-body cap). Switched to **client-side direct-to-Blob**: new `src/lib/upload-client.ts` `uploadFile()` + token route `POST /api/upload/blob` (`handleUpload`, auth-gated). Migrated all PDF/image uploaders to it; old `/api/upload` kept only for blob DELETE. Also: event `imageUrl` (cover) + `flyerUrl` now render on the event detail page and calendar list (they were saved but never displayed).
+
+**P2 — Quick wins.** Homepage node network gained a **Shiva** node (icon `HandHeart`, slate). Simcha type-filter badges wired to `?type=slug`. Calendar events **color-coded by type** (grid + list). Shul **newsletters moved above** the calendar on the shul page.
+
+**P3 — Shiva.** Added columns `davening_times`, `levaya_info`, `zoom_info`, `minyan_info`, `attachment_url` to `shiva_notifications` (threaded through submit modal, admin edit, public page, both APIs). Attach the original Misaskim PDF/JPEG. **As-posted email** via `sendShivaNoticeEmail()` on approval (community POST auto-approve + admin PATCH transition into approved, guarded against re-send). **Shiva block in the newsletter** (renderer `renderShivaBlock` + block-data + preview wiring).
+
+**P4 — Newsletters.** New `community_newsletters` table + admin CRUD at `/admin/community/newsletters` (Community tab) + public **`/newsletters`** page aggregating shul newsletters (`shul_documents` type=newsletter) and community newsletters. Nav links under Shuls ▾ and Community ▾.
+
+**P5 — Admin "+ New".** Added POST handlers to `/api/admin/{simchas,shiva,tehillim}` (auto-approved) + a create mode reusing each page's edit dialog (`isCreating` state, `startCreate()`, Dialog `open={!!editEntry || isCreating}`, Cancel resets both).
+
+**P6 — Shul neighborhoods.** New admin-managed `shul_neighborhoods` table (seeded 8 areas) + `shuls.neighborhood` column. Admin manages the list at `/admin/shuls/neighborhoods`; `ShulForm` has a neighborhood select (preserves current value even if deactivated). Public `/shuls` neighborhood filter; unassigned shuls still show under "All". Review caught + fixed a **critical data-loss bug**: the shul edit path didn't carry `neighborhood`, so editing any shul wiped it.
+
+**Also:** all uploads unified to **30 MB** ("Maximum file size is 30MB"); `revalidatePath("/simchas")` on approve/create/delete so approved simchas appear immediately (blogs already instant via `force-dynamic`).
+
+**Deferred (owner's call):** shiva "once-a-day digest" send cadence (only as-posted + Friday built).
+
+**In-flight (separate session):** convert the 3 remaining admin image-**URL** paste fields to the `<ImageDropzone>` uploader — admin simcha "Photo URL", admin classifieds "Image URL", `BusinessForm` "Banner Image URL". Guardrail: keep `bannerImageUrl: validatedData.bannerImageUrl || null` in `src/app/api/admin/businesses/[id]/route.ts` so "" → null and the homepage-ads `isNotNull(bannerImageUrl)` filter stays clean.
+
+**Owner one-time setup:** tag shuls with neighborhoods (Admin → Shuls → edit); optionally upload one community newsletter.
