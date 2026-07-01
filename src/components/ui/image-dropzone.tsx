@@ -96,7 +96,7 @@ export function ImageDropzone({
   }, [uploadFile]);
 
   const handleRemove = useCallback(async () => {
-    if (!value) return;
+    if (!value || disabled) return;
 
     try {
       // Optionally delete from blob storage
@@ -111,7 +111,7 @@ export function ImageDropzone({
     }
 
     onChange(null);
-  }, [value, onChange]);
+  }, [value, onChange, disabled]);
 
   const handleClick = useCallback(() => {
     if (!disabled && !isUploading) {
@@ -162,6 +162,7 @@ export function ImageDropzone({
               variant="secondary"
               size="sm"
               className="absolute top-2 right-2 h-8 w-8 p-0 bg-white/90 hover:bg-white shadow-md"
+              disabled={disabled}
               onClick={(e) => {
                 e.stopPropagation();
                 handleRemove();
