@@ -127,15 +127,17 @@ export function getZmanimForDate(
     alotHaShachar: zmanim.alotHaShachar(),
     misheyakir: zmanim.misheyakir(),
     sunrise: zmanim.sunrise(),
-    sofZmanShma: zmanim.sofZmanShma(), // Magen Avraham
-    sofZmanTfilla: zmanim.sofZmanTfilla(), // Magen Avraham
+    sofZmanShma: zmanim.sofZmanShma(), // GRA / Vilna Gaon
+    sofZmanTfilla: zmanim.sofZmanTfilla(), // GRA / Vilna Gaon
     chatzot: zmanim.chatzot(),
     minchaGedola: zmanim.minchaGedola(),
     minchaKetana: zmanim.minchaKetana(),
     plagHaMincha: zmanim.plagHaMincha(),
     sunset: zmanim.sunset(),
     tzait: zmanim.tzeit(8.5), // 8.5 degrees - standard tzait
-    tzait72: zmanim.tzeit(16.1), // Approximately 72 minutes
+    // Fixed 72 minutes after sunset (clock minutes, same all year) — matches the
+    // common "72 minutes" tzeis. NOT a degree-based value.
+    tzait72: new Date(zmanim.sunset().getTime() + 72 * 60 * 1000),
   };
 
   // Format the English date

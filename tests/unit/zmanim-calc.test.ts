@@ -43,6 +43,14 @@ describe('getZmanimForDate is location-parameterized', () => {
   });
 });
 
+describe('tzait72 is a fixed 72 minutes after sunset (not degree-based)', () => {
+  it('equals sunset + 72 clock minutes', () => {
+    const r = getZmanimForDate(date, TORONTO_LOCATION);
+    const diffMin = (r.zmanim.tzait72.getTime() - r.zmanim.sunset.getTime()) / 60000;
+    expect(Math.round(diffMin)).toBe(72);
+  });
+});
+
 describe('formatZmanTime respects the given timezone (regression for hardcoded Toronto)', () => {
   it('formats the same instant differently for two tzids with different offsets', () => {
     const instant = new Date('2026-07-14T12:00:00Z');
