@@ -10,19 +10,13 @@ import {
   type ZmanimLocation,
   TORONTO_LOCATION,
   isIsraelCountry,
+  isTorontoLocation,
 } from "@/lib/zmanim-location";
 
 interface LocationPickerProps {
   value: ZmanimLocation;
   onChange: (loc: ZmanimLocation) => void;
   compact?: boolean;
-}
-
-function isToronto(loc: ZmanimLocation): boolean {
-  return (
-    loc.label === TORONTO_LOCATION.label ||
-    (loc.lat === TORONTO_LOCATION.lat && loc.lon === TORONTO_LOCATION.lon)
-  );
 }
 
 export function LocationPicker({
@@ -47,7 +41,7 @@ export function LocationPicker({
   const mountedRef = useRef(true);
 
   const showSearchUI = !compact || expanded;
-  const notToronto = !isToronto(value);
+  const notToronto = !isTorontoLocation(value);
 
   const fetchResults = useCallback(async (q: string) => {
     // Cancel any in-flight request first, so shrinking below the min length

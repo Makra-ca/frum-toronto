@@ -15,6 +15,14 @@ export const TORONTO_LOCATION: ZmanimLocation = {
   isIsrael: false,
 };
 
+export function isTorontoLocation(loc: ZmanimLocation): boolean {
+  return (
+    loc.lat === TORONTO_LOCATION.lat &&
+    loc.lon === TORONTO_LOCATION.lon &&
+    loc.label === TORONTO_LOCATION.label
+  );
+}
+
 export function roundCoord(n: number): number {
   return Math.round(n * 1e4) / 1e4;
 }

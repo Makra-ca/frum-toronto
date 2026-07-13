@@ -4,6 +4,7 @@ import {
   TORONTO_LOCATION,
   roundCoord,
   isIsraelCountry,
+  isTorontoLocation,
   serializeLocation,
   parseStoredLocation,
   buildZmanimParams,
@@ -20,6 +21,11 @@ describe('zmanim-location helpers', () => {
     expect(TORONTO_LOCATION.tzid).toBe('America/Toronto');
     expect(TORONTO_LOCATION.isIsrael).toBe(false);
     expect(Math.round(TORONTO_LOCATION.lat)).toBe(44);
+  });
+
+  it('isTorontoLocation matches the Toronto default and rejects others', () => {
+    expect(isTorontoLocation(TORONTO_LOCATION)).toBe(true);
+    expect(isTorontoLocation(wasaga)).toBe(false);
   });
 
   it('roundCoord clamps to 4 decimals', () => {

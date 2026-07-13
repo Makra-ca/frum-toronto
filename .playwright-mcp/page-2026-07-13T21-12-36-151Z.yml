@@ -1,0 +1,91 @@
+- generic [active] [ref=f4e1]:
+  - generic [ref=f4e3]:
+    - banner [ref=f4e4]:
+      - generic [ref=f4e6]:
+        - link "FrumToronto Frum Toronto" [ref=f4e7] [cursor=pointer]:
+          - /url: /
+          - img "FrumToronto" [ref=f4e8]
+          - generic [ref=f4e9]:
+            - generic [ref=f4e10]: Frum
+            - generic [ref=f4e11]: Toronto
+        - generic [ref=f4e12]:
+          - generic [ref=f4e13]:
+            - link "Log in" [ref=f4e14] [cursor=pointer]:
+              - /url: /login
+            - link "Sign up" [ref=f4e15] [cursor=pointer]:
+              - /url: /register
+          - button [ref=f4e16]:
+            - img
+    - main [ref=f4e17]:
+      - img [ref=f4e20]
+    - contentinfo [ref=f4e22]:
+      - generic [ref=f4e24]:
+        - generic [ref=f4e25]:
+          - generic [ref=f4e26]:
+            - img "FrumToronto" [ref=f4e27]
+            - generic [ref=f4e28]: FrumToronto
+          - paragraph [ref=f4e29]: The Toronto Jewish Orthodox Community Gateway. Connecting the community with businesses, shuls, events, and resources.
+        - generic [ref=f4e30]:
+          - heading "Quick Links" [level=3] [ref=f4e31]
+          - list [ref=f4e32]:
+            - listitem [ref=f4e33]:
+              - link "Business Directory" [ref=f4e34] [cursor=pointer]:
+                - /url: /directory
+            - listitem [ref=f4e35]:
+              - link "Shuls & Davening" [ref=f4e36] [cursor=pointer]:
+                - /url: /shuls
+            - listitem [ref=f4e37]:
+              - link "Events Calendar" [ref=f4e38] [cursor=pointer]:
+                - /url: /community/calendar
+            - listitem [ref=f4e39]:
+              - link "Classifieds" [ref=f4e40] [cursor=pointer]:
+                - /url: /classifieds
+            - listitem [ref=f4e41]:
+              - link "Ask The Rabbi" [ref=f4e42] [cursor=pointer]:
+                - /url: /ask-the-rabbi
+        - generic [ref=f4e43]:
+          - heading "Resources" [level=3] [ref=f4e44]
+          - list [ref=f4e45]:
+            - listitem [ref=f4e46]:
+              - link "Zmanim" [ref=f4e47] [cursor=pointer]:
+                - /url: /zmanim
+            - listitem [ref=f4e48]:
+              - link "Weekly Shiurim" [ref=f4e49] [cursor=pointer]:
+                - /url: /shiurim
+            - listitem [ref=f4e50]:
+              - link "Kosher Alerts" [ref=f4e51] [cursor=pointer]:
+                - /url: /kosher-alerts
+            - listitem [ref=f4e52]:
+              - link "Tehillim List" [ref=f4e53] [cursor=pointer]:
+                - /url: /community/tehillim
+            - listitem [ref=f4e54]:
+              - link "Simchas" [ref=f4e55] [cursor=pointer]:
+                - /url: /simchas
+        - generic [ref=f4e56]:
+          - heading "Contact Us" [level=3] [ref=f4e57]
+          - list [ref=f4e58]:
+            - listitem [ref=f4e59]:
+              - img [ref=f4e60]
+              - link "info@frumtoronto.com" [ref=f4e63] [cursor=pointer]:
+                - /url: mailto:info@frumtoronto.com
+            - listitem [ref=f4e64]:
+              - img [ref=f4e65]
+              - generic [ref=f4e67]: Toronto, Ontario
+          - link "Register Your Business" [ref=f4e69] [cursor=pointer]:
+            - /url: /register-business
+      - generic [ref=f4e71]:
+        - generic [ref=f4e72]:
+          - paragraph [ref=f4e73]: © 2026 FrumToronto. All rights reserved.
+          - generic [ref=f4e74]:
+            - button "Privacy Policy" [ref=f4e75]
+            - button "Terms & Conditions" [ref=f4e76]
+            - link "FAQ" [ref=f4e77] [cursor=pointer]:
+              - /url: /faq
+        - link "Website by Makra.ca" [ref=f4e79] [cursor=pointer]:
+          - /url: https://makra.ca
+          - generic [ref=f4e80]: Website by
+          - generic [ref=f4e81]: Makra.ca
+          - img [ref=f4e82]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f4e91] [cursor=pointer]:
+    - img [ref=f4e92]

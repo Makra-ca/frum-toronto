@@ -1,21 +1,6 @@
 import { HDate, Location, Zmanim, HebrewCalendar, flags, TimedEvent } from "@hebcal/core";
 import { TORONTO_LOCATION, type ZmanimLocation } from "@/lib/zmanim-location";
 
-// Toronto coordinates
-const TORONTO_LAT = 43.6629;
-const TORONTO_LON = -79.3957;
-const TORONTO_TIMEZONE = "America/Toronto";
-
-// Create Toronto location
-export const torontoLocation = new Location(
-  TORONTO_LAT,
-  TORONTO_LON,
-  false, // not in Israel
-  TORONTO_TIMEZONE,
-  "Toronto, ON",
-  "CA"
-);
-
 /**
  * Build a @hebcal/core Location from a ZmanimLocation.
  */

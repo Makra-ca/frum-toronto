@@ -21,15 +21,8 @@ import {
   Star,
 } from "lucide-react";
 import { LocationPicker } from "@/components/zmanim/LocationPicker";
-import {
-  type ZmanimLocation,
-  TORONTO_LOCATION,
-  parseStoredLocation,
-  serializeLocation,
-  buildZmanimParams,
-} from "@/lib/zmanim-location";
-
-const ZMANIM_LOCATION_STORAGE_KEY = "ft_zmanim_location";
+import { buildZmanimParams } from "@/lib/zmanim-location";
+import { useStoredZmanimLocation } from "@/hooks/useStoredZmanimLocation";
 
 interface ZmanimDay {
   date: string;
@@ -76,28 +69,7 @@ export function ZmanimPageContent() {
   const [weekData, setWeekData] = useState<ZmanimDay[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [startDate, setStartDate] = useState<Date>(() => getStartOfWeek(new Date()));
-  const [location, setLocation] = useState<ZmanimLocation>(TORONTO_LOCATION);
-
-  // Hydrate the saved location from localStorage on mount.
-  useEffect(() => {
-    const stored = parseStoredLocation(
-      localStorage.getItem(ZMANIM_LOCATION_STORAGE_KEY)
-    );
-    if (stored) setLocation(stored);
-  }, []);
-
-  const handleLocationChange = (loc: ZmanimLocation) => {
-    setLocation(loc);
-    if (
-      loc.label === TORONTO_LOCATION.label &&
-      loc.lat === TORONTO_LOCATION.lat &&
-      loc.lon === TORONTO_LOCATION.lon
-    ) {
-      localStorage.removeItem(ZMANIM_LOCATION_STORAGE_KEY);
-    } else {
-      localStorage.setItem(ZMANIM_LOCATION_STORAGE_KEY, serializeLocation(loc));
-    }
-  };
+  const [location, setLocation] = useStoredZmanimLocation();
 
   useEffect(() => {
     setIsLoading(true);
@@ -211,7 +183,7 @@ export function ZmanimPageContent() {
           {location.label}
         </p>
         <div className="mt-4">
-          <LocationPicker value={location} onChange={handleLocationChange} />
+          <LocationPicker value={location} onChange={setLocation} />
         </div>
       </div>
 

@@ -1,0 +1,495 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "FrumToronto Frum Toronto" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img "FrumToronto" [ref=e8]
+          - generic [ref=e9]:
+            - generic [ref=e10]: Frum
+            - generic [ref=e11]: Toronto
+        - generic [ref=e12]:
+          - generic [ref=e13]:
+            - link "Log in" [ref=e14] [cursor=pointer]:
+              - /url: /login
+            - link "Sign up" [ref=e15] [cursor=pointer]:
+              - /url: /register
+          - button [ref=e16]:
+            - img
+    - main [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - heading "Zmanim for Wasaga Beach, Ontario, Canada" [level=1] [ref=e615]
+          - paragraph [ref=e87]:
+            - img [ref=e88]
+            - text: Wasaga Beach, Ontario, Canada
+          - generic [ref=e92]:
+            - generic [ref=e93]:
+              - generic [ref=e94]:
+                - img [ref=e95]
+                - text: Wasaga Beach, Ontario, Canada
+              - button "Back to Toronto" [ref=e616]:
+                - img
+                - text: Back to Toronto
+            - generic [ref=e99]:
+              - generic [ref=e100]:
+                - img
+                - textbox "Search for a city or place..." [ref=e101]
+              - button "Use my location" [ref=e102]:
+                - img
+                - text: Use my location
+        - generic [ref=e103]:
+          - generic [ref=e105]:
+            - img
+            - textbox "Jump to date" [ref=e106]: 2026-07-12
+          - generic [ref=e107]:
+            - generic [ref=e108]:
+              - button "Previous month" [ref=e109]:
+                - img
+              - button "Week" [ref=e110]:
+                - img
+                - text: Week
+            - generic [ref=e111]:
+              - button "Week" [ref=e112]:
+                - text: Week
+                - img
+              - button "Next month" [ref=e113]:
+                - img
+        - generic [ref=e114]:
+          - generic [ref=e115]:
+            - generic [ref=e116]:
+              - generic [ref=e118]: Sunday
+              - paragraph [ref=e119]: July 12, 2026
+              - paragraph [ref=e120]: 27 Tamuz 5786
+            - generic [ref=e122]:
+              - generic [ref=e123]:
+                - generic [ref=e124]:
+                  - img [ref=e125]
+                  - text: Alos HaShachar
+                - generic [ref=e127]: 3:47 AM
+              - generic [ref=e128]:
+                - generic [ref=e129]: Misheyakir
+                - generic [ref=e130]: 4:28 AM
+              - generic [ref=e131]:
+                - generic [ref=e132]:
+                  - img [ref=e133]
+                  - text: Sunrise
+                - generic [ref=e138]: 5:46 AM
+              - generic [ref=e139]:
+                - generic [ref=e140]: Sof Zman Shma
+                - generic [ref=e141]: 9:36 AM
+              - generic [ref=e142]:
+                - generic [ref=e143]: Sof Zman Tefilla
+                - generic [ref=e144]: 10:52 AM
+              - generic [ref=e145]:
+                - generic [ref=e146]:
+                  - img [ref=e147]
+                  - text: Chatzos
+                - generic [ref=e153]: 1:25 PM
+              - generic [ref=e154]:
+                - generic [ref=e155]: Mincha Gedola
+                - generic [ref=e156]: 2:03 PM
+              - generic [ref=e157]:
+                - generic [ref=e158]: Mincha Ketana
+                - generic [ref=e159]: 5:53 PM
+              - generic [ref=e160]:
+                - generic [ref=e161]: Plag HaMincha
+                - generic [ref=e162]: 7:28 PM
+              - generic [ref=e163]:
+                - generic [ref=e164]:
+                  - img [ref=e165]
+                  - text: Sunset
+                - generic [ref=e170]: 9:04 PM
+              - generic [ref=e171]:
+                - generic [ref=e172]: Tzais
+                - generic [ref=e173]: 9:58 PM
+              - generic [ref=e174]:
+                - generic [ref=e175]: Tzais 72
+                - generic [ref=e176]: 11:03 PM
+          - generic [ref=e177]:
+            - generic [ref=e178]:
+              - generic [ref=e179]:
+                - generic [ref=e180]: Monday
+                - generic [ref=e182]: Today
+              - paragraph [ref=e183]: July 13, 2026
+              - paragraph [ref=e184]: 28 Tamuz 5786
+            - generic [ref=e186]:
+              - generic [ref=e187]:
+                - generic [ref=e188]:
+                  - img [ref=e189]
+                  - text: Alos HaShachar
+                - generic [ref=e191]: 3:48 AM
+              - generic [ref=e192]:
+                - generic [ref=e193]: Misheyakir
+                - generic [ref=e194]: 4:29 AM
+              - generic [ref=e195]:
+                - generic [ref=e196]:
+                  - img [ref=e197]
+                  - text: Sunrise
+                - generic [ref=e202]: 5:47 AM
+              - generic [ref=e203]:
+                - generic [ref=e204]: Sof Zman Shma
+                - generic [ref=e205]: 9:36 AM
+              - generic [ref=e206]:
+                - generic [ref=e207]: Sof Zman Tefilla
+                - generic [ref=e208]: 10:53 AM
+              - generic [ref=e209]:
+                - generic [ref=e210]:
+                  - img [ref=e211]
+                  - text: Chatzos
+                - generic [ref=e217]: 1:25 PM
+              - generic [ref=e218]:
+                - generic [ref=e219]: Mincha Gedola
+                - generic [ref=e220]: 2:03 PM
+              - generic [ref=e221]:
+                - generic [ref=e222]: Mincha Ketana
+                - generic [ref=e223]: 5:52 PM
+              - generic [ref=e224]:
+                - generic [ref=e225]: Plag HaMincha
+                - generic [ref=e226]: 7:28 PM
+              - generic [ref=e227]:
+                - generic [ref=e228]:
+                  - img [ref=e229]
+                  - text: Sunset
+                - generic [ref=e234]: 9:03 PM
+              - generic [ref=e235]:
+                - generic [ref=e236]: Tzais
+                - generic [ref=e237]: 9:57 PM
+              - generic [ref=e238]:
+                - generic [ref=e239]: Tzais 72
+                - generic [ref=e240]: 11:02 PM
+          - generic [ref=e241]:
+            - generic [ref=e242]:
+              - generic [ref=e244]: Tuesday
+              - paragraph [ref=e245]: July 14, 2026
+              - paragraph [ref=e246]: 29 Tamuz 5786
+            - generic [ref=e248]:
+              - generic [ref=e249]:
+                - generic [ref=e250]:
+                  - img [ref=e251]
+                  - text: Alos HaShachar
+                - generic [ref=e253]: 3:49 AM
+              - generic [ref=e254]:
+                - generic [ref=e255]: Misheyakir
+                - generic [ref=e256]: 4:31 AM
+              - generic [ref=e257]:
+                - generic [ref=e258]:
+                  - img [ref=e259]
+                  - text: Sunrise
+                - generic [ref=e264]: 5:48 AM
+              - generic [ref=e265]:
+                - generic [ref=e266]: Sof Zman Shma
+                - generic [ref=e267]: 9:37 AM
+              - generic [ref=e268]:
+                - generic [ref=e269]: Sof Zman Tefilla
+                - generic [ref=e270]: 10:53 AM
+              - generic [ref=e271]:
+                - generic [ref=e272]:
+                  - img [ref=e273]
+                  - text: Chatzos
+                - generic [ref=e279]: 1:25 PM
+              - generic [ref=e280]:
+                - generic [ref=e281]: Mincha Gedola
+                - generic [ref=e282]: 2:03 PM
+              - generic [ref=e283]:
+                - generic [ref=e284]: Mincha Ketana
+                - generic [ref=e285]: 5:52 PM
+              - generic [ref=e286]:
+                - generic [ref=e287]: Plag HaMincha
+                - generic [ref=e288]: 7:27 PM
+              - generic [ref=e289]:
+                - generic [ref=e290]:
+                  - img [ref=e291]
+                  - text: Sunset
+                - generic [ref=e296]: 9:02 PM
+              - generic [ref=e297]:
+                - generic [ref=e298]: Tzais
+                - generic [ref=e299]: 9:56 PM
+              - generic [ref=e300]:
+                - generic [ref=e301]: Tzais 72
+                - generic [ref=e302]: 11:00 PM
+          - generic [ref=e303]:
+            - generic [ref=e304]:
+              - generic [ref=e306]: Wednesday
+              - paragraph [ref=e307]: July 15, 2026
+              - paragraph [ref=e308]: 1 Av 5786
+            - generic [ref=e310]:
+              - generic [ref=e311]:
+                - generic [ref=e312]:
+                  - img [ref=e313]
+                  - text: Alos HaShachar
+                - generic [ref=e315]: 3:51 AM
+              - generic [ref=e316]:
+                - generic [ref=e317]: Misheyakir
+                - generic [ref=e318]: 4:32 AM
+              - generic [ref=e319]:
+                - generic [ref=e320]:
+                  - img [ref=e321]
+                  - text: Sunrise
+                - generic [ref=e326]: 5:49 AM
+              - generic [ref=e327]:
+                - generic [ref=e328]: Sof Zman Shma
+                - generic [ref=e329]: 9:37 AM
+              - generic [ref=e330]:
+                - generic [ref=e331]: Sof Zman Tefilla
+                - generic [ref=e332]: 10:53 AM
+              - generic [ref=e333]:
+                - generic [ref=e334]:
+                  - img [ref=e335]
+                  - text: Chatzos
+                - generic [ref=e341]: 1:25 PM
+              - generic [ref=e342]:
+                - generic [ref=e343]: Mincha Gedola
+                - generic [ref=e344]: 2:03 PM
+              - generic [ref=e345]:
+                - generic [ref=e346]: Mincha Ketana
+                - generic [ref=e347]: 5:52 PM
+              - generic [ref=e348]:
+                - generic [ref=e349]: Plag HaMincha
+                - generic [ref=e350]: 7:27 PM
+              - generic [ref=e351]:
+                - generic [ref=e352]:
+                  - img [ref=e353]
+                  - text: Sunset
+                - generic [ref=e358]: 9:02 PM
+              - generic [ref=e359]:
+                - generic [ref=e360]: Tzais
+                - generic [ref=e361]: 9:55 PM
+              - generic [ref=e362]:
+                - generic [ref=e363]: Tzais 72
+                - generic [ref=e364]: 10:59 PM
+          - generic [ref=e365]:
+            - generic [ref=e366]:
+              - generic [ref=e368]: Thursday
+              - paragraph [ref=e369]: July 16, 2026
+              - paragraph [ref=e370]: 2 Av 5786
+            - generic [ref=e372]:
+              - generic [ref=e373]:
+                - generic [ref=e374]:
+                  - img [ref=e375]
+                  - text: Alos HaShachar
+                - generic [ref=e377]: 3:52 AM
+              - generic [ref=e378]:
+                - generic [ref=e379]: Misheyakir
+                - generic [ref=e380]: 4:33 AM
+              - generic [ref=e381]:
+                - generic [ref=e382]:
+                  - img [ref=e383]
+                  - text: Sunrise
+                - generic [ref=e388]: 5:50 AM
+              - generic [ref=e389]:
+                - generic [ref=e390]: Sof Zman Shma
+                - generic [ref=e391]: 9:38 AM
+              - generic [ref=e392]:
+                - generic [ref=e393]: Sof Zman Tefilla
+                - generic [ref=e394]: 10:54 AM
+              - generic [ref=e395]:
+                - generic [ref=e396]:
+                  - img [ref=e397]
+                  - text: Chatzos
+                - generic [ref=e403]: 1:25 PM
+              - generic [ref=e404]:
+                - generic [ref=e405]: Mincha Gedola
+                - generic [ref=e406]: 2:03 PM
+              - generic [ref=e407]:
+                - generic [ref=e408]: Mincha Ketana
+                - generic [ref=e409]: 5:51 PM
+              - generic [ref=e410]:
+                - generic [ref=e411]: Plag HaMincha
+                - generic [ref=e412]: 7:26 PM
+              - generic [ref=e413]:
+                - generic [ref=e414]:
+                  - img [ref=e415]
+                  - text: Sunset
+                - generic [ref=e420]: 9:01 PM
+              - generic [ref=e421]:
+                - generic [ref=e422]: Tzais
+                - generic [ref=e423]: 9:54 PM
+              - generic [ref=e424]:
+                - generic [ref=e425]: Tzais 72
+                - generic [ref=e426]: 10:58 PM
+          - generic [ref=e427]:
+            - generic [ref=e428]:
+              - generic [ref=e429]:
+                - generic [ref=e430]: Friday
+                - generic [ref=e432]: Shabbat
+              - paragraph [ref=e433]: July 17, 2026
+              - paragraph [ref=e434]: 3 Av 5786
+            - generic [ref=e436]:
+              - generic [ref=e437]:
+                - generic [ref=e438]:
+                  - img [ref=e439]
+                  - text: Alos HaShachar
+                - generic [ref=e441]: 3:54 AM
+              - generic [ref=e442]:
+                - generic [ref=e443]: Misheyakir
+                - generic [ref=e444]: 4:34 AM
+              - generic [ref=e445]:
+                - generic [ref=e446]:
+                  - img [ref=e447]
+                  - text: Sunrise
+                - generic [ref=e452]: 5:51 AM
+              - generic [ref=e453]:
+                - generic [ref=e454]: Sof Zman Shma
+                - generic [ref=e455]: 9:38 AM
+              - generic [ref=e456]:
+                - generic [ref=e457]: Sof Zman Tefilla
+                - generic [ref=e458]: 10:54 AM
+              - generic [ref=e459]:
+                - generic [ref=e460]:
+                  - img [ref=e461]
+                  - text: Chatzos
+                - generic [ref=e467]: 1:26 PM
+              - generic [ref=e468]:
+                - generic [ref=e469]: Mincha Gedola
+                - generic [ref=e470]: 2:03 PM
+              - generic [ref=e471]:
+                - generic [ref=e472]: Mincha Ketana
+                - generic [ref=e473]: 5:51 PM
+              - generic [ref=e474]:
+                - generic [ref=e475]: Plag HaMincha
+                - generic [ref=e476]: 7:25 PM
+              - generic [ref=e477]:
+                - generic [ref=e478]:
+                  - img [ref=e479]
+                  - text: Sunset
+                - generic [ref=e484]: 9:00 PM
+              - generic [ref=e485]:
+                - generic [ref=e486]: Tzais
+                - generic [ref=e487]: 9:53 PM
+              - generic [ref=e488]:
+                - generic [ref=e489]: Tzais 72
+                - generic [ref=e490]: 10:56 PM
+          - generic [ref=e491]:
+            - generic [ref=e492]:
+              - generic [ref=e493]:
+                - generic [ref=e494]: Saturday
+                - generic [ref=e496]: Shabbat
+              - paragraph [ref=e497]: July 18, 2026
+              - paragraph [ref=e498]: 4 Av 5786
+              - paragraph [ref=e499]: Parshas Devarim
+            - generic [ref=e501]:
+              - generic [ref=e502]:
+                - generic [ref=e503]:
+                  - img [ref=e504]
+                  - text: Alos HaShachar
+                - generic [ref=e506]: 3:56 AM
+              - generic [ref=e507]:
+                - generic [ref=e508]: Misheyakir
+                - generic [ref=e509]: 4:35 AM
+              - generic [ref=e510]:
+                - generic [ref=e511]:
+                  - img [ref=e512]
+                  - text: Sunrise
+                - generic [ref=e517]: 5:52 AM
+              - generic [ref=e518]:
+                - generic [ref=e519]: Sof Zman Shma
+                - generic [ref=e520]: 9:39 AM
+              - generic [ref=e521]:
+                - generic [ref=e522]: Sof Zman Tefilla
+                - generic [ref=e523]: 10:54 AM
+              - generic [ref=e524]:
+                - generic [ref=e525]:
+                  - img [ref=e526]
+                  - text: Chatzos
+                - generic [ref=e532]: 1:26 PM
+              - generic [ref=e533]:
+                - generic [ref=e534]: Mincha Gedola
+                - generic [ref=e535]: 2:03 PM
+              - generic [ref=e536]:
+                - generic [ref=e537]: Mincha Ketana
+                - generic [ref=e538]: 5:50 PM
+              - generic [ref=e539]:
+                - generic [ref=e540]: Plag HaMincha
+                - generic [ref=e541]: 7:25 PM
+              - generic [ref=e542]:
+                - generic [ref=e543]:
+                  - img [ref=e544]
+                  - text: Sunset
+                - generic [ref=e549]: 8:59 PM
+              - generic [ref=e550]:
+                - generic [ref=e551]: Tzais
+                - generic [ref=e552]: 9:52 PM
+              - generic [ref=e553]:
+                - generic [ref=e554]: Tzais 72
+                - generic [ref=e555]: 10:55 PM
+        - generic [ref=e556]:
+          - heading "About These Zmanim" [level=3] [ref=e557]
+          - list [ref=e558]:
+            - listitem [ref=e559]: • Times are calculated for Wasaga Beach, Ontario, Canada (44.52°, -80.02°)
+            - listitem [ref=e560]: • Zmanim are based on the Magen Avraham calculation method
+            - listitem [ref=e561]: • Candle lighting is 18 minutes before sunset
+            - listitem [ref=e562]: • Havdalah is calculated at 50 minutes after sunset
+            - listitem [ref=e563]: • Always verify times with your local Rabbi
+    - contentinfo [ref=e22]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]:
+            - img "FrumToronto" [ref=e27]
+            - generic [ref=e28]: FrumToronto
+          - paragraph [ref=e29]: The Toronto Jewish Orthodox Community Gateway. Connecting the community with businesses, shuls, events, and resources.
+        - generic [ref=e30]:
+          - heading "Quick Links" [level=3] [ref=e31]
+          - list [ref=e32]:
+            - listitem [ref=e33]:
+              - link "Business Directory" [ref=e34] [cursor=pointer]:
+                - /url: /directory
+            - listitem [ref=e35]:
+              - link "Shuls & Davening" [ref=e36] [cursor=pointer]:
+                - /url: /shuls
+            - listitem [ref=e37]:
+              - link "Events Calendar" [ref=e38] [cursor=pointer]:
+                - /url: /community/calendar
+            - listitem [ref=e39]:
+              - link "Classifieds" [ref=e40] [cursor=pointer]:
+                - /url: /classifieds
+            - listitem [ref=e41]:
+              - link "Ask The Rabbi" [ref=e42] [cursor=pointer]:
+                - /url: /ask-the-rabbi
+        - generic [ref=e43]:
+          - heading "Resources" [level=3] [ref=e44]
+          - list [ref=e45]:
+            - listitem [ref=e46]:
+              - link "Zmanim" [ref=e47] [cursor=pointer]:
+                - /url: /zmanim
+            - listitem [ref=e48]:
+              - link "Weekly Shiurim" [ref=e49] [cursor=pointer]:
+                - /url: /shiurim
+            - listitem [ref=e50]:
+              - link "Kosher Alerts" [ref=e51] [cursor=pointer]:
+                - /url: /kosher-alerts
+            - listitem [ref=e52]:
+              - link "Tehillim List" [ref=e53] [cursor=pointer]:
+                - /url: /community/tehillim
+            - listitem [ref=e54]:
+              - link "Simchas" [ref=e55] [cursor=pointer]:
+                - /url: /simchas
+        - generic [ref=e56]:
+          - heading "Contact Us" [level=3] [ref=e57]
+          - list [ref=e58]:
+            - listitem [ref=e59]:
+              - img [ref=e60]
+              - link "info@frumtoronto.com" [ref=e63] [cursor=pointer]:
+                - /url: mailto:info@frumtoronto.com
+            - listitem [ref=e64]:
+              - img [ref=e65]
+              - generic [ref=e67]: Toronto, Ontario
+          - link "Register Your Business" [ref=e69] [cursor=pointer]:
+            - /url: /register-business
+      - generic [ref=e71]:
+        - generic [ref=e72]:
+          - paragraph [ref=e73]: © 2026 FrumToronto. All rights reserved.
+          - generic [ref=e74]:
+            - button "Privacy Policy" [ref=e75]
+            - button "Terms & Conditions" [ref=e76]
+            - link "FAQ" [ref=e77] [cursor=pointer]:
+              - /url: /faq
+        - link "Website by Makra.ca" [ref=e79] [cursor=pointer]:
+          - /url: https://makra.ca
+          - generic [ref=e80]: Website by
+          - generic [ref=e81]: Makra.ca
+          - img [ref=e82]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e569] [cursor=pointer]:
+    - img [ref=e570]
+  - alert [ref=e573]
