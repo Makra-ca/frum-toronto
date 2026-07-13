@@ -6,6 +6,9 @@ import { Separator } from "@/components/ui/separator";
 import { Clock, Sunrise, Sunset, Sun, Moon, Loader2, Flame } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { LocationPicker } from "@/components/zmanim/LocationPicker";
+import { buildZmanimParams } from "@/lib/zmanim-location";
+import { useStoredZmanimLocation } from "@/hooks/useStoredZmanimLocation";
 
 interface ZmanimApiResponse {
   date: string;
@@ -37,9 +40,12 @@ export function ZmanimWidget() {
   const [data, setData] = useState<ZmanimApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [location, setLocation] = useStoredZmanimLocation();
 
   useEffect(() => {
-    fetch("/api/zmanim")
+    setIsLoading(true);
+    setError(null);
+    fetch(`/api/zmanim?${buildZmanimParams(location).toString()}`)
       .then((res) => res.json())
       .then((result) => {
         setData(result);
@@ -50,9 +56,9 @@ export function ZmanimWidget() {
         setError("Failed to load zmanim");
         setIsLoading(false);
       });
-  }, []);
+  }, [location]);
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <Card className="border-0 shadow-md">
         <CardHeader className="pb-2">
@@ -60,6 +66,7 @@ export function ZmanimWidget() {
             <Clock className="h-5 w-5 text-blue-600" />
             Today&apos;s Zmanim
           </CardTitle>
+          <LocationPicker value={location} onChange={setLocation} compact />
         </CardHeader>
         <CardContent className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
@@ -76,6 +83,7 @@ export function ZmanimWidget() {
             <Clock className="h-5 w-5 text-blue-600" />
             Today&apos;s Zmanim
           </CardTitle>
+          <LocationPicker value={location} onChange={setLocation} compact />
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-500">Unable to load zmanim</p>
@@ -94,6 +102,7 @@ export function ZmanimWidget() {
           <Clock className="h-5 w-5 text-blue-600" />
           Today&apos;s Zmanim
         </CardTitle>
+        <LocationPicker value={location} onChange={setLocation} compact />
         <p className="text-sm text-gray-600">{data.date}</p>
         <p className="text-sm text-blue-600 font-medium">{data.hebrewDate}</p>
         {data.parsha && (
