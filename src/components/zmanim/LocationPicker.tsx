@@ -232,8 +232,11 @@ export function LocationPicker({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Cleanup timers/requests on unmount
+  // Cleanup timers/requests on unmount.
+  // Set mountedRef true on (re)mount so React Strict Mode's setup→cleanup→setup
+  // in dev doesn't leave it stuck false (which would make the GPS guard bail).
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       if (debounceRef.current) clearTimeout(debounceRef.current);
