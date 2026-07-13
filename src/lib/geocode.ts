@@ -49,6 +49,11 @@ function buildLabel(props: PhotonProperties): string {
 /**
  * Search Photon for places matching a query. Returns up to 6 results.
  * A blank query returns [] without hitting the network.
+ *
+ * Photon can return several OSM entries (a city node, a boundary relation, …)
+ * that render to the same human label. Those are indistinguishable to the user,
+ * so we dedupe by label. We over-fetch (limit=10) so deduping still leaves a
+ * useful number of distinct results before slicing to 6.
  */
 export async function searchPlaces(
   q: string,
@@ -58,7 +63,7 @@ export async function searchPlaces(
   if (!query) return [];
 
   const res = await fetch(
-    `${PHOTON_BASE}/api/?q=${encodeURIComponent(query)}&limit=6&lang=en`,
+    `${PHOTON_BASE}/api/?q=${encodeURIComponent(query)}&limit=10&lang=en`,
     { signal },
   );
   if (!res.ok) {
@@ -68,16 +73,18 @@ export async function searchPlaces(
   const data: PhotonResponse = await res.json();
   const features = data.features ?? [];
 
-  return features.map((feature) => {
+  const seen = new Set<string>();
+  const results: GeocodeResult[] = [];
+  for (const feature of features) {
     const props = feature.properties ?? {};
     const [lon, lat] = feature.geometry?.coordinates ?? [0, 0];
-    return {
-      label: buildLabel(props),
-      lat,
-      lon,
-      countryCode: props.countrycode ?? "",
-    };
-  });
+    const label = buildLabel(props);
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    results.push({ label, lat, lon, countryCode: props.countrycode ?? "" });
+    if (results.length >= 6) break;
+  }
+  return results;
 }
 
 /**
