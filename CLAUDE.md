@@ -1604,3 +1604,9 @@ Client feedback brain-dump → 6 phases, all committed/pushed to `main`, deploye
 **Tests:** `tests/unit/{zmanim-location,zmanim-calc,zmanim-api-route,geocode}.test.ts` (59 unit tests total, all green; tsc 0 errors). React components verified live (no component test harness in repo).
 
 **Deferred (known, non-blocking):** "today" highlight across far timezones uses the viewer's local day (documented limitation); `revalidate=3600` on the zmanim route is inert now that it reads query params (comment says so).
+
+**Post-launch verification vs MyZmanim (Toronto/NY/Jerusalem, same-day):** all astronomical + GRA times matched MyZmanim to the second (sunrise/sunset/chatzos/plag/alos-16.1°/tzeis-8.5°/sof-zman-shma-GRA). Two **pre-existing** labeling bugs found + fixed (commit `1490c35`):
+- Sof Zman Shma/Tefila were labeled "Magen Avraham" but hebcal's `sofZmanShma()` is **GRA** — relabeled the "About" text to GRA (values were already correct GRA; MGA shema would be ~1 hr earlier, not currently shown).
+- `tzait72` was `tzeit(16.1°)` (≈114 min in Toronto summer, mislabeled "72") → now **`sunset + 72 fixed clock minutes`** (10:10 PM Toronto, matches MyZmanim's "72 Minutes" row).
+- Still known/unchanged: Misheyakir uses hebcal's default degree (~4:32 Toronto) vs MyZmanim's 10.2° (4:42) — a minor opinion difference, left as-is. If MGA sof-zman-shma is ever wanted, add `sofZmanShmaMGA()` as a separate row.
+- Also fixed a duplicate-results bug in `src/lib/geocode.ts`: Photon returns multiple OSM entries with identical labels (e.g. two "Jerusalem, Jerusalem District, Israel"); `searchPlaces` now dedupes by label (over-fetch 10 → dedupe → cap 6).
