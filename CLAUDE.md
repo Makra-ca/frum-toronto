@@ -1574,3 +1574,33 @@ Client feedback brain-dump → 6 phases, all committed/pushed to `main`, deploye
 **In-flight (separate session):** convert the 3 remaining admin image-**URL** paste fields to the `<ImageDropzone>` uploader — admin simcha "Photo URL", admin classifieds "Image URL", `BusinessForm` "Banner Image URL". Guardrail: keep `bannerImageUrl: validatedData.bannerImageUrl || null` in `src/app/api/admin/businesses/[id]/route.ts` so "" → null and the homepage-ads `isNotNull(bannerImageUrl)` filter stays clean.
 
 **Owner one-time setup:** tag shuls with neighborhoods (Admin → Shuls → edit); optionally upload one community newsletter.
+
+---
+
+### 2026-07-13 — Zmanim Location Picker (view zmanim for any place)
+
+**Summary:** Added an optional "view zmanim for another location" control to the `/zmanim` page and homepage `ZmanimWidget`. Default stays Toronto; a user can search any place by name or use GPS and see that location's zmanim for the week. Not tied to login, no DB — chosen location persists in `localStorage` (`ft_zmanim_location`). Merged to `main` (13 feature commits + merge; **not yet pushed to origin**).
+
+**Spec/plan:** `docs/superpowers/specs/2026-07-13-zmanim-location-picker-design.md`, `docs/superpowers/plans/2026-07-13-zmanim-location-picker.md`.
+
+**How it works (three off-the-shelf pieces, no hardcoded locations):**
+1. **Photon** (`photon.komoot.io`) — place name → coordinates, called **client-side** from the browser (see `src/lib/geocode.ts`). *Chosen over a Nominatim server proxy on purpose:* Nominatim's public instance rate-limits/blocks cloud IPs, so a Vercel server proxy would funnel all users through blockable IPs and fail in prod. Client-side distributes load per-user IP; Photon is CORS-enabled + built for autocomplete. `src/lib/geocode.ts` is the single swap point if Photon is ever unreliable (self-host or a keyed provider).
+2. **`@hebcal/core`** — coordinates + date → zmanim (already in project; it was only ever handed Toronto). Now parameterized by `ZmanimLocation`.
+3. **`tz-lookup`** (new dep, offline) — coordinates → IANA tzid so times display in the location's own clock.
+
+**Key files:**
+- `src/lib/zmanim-location.ts` — `ZmanimLocation` type, `TORONTO_LOCATION`, `isTorontoLocation`, `isIsraelCountry`, serialize/parse, `buildZmanimParams`.
+- `src/lib/zmanim.ts` — now takes `location: ZmanimLocation = TORONTO_LOCATION`; **fixed a real bug**: `formatZmanTime` + the English date were hardcoded to `America/Toronto` (would show wrong clock times for other zones). `formatZmanTime(date, tzid)` now takes the timezone.
+- `src/app/api/zmanim/route.ts` — accepts + validates `lat`/`lon`/`tzid`/`label`/`il` (Toronto default = backward compatible; invalid → 400). `mode=shabbat` intentionally stays Toronto (no caller uses it).
+- `src/lib/geocode.ts` — Photon `searchPlaces`/`reverseGeocode`.
+- `src/components/zmanim/LocationPicker.tsx` — shared component (debounced search, GPS, "Back to Toronto"), `compact` flag for the widget.
+- `src/hooks/useStoredZmanimLocation.ts` — shared localStorage hydrate/persist hook used by both consumers (DRY).
+- Consumers: `src/app/(public)/zmanim/ZmanimPageContent.tsx` (full picker) + `src/components/widgets/ZmanimWidget.tsx` (compact).
+
+**Halacha decision (confirmed with owner):** Israeli locations get **1-day Yom Tov** via hebcal's `il` flag, but **candle-lighting stays the 18-min default everywhere** — a blanket 40 min is *Jerusalem-specific* and wrong for most Israeli cities. If a rav ever specifies per-city minutes, `HebrewCalendar.calendar(...)` in `zmanim.ts` is the one place to change.
+
+**Notable bug caught only by live verification:** the GPS "Use my location" path silently did nothing under React **Strict Mode** — a `mountedRef` cleanup set it `false` on unmount but setup never reset it `true`, so Strict Mode's setup→cleanup→setup left it stuck `false` and the GPS guard always bailed. Passed unit tests + tsc + code review; only surfaced clicking it in a real browser. Fixed by setting `mountedRef.current = true` in the effect body.
+
+**Tests:** `tests/unit/{zmanim-location,zmanim-calc,zmanim-api-route,geocode}.test.ts` (59 unit tests total, all green; tsc 0 errors). React components verified live (no component test harness in repo).
+
+**Deferred (known, non-blocking):** "today" highlight across far timezones uses the viewer's local day (documented limitation); `revalidate=3600` on the zmanim route is inert now that it reads query params (comment says so).
