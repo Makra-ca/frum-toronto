@@ -1,4 +1,5 @@
 import { HDate, Location, Zmanim, HebrewCalendar, flags, TimedEvent } from "@hebcal/core";
+import { TORONTO_LOCATION, type ZmanimLocation } from "@/lib/zmanim-location";
 
 // Toronto coordinates
 const TORONTO_LAT = 43.6629;
@@ -14,6 +15,20 @@ export const torontoLocation = new Location(
   "Toronto, ON",
   "CA"
 );
+
+/**
+ * Build a @hebcal/core Location from a ZmanimLocation.
+ */
+function toHebcalLocation(loc: ZmanimLocation): Location {
+  return new Location(
+    loc.lat,
+    loc.lon,
+    loc.isIsrael,
+    loc.tzid,
+    loc.label,
+    loc.isIsrael ? "IL" : undefined,
+  );
+}
 
 export interface ZmanimTimes {
   alotHaShachar: Date;
@@ -46,8 +61,12 @@ export interface ZmanimResponse {
 /**
  * Get zmanim for a specific date in Toronto
  */
-export function getZmanimForDate(date: Date = new Date()): ZmanimResponse {
-  const zmanim = new Zmanim(torontoLocation, date, false);
+export function getZmanimForDate(
+  date: Date = new Date(),
+  location: ZmanimLocation = TORONTO_LOCATION,
+): ZmanimResponse {
+  const hebcalLoc = toHebcalLocation(location);
+  const zmanim = new Zmanim(hebcalLoc, date, false);
   const hdate = new HDate(date);
 
   // Get Hebrew date string
@@ -58,7 +77,8 @@ export function getZmanimForDate(date: Date = new Date()): ZmanimResponse {
   const events = HebrewCalendar.calendar({
     start: date,
     end: date,
-    location: torontoLocation,
+    location: hebcalLoc,
+    il: location.isIsrael, // Israel rules (1-day Yom Tov)
     sedrot: true,
     candlelighting: true,
     havdalahMins: 50, // 50 minutes after sunset for Havdalah
@@ -139,7 +159,7 @@ export function getZmanimForDate(date: Date = new Date()): ZmanimResponse {
     year: "numeric",
     month: "long",
     day: "numeric",
-    timeZone: TORONTO_TIMEZONE,
+    timeZone: location.tzid,
   });
 
   return {
@@ -159,13 +179,16 @@ export function getZmanimForDate(date: Date = new Date()): ZmanimResponse {
 /**
  * Get zmanim for multiple days (e.g., for a weekly view)
  */
-export function getZmanimForWeek(startDate: Date = new Date()): ZmanimResponse[] {
+export function getZmanimForWeek(
+  startDate: Date = new Date(),
+  location: ZmanimLocation = TORONTO_LOCATION,
+): ZmanimResponse[] {
   const week: ZmanimResponse[] = [];
 
   for (let i = 0; i < 7; i++) {
     const date = new Date(startDate);
     date.setDate(date.getDate() + i);
-    week.push(getZmanimForDate(date));
+    week.push(getZmanimForDate(date, location));
   }
 
   return week;
@@ -174,21 +197,23 @@ export function getZmanimForWeek(startDate: Date = new Date()): ZmanimResponse[]
 /**
  * Format a time for display (e.g., "7:45 AM")
  */
-export function formatZmanTime(date: Date | null | undefined): string {
+export function formatZmanTime(date: Date | null | undefined, tzid: string): string {
   if (!date) return "--:--";
 
   return date.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-    timeZone: TORONTO_TIMEZONE,
+    timeZone: tzid,
   });
 }
 
 /**
  * Get the upcoming Shabbat times
  */
-export function getUpcomingShabbat(): {
+export function getUpcomingShabbat(
+  location: ZmanimLocation = TORONTO_LOCATION,
+): {
   candleLighting: Date | null;
   havdalah: Date | null;
   parsha: string | null;
@@ -206,8 +231,8 @@ export function getUpcomingShabbat(): {
   const saturday = new Date(friday);
   saturday.setDate(saturday.getDate() + 1);
 
-  const fridayZmanim = getZmanimForDate(friday);
-  const saturdayZmanim = getZmanimForDate(saturday);
+  const fridayZmanim = getZmanimForDate(friday, location);
+  const saturdayZmanim = getZmanimForDate(saturday, location);
 
   return {
     candleLighting: fridayZmanim.candleLighting,
