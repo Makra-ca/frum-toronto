@@ -30,6 +30,17 @@ describe('getZmanimForDate is location-parameterized', () => {
     const r = getZmanimForDate(date, jerusalem);
     expect(r.zmanim.sunset).toBeInstanceOf(Date);
   });
+
+  it('honors the il flag: 2nd day Shavuot is Yom Tov in diaspora but chol in Israel', () => {
+    // 2026-05-23 is the 2nd day of Shavuot: Yom Tov in the diaspora (2-day
+    // festival) but an ordinary weekday in Israel (1-day festival). If the
+    // `il` flag were not wired through, both would report the same status.
+    const yomTov2ndDayShavuot = new Date('2026-05-23T12:00:00Z');
+    const diaspora = getZmanimForDate(yomTov2ndDayShavuot, TORONTO_LOCATION);
+    const israel = getZmanimForDate(yomTov2ndDayShavuot, jerusalem);
+    expect(diaspora.isYomTov).toBe(true);
+    expect(israel.isYomTov).toBe(false);
+  });
 });
 
 describe('formatZmanTime respects the given timezone (regression for hardcoded Toronto)', () => {
