@@ -6,6 +6,16 @@ import { Separator } from "@/components/ui/separator";
 import { Clock, Sunrise, Sunset, Sun, Moon, Loader2, Flame } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { LocationPicker } from "@/components/zmanim/LocationPicker";
+import {
+  type ZmanimLocation,
+  TORONTO_LOCATION,
+  parseStoredLocation,
+  serializeLocation,
+  buildZmanimParams,
+} from "@/lib/zmanim-location";
+
+const ZMANIM_LOCATION_STORAGE_KEY = "ft_zmanim_location";
 
 interface ZmanimApiResponse {
   date: string;
@@ -37,9 +47,33 @@ export function ZmanimWidget() {
   const [data, setData] = useState<ZmanimApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [location, setLocation] = useState<ZmanimLocation>(TORONTO_LOCATION);
+
+  // Hydrate the saved location from localStorage on mount.
+  useEffect(() => {
+    const stored = parseStoredLocation(
+      localStorage.getItem(ZMANIM_LOCATION_STORAGE_KEY)
+    );
+    if (stored) setLocation(stored);
+  }, []);
+
+  const handleLocationChange = (loc: ZmanimLocation) => {
+    setLocation(loc);
+    if (
+      loc.label === TORONTO_LOCATION.label &&
+      loc.lat === TORONTO_LOCATION.lat &&
+      loc.lon === TORONTO_LOCATION.lon
+    ) {
+      localStorage.removeItem(ZMANIM_LOCATION_STORAGE_KEY);
+    } else {
+      localStorage.setItem(ZMANIM_LOCATION_STORAGE_KEY, serializeLocation(loc));
+    }
+  };
 
   useEffect(() => {
-    fetch("/api/zmanim")
+    setIsLoading(true);
+    setError(null);
+    fetch(`/api/zmanim?${buildZmanimParams(location).toString()}`)
       .then((res) => res.json())
       .then((result) => {
         setData(result);
@@ -50,9 +84,9 @@ export function ZmanimWidget() {
         setError("Failed to load zmanim");
         setIsLoading(false);
       });
-  }, []);
+  }, [location]);
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <Card className="border-0 shadow-md">
         <CardHeader className="pb-2">
@@ -60,6 +94,7 @@ export function ZmanimWidget() {
             <Clock className="h-5 w-5 text-blue-600" />
             Today&apos;s Zmanim
           </CardTitle>
+          <LocationPicker value={location} onChange={handleLocationChange} compact />
         </CardHeader>
         <CardContent className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
@@ -76,6 +111,7 @@ export function ZmanimWidget() {
             <Clock className="h-5 w-5 text-blue-600" />
             Today&apos;s Zmanim
           </CardTitle>
+          <LocationPicker value={location} onChange={handleLocationChange} compact />
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-500">Unable to load zmanim</p>
@@ -94,6 +130,7 @@ export function ZmanimWidget() {
           <Clock className="h-5 w-5 text-blue-600" />
           Today&apos;s Zmanim
         </CardTitle>
+        <LocationPicker value={location} onChange={handleLocationChange} compact />
         <p className="text-sm text-gray-600">{data.date}</p>
         <p className="text-sm text-blue-600 font-medium">{data.hebrewDate}</p>
         {data.parsha && (
