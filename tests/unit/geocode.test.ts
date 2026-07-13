@@ -35,6 +35,26 @@ describe('searchPlaces', () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(new Response('err', { status: 500 }));
     await expect(searchPlaces('wasaga')).rejects.toThrow();
   });
+
+  it('dedupes features that render to the same label', async () => {
+    // Photon often returns a city node AND a boundary relation with identical
+    // properties -> identical label. The user sees one row, not two.
+    const jlemProps = { name: 'Jerusalem', state: 'Jerusalem District', country: 'Israel', countrycode: 'IL' };
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({
+        type: 'FeatureCollection',
+        features: [
+          photonFeature({ geometry: { type: 'Point', coordinates: [35.2137, 31.7683] }, properties: jlemProps }),
+          photonFeature({ geometry: { type: 'Point', coordinates: [35.2100, 31.7700] }, properties: jlemProps }),
+          photonFeature({ properties: { name: 'Wasaga Beach', state: 'Ontario', country: 'Canada', countrycode: 'CA' } }),
+        ],
+      }), { status: 200 }),
+    );
+    const results = await searchPlaces('jerus');
+    const jlem = results.filter((r) => r.label === 'Jerusalem, Jerusalem District, Israel');
+    expect(jlem).toHaveLength(1);
+    expect(results).toHaveLength(2); // one Jerusalem + one Wasaga
+  });
 });
 
 describe('reverseGeocode', () => {
