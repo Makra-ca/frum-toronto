@@ -44,20 +44,25 @@ export function LocationPicker({
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
 
   const showSearchUI = !compact || expanded;
   const notToronto = !isToronto(value);
 
   const fetchResults = useCallback(async (q: string) => {
+    // Cancel any in-flight request first, so shrinking below the min length
+    // also cancels a prior 2+char search that could otherwise repopulate.
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+
     if (q.trim().length < 2) {
       setResults([]);
       setIsOpen(false);
       return;
     }
 
-    if (abortRef.current) {
-      abortRef.current.abort();
-    }
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -71,6 +76,7 @@ export function LocationPicker({
       if (err instanceof Error && err.name !== "AbortError") {
         console.error("[LocationPicker] search failed:", err);
         setResults([]);
+        setError("Couldn't search places, try again");
         setIsOpen(true);
       }
     } finally {
@@ -154,6 +160,7 @@ export function LocationPicker({
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        if (!mountedRef.current) return;
         const { latitude, longitude } = pos.coords;
 
         let tzid: string;
@@ -178,6 +185,8 @@ export function LocationPicker({
           // Keep the generic label; coordinates + tzid are still valid.
         }
 
+        if (!mountedRef.current) return;
+
         onChange({
           lat: latitude,
           lon: longitude,
@@ -193,6 +202,7 @@ export function LocationPicker({
         if (compact) setExpanded(false);
       },
       () => {
+        if (!mountedRef.current) return;
         setIsLocating(false);
         setError("Couldn't get your location.");
       }
@@ -225,6 +235,7 @@ export function LocationPicker({
   // Cleanup timers/requests on unmount
   useEffect(() => {
     return () => {
+      mountedRef.current = false;
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (abortRef.current) abortRef.current.abort();
     };
@@ -248,6 +259,7 @@ export function LocationPicker({
             onClick={() => {
               setExpanded(true);
               setError(null);
+              setTimeout(() => inputRef.current?.focus(), 0);
             }}
           >
             Change location
@@ -295,9 +307,13 @@ export function LocationPicker({
                   <button
                     type="button"
                     onClick={() => {
+                      if (debounceRef.current) clearTimeout(debounceRef.current);
+                      abortRef.current?.abort();
+                      abortRef.current = null;
                       setQuery("");
                       setResults([]);
                       setIsOpen(false);
+                      setIsSearching(false);
                       inputRef.current?.focus();
                     }}
                     className="p-1 hover:bg-gray-100 rounded-full transition-colors"
