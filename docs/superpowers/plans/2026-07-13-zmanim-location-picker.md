@@ -4,9 +4,9 @@
 
 **Goal:** Add an optional "view zmanim for another place" control (search by place name or "use my location") to the `/zmanim` page and homepage widget, defaulting to Toronto, with no database change and no login.
 
-**Architecture:** The `@hebcal/core` engine already computes zmanim from any coordinates — it is only ever handed Toronto today. We parameterize the calculation layer by a `ZmanimLocation`, add a server-side geocode proxy (Nominatim) so users pick a *place name*, resolve the timezone client-side with `tz-lookup`, thread location params through `/api/zmanim`, and build a shared `LocationPicker` used by both consumers. Chosen location persists in `localStorage`.
+**Architecture:** The `@hebcal/core` engine already computes zmanim from any coordinates — it is only ever handed Toronto today. We parameterize the calculation layer by a `ZmanimLocation`, add a small **client-side** geocode helper (Photon) so users pick a *place name*, resolve the timezone client-side with `tz-lookup`, thread location params through `/api/zmanim`, and build a shared `LocationPicker` used by both consumers. Chosen location persists in `localStorage`. No new server route, no secrets.
 
-**Tech Stack:** Next.js (App Router), `@hebcal/core` (existing), `tz-lookup` (new, offline coords→IANA tz), Nominatim/OpenStreetMap (free geocoder, no key), Vitest (`node` env, `tests/unit/**`).
+**Tech Stack:** Next.js (App Router), `@hebcal/core` (existing), `tz-lookup` (new, offline coords→IANA tz), Photon (`photon.komoot.io`, free OSM-based geocoder, client-side, no key), Vitest (`node` env, `tests/unit/**`).
 
 **Spec:** `docs/superpowers/specs/2026-07-13-zmanim-location-picker-design.md`
 
@@ -16,9 +16,10 @@
 
 **New files:**
 - `src/lib/zmanim-location.ts` — `ZmanimLocation` type, `TORONTO_LOCATION` constant, pure helpers: `roundCoord`, `isIsraelCountry`, `serializeLocation`/`parseStoredLocation` (localStorage), `buildZmanimParams` (URLSearchParams for `/api/zmanim`).
-- `src/app/api/zmanim/geocode/route.ts` — GET proxy to Nominatim: `?q=` (search) and `?lat=&lon=` (reverse). Returns trimmed results.
+- `src/lib/geocode.ts` — client-side Photon helper: `searchPlaces(q, signal?)` and `reverseGeocode(lat, lon)`; maps Photon GeoJSON → `{ label, lat, lon, countryCode }`.
+- `src/types/tz-lookup.d.ts` — one-line ambient module declaration for `tz-lookup` (no `@types` package exists).
 - `src/components/zmanim/LocationPicker.tsx` — shared client component (search + GPS + reset), `compact` flag for the widget.
-- Test files under `tests/unit/`: `zmanim-location.test.ts`, `zmanim-calc.test.ts`, `zmanim-geocode-route.test.ts`, `zmanim-api-route.test.ts`.
+- Test files under `tests/unit/`: `zmanim-location.test.ts`, `zmanim-calc.test.ts`, `geocode.test.ts`, `zmanim-api-route.test.ts`.
 
 **Modified files:**
 - `src/lib/zmanim.ts` — parameterize all functions by `ZmanimLocation`; fix hardcoded-timezone formatting.
@@ -230,7 +231,7 @@ git commit -m "feat: zmanim location types and pure helpers"
 - Today every function uses the module-level `torontoLocation` and `TORONTO_TIMEZONE`.
 - `formatZmanTime` (`zmanim.ts:177-186`) and the English date (`zmanim.ts:137-143`) hardcode `America/Toronto` — the core bug.
 - `@hebcal/core` `Location` constructor: `new Location(lat, lon, isIsrael, tzid, cityName, countryCode)`.
-- Israel rules per the approved spec: pass `il: location.isIsrael` to `HebrewCalendar.calendar(...)`, and set `candleLightingMins: location.isIsrael ? 40 : 18` (40 = the PM-approved Israel/Jerusalem custom). **Verify** the option name/behavior against the installed `@hebcal/core` version before finalizing the expected values in Step 1 (the design flagged this as "confirm, don't assume").
+- Israel rules per the approved spec: pass `il: location.isIsrael` to `HebrewCalendar.calendar(...)` for correct **1-day Yom Tov**. **Candle lighting stays hebcal's 18-minute default everywhere** — do NOT set a blanket 40 (that is Jerusalem-specific and wrong for most Israeli cities). Leave `candleLightingMins` unset (18 is the default) or pass `18` explicitly. Keep the existing `havdalahMins: 50`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -270,12 +271,11 @@ describe('getZmanimForDate is location-parameterized', () => {
   });
 });
 
-// NOTE (intentional deviation from spec's test list): the spec lists asserting
-// "Jerusalem → 1-day Yom Tov + 40-min candle lighting on a Yom Tov date" as a
-// unit test. Exact candle-lighting times are timezone/DST-brittle, so that
-// specific assertion is verified LIVE in Task 10 Step 2 instead of here. The
-// unit test only proves Israel locations compute without error. This is a
-// deliberate choice, not a dropped requirement.
+// NOTE (intentional): exact holiday/candle behavior for Israel (1-day Yom Tov
+// via the il flag; 18-min candle lighting, NOT 40 — see spec) is timezone/DST-
+// brittle to assert in a unit test, so it is verified LIVE in Task 10 Step 2.
+// This unit test only proves an Israeli location computes without error. This is
+// a deliberate choice, not a dropped requirement.
 
 describe('formatZmanTime respects the given timezone (regression for hardcoded Toronto)', () => {
   it('formats the same instant differently for Toronto vs Miami tzid', () => {
@@ -316,7 +316,7 @@ function toHebcalLocation(loc: ZmanimLocation): Location {
    - `getZmanimForDate(date: Date = new Date(), location: ZmanimLocation = TORONTO_LOCATION)`
    - `getZmanimForWeek(startDate: Date = new Date(), location: ZmanimLocation = TORONTO_LOCATION)` — pass `location` through to each `getZmanimForDate` call.
    - `getUpcomingShabbat(location: ZmanimLocation = TORONTO_LOCATION)` — pass through to its internal `getZmanimForDate` calls.
-4. In `getZmanimForDate`, build `const hebcalLoc = toHebcalLocation(location);` and use it for both `new Zmanim(hebcalLoc, date, false)` and `HebrewCalendar.calendar({ ..., location: hebcalLoc, il: location.isIsrael, candleLightingMins: location.isIsrael ? 40 : 18, havdalahMins: 50 })`.
+4. In `getZmanimForDate`, build `const hebcalLoc = toHebcalLocation(location);` and use it for both `new Zmanim(hebcalLoc, date, false)` and `HebrewCalendar.calendar({ ..., location: hebcalLoc, il: location.isIsrael, havdalahMins: 50 })`. Do NOT pass `candleLightingMins` — 18 (the hebcal default) applies everywhere including Israel, per the approved spec.
 5. Replace the English date's `timeZone: TORONTO_TIMEZONE` with `timeZone: location.tzid`.
 6. Change `formatZmanTime(date, tzid)` to take the timezone:
 ```ts
@@ -417,94 +417,113 @@ git commit -m "feat: /api/zmanim accepts and validates location params"
 
 ---
 
-### Task 5: `/api/zmanim/geocode` — Nominatim proxy
+### Task 5: `src/lib/geocode.ts` — client-side Photon helper
 
 **Files:**
-- Create: `src/app/api/zmanim/geocode/route.ts`
-- Test: `tests/unit/zmanim-geocode-route.test.ts`
+- Create: `src/lib/geocode.ts`
+- Test: `tests/unit/geocode.test.ts`
 
-**Context:**
-- `?q=<place>` → Nominatim search; `?lat=&lon=` → Nominatim reverse.
-- Set header `User-Agent: FrumToronto/1.0 (https://frumtoronto.com)` (Nominatim policy).
-- Search returns up to 6 `{ label, lat, lon, countryCode }`; reverse returns one `{ label, countryCode }`.
-- Small in-memory `Map` cache keyed by the query string (bounded, e.g. clear when > 500 entries) to respect the 1 req/sec policy under bursts.
-- Tests mock `global.fetch` with `vi.fn()` — no real network.
+**Context — Photon response shape (verify against a live call during Step 3):**
+- Search: `GET https://photon.komoot.io/api/?q=<q>&limit=6&lang=en` → GeoJSON
+  `FeatureCollection`. Each feature: `geometry.coordinates: [lon, lat]` (note:
+  **lon first**), `properties: { name, city, state, country, countrycode }`
+  (`countrycode` is UPPERCASE, e.g. `"CA"`, `"IL"`).
+- Reverse: `GET https://photon.komoot.io/reverse?lat=<lat>&lon=<lon>&lang=en` →
+  same feature shape (take the first feature).
+- `buildLabel(props)` composes a readable string from the parts present, e.g.
+  `[name, city, state, country]` filtered for uniqueness/undefined, joined with
+  `", "` (so "Wasaga Beach, Ontario, Canada"; a city may have no separate `name`).
+- Called from the browser; CORS-enabled; no key, no header requirements. Tests
+  mock `global.fetch` — no real network.
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-// tests/unit/zmanim-geocode-route.test.ts
+// tests/unit/geocode.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GET } from '@/app/api/zmanim/geocode/route';
+import { searchPlaces, reverseGeocode } from '@/lib/geocode';
 
-function req(qs: string) {
-  return new Request(`http://localhost/api/zmanim/geocode${qs}`);
+function photonFeature(overrides = {}) {
+  return {
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: [-80.0177, 44.5209] }, // [lon, lat]
+    properties: { name: 'Wasaga Beach', state: 'Ontario', country: 'Canada', countrycode: 'CA' },
+    ...overrides,
+  };
 }
 
 beforeEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('GET /api/zmanim/geocode', () => {
-  it('400 when neither q nor lat/lon provided', async () => {
-    const res = await GET(req(''));
-    expect(res.status).toBe(400);
-  });
-
-  it('search maps Nominatim results to trimmed shape', async () => {
+describe('searchPlaces', () => {
+  it('maps a Photon FeatureCollection to trimmed results', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify([
-        { display_name: 'Wasaga Beach, Ontario, Canada', lat: '44.5209', lon: '-80.0177', address: { country_code: 'ca' } },
-      ]), { status: 200 }),
+      new Response(JSON.stringify({ type: 'FeatureCollection', features: [photonFeature()] }), { status: 200 }),
     );
-    const res = await GET(req('?q=wasaga'));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.results[0]).toMatchObject({
-      label: 'Wasaga Beach, Ontario, Canada',
-      lat: 44.5209, lon: -80.0177, countryCode: 'ca',
+    const results = await searchPlaces('wasaga');
+    expect(results[0]).toMatchObject({
+      lat: 44.5209, lon: -80.0177, countryCode: 'CA',
     });
+    expect(results[0].label).toContain('Wasaga Beach');
+    expect(results[0].label).toContain('Canada');
   });
 
-  it('reverse returns a single labeled place', async () => {
+  it('returns [] for a blank query without calling fetch', async () => {
+    const spy = vi.spyOn(global, 'fetch');
+    expect(await searchPlaces('  ')).toEqual([]);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('throws on a non-OK response', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(new Response('err', { status: 500 }));
+    await expect(searchPlaces('wasaga')).rejects.toThrow();
+  });
+});
+
+describe('reverseGeocode', () => {
+  it('returns a single labeled place with country code', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({
-        display_name: 'Jerusalem, Israel', address: { country_code: 'il' },
+        type: 'FeatureCollection',
+        features: [photonFeature({
+          properties: { name: 'Jerusalem', country: 'Israel', countrycode: 'IL' },
+        })],
       }), { status: 200 }),
     );
-    const res = await GET(req('?lat=31.7683&lon=35.2137'));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.result).toMatchObject({ label: 'Jerusalem, Israel', countryCode: 'il' });
+    const r = await reverseGeocode(31.7683, 35.2137);
+    expect(r).toMatchObject({ countryCode: 'IL' });
+    expect(r?.label).toContain('Jerusalem');
   });
 
-  it('502 when Nominatim errors', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValue(new Response('nope', { status: 500 }));
-    const res = await GET(req('?q=wasaga'));
-    expect(res.status).toBe(502);
+  it('returns null when there are no features', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), { status: 200 }),
+    );
+    expect(await reverseGeocode(0, 0)).toBeNull();
   });
 });
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npm run test:unit -- zmanim-geocode-route`
-Expected: FAIL — route module does not exist.
+Run: `npm run test:unit -- geocode`
+Expected: FAIL — module `@/lib/geocode` not found.
 
-- [ ] **Step 3: Implement the route**
+- [ ] **Step 3: Implement the helper**
 
-Create the route with a `q` branch (search) and a `lat/lon` branch (reverse), mapping Nominatim JSON to the trimmed shapes above, the `User-Agent` header, in-memory cache, and error handling (`502` on non-OK upstream, `400` on bad input). Parse `lat`/`lon` from Nominatim strings with `parseFloat`.
+Create `src/lib/geocode.ts` exporting `GeocodeResult` (`{ label, lat, lon, countryCode }`), `searchPlaces(q, signal?)`, and `reverseGeocode(lat, lon)`. Map Photon GeoJSON features (remember `coordinates` is `[lon, lat]`), build labels via a private `buildLabel(props)`, guard a blank query (return `[]`), pass the optional `AbortSignal` to `fetch`, and throw on non-OK responses. **Before finalizing, make one real call** (`curl 'https://photon.komoot.io/api/?q=wasaga&limit=2'`) to confirm the property names (`countrycode`, `name`, `city`, `state`, `country`) match — the test mocks assume these; correct them if Photon differs.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npm run test:unit -- zmanim-geocode-route`
+Run: `npm run test:unit -- geocode`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/app/api/zmanim/geocode/route.ts tests/unit/zmanim-geocode-route.test.ts
-git commit -m "feat: /api/zmanim/geocode Nominatim proxy (search + reverse)"
+git add src/lib/geocode.ts tests/unit/geocode.test.ts
+git commit -m "feat: client-side Photon geocode helper (search + reverse)"
 ```
 
 ---
@@ -538,6 +557,7 @@ git add -A && git commit -m "chore: typecheck fixups for zmanim location params"
 
 **Context / patterns:**
 - Client component (`"use client"`). Mirror the debounce + `AbortController` approach in `src/components/search/UniversalSearch.tsx` (300ms, min 2 chars).
+- Search calls `searchPlaces(q, signal)` from `src/lib/geocode.ts` (Photon, client-side) — NOT a server route.
 - `tz-lookup` runs client-side: `import tzlookup from 'tz-lookup';` then `tzlookup(lat, lon)`.
 - Props:
   ```ts
@@ -549,8 +569,8 @@ git add -A && git commit -m "chore: typecheck fixups for zmanim location params"
   ```
 - Behavior:
   - Shows `value.label` with a "Back to Toronto" reset (only when `value` !== Toronto) that calls `onChange(TORONTO_LOCATION)`.
-  - Search box (debounced) → `GET /api/zmanim/geocode?q=` → dropdown of `results`. On select: `tzid = tzlookup(lat, lon)`, `isIsrael = isIsraelCountry(countryCode)`, call `onChange({ lat, lon, tzid, label, isIsrael })`.
-  - "📍 Use my location": `navigator.geolocation.getCurrentPosition` → on success reverse-geocode `GET /api/zmanim/geocode?lat=&lon=` for the label + country → build location → `onChange`. On permission denied/unavailable: show inline message, keep `value`.
+  - Search box (debounced) → `searchPlaces(q, signal)` → dropdown of results. On select: `tzid = tzlookup(lat, lon)`, `isIsrael = isIsraelCountry(countryCode)`, call `onChange({ lat, lon, tzid, label, isIsrael })`. (`countryCode` from Photon is uppercase `"IL"`; `isIsraelCountry` is case-insensitive.)
+  - "📍 Use my location": `navigator.geolocation.getCurrentPosition` → on success `reverseGeocode(lat, lon)` for the label + country → `tzlookup` → build location → `onChange`. On permission denied/unavailable: show inline message, keep `value`.
   - `compact` mode: render only the label + a "Change location" button; clicking expands the search UI.
 - This component's parents own `localStorage` persistence (Task 8/9), so `LocationPicker` is stateless about storage — it just reports changes via `onChange`.
 
@@ -650,7 +670,7 @@ Run: `npm run dev` (port 3000).
 - [ ] **Step 2: Verify the zmanim page**
 - Visit `/zmanim`. Default shows Toronto.
 - Search "wasaga" → pick "Wasaga Beach" → times update, header reads "Zmanim for Wasaga Beach…", candle-lighting/havdalah present for the week.
-- Search "jerusalem" → pick it → times shift to Israel clock; on a Yom Tov date, 1-day Yom Tov + 40-min candle lighting apply.
+- Search "jerusalem" → pick it → times shift to Israel clock; on a Yom Tov date, **1-day** Yom Tov applies (not 2-day). Candle lighting shows the standard 18-min offset everywhere (no blanket 40).
 - "Back to Toronto" resets.
 - Reload → last picked location persists (localStorage).
 
@@ -676,5 +696,5 @@ git add -A && git commit -m "test: verify zmanim location picker end-to-end" || 
 
 - **`mode=shabbat`** stays Toronto-only (no consumer uses it). If a future feature needs Shabbat mode for arbitrary locations, thread `location` into that route branch and into `getUpcomingShabbat`'s own `toLocaleDateString`.
 - **"Today" highlight across far timezones** uses the viewer's local day (documented limitation in the spec).
-- **Nominatim usage policy**: acceptable for light community traffic; the server proxy + cache + debounce keep us within limits. If traffic grows, swap the geocoder behind the same `/api/zmanim/geocode` interface (Google/Mapbox) with no client changes.
-- **Israel candle-lighting minutes**: set to 40 per the PM's approved choice; if a rav specifies otherwise per-city, this is the single place to adjust (`candleLightingMins` in `zmanim.ts`).
+- **Geocoder (Photon, client-side)**: chosen over a Nominatim server proxy because Nominatim's public instance rate-limits/blocks cloud IPs — a Vercel proxy would funnel all users through a few blockable IPs and fail under real traffic. Browser-side Photon distributes load across each user's IP and gives better autocomplete. If Photon's public instance is ever unreliable, `src/lib/geocode.ts` is the single swap point (self-hosted Photon or a keyed provider like Geoapify/LocationIQ) with no consumer changes.
+- **Israel candle-lighting minutes**: 18 (hebcal default) applies everywhere including Israel — a blanket 40 is Jerusalem-specific and wrong for most Israeli cities. `il: true` still gives correct 1-day Yom Tov. If a rav specifies a per-city value, `HebrewCalendar.calendar(...)` in `zmanim.ts` is the single place to adjust.

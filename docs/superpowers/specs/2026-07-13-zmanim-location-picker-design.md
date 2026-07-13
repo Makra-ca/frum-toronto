@@ -39,12 +39,22 @@ it is already location-agnostic. Today it is only ever handed one fixed set of
 coordinates (Toronto). The feature is plumbing between three existing,
 off-the-shelf pieces — **we build none of the hard parts**:
 
-1. **Nominatim / OpenStreetMap** — global gazetteer: place name → coordinates +
-   country. (We query it; we don't maintain it.)
+1. **Photon** (`photon.komoot.io`, OpenStreetMap-based) — global gazetteer +
+   autocomplete: place name → coordinates + country. Called **client-side**
+   (CORS-enabled, no key). Purpose-built for search-as-you-type. (We query it; we
+   don't maintain it.)
 2. **`@hebcal/core`** — coordinates + date → zmanim (the astronomy). Already in
    the project.
 3. **`tz-lookup`** — coordinates → IANA timezone, so times display in the
    location's own clock.
+
+**Why Photon, client-side (not Nominatim, server-side):** Nominatim's public
+instance rate-limits/blocks cloud IPs, so a Vercel server proxy would funnel all
+users through a few blockable IPs and fail under real traffic; its in-memory
+cache wouldn't survive serverless cold starts anyway. Calling a geocoder from the
+**browser** distributes requests across each user's own IP (naturally within fair
+use), and Photon is CORS-enabled and built for autocomplete (Nominatim is a
+lookup engine with weak typeahead). No server route, so no open-proxy surface.
 
 ## User Experience
 
@@ -77,15 +87,15 @@ off-the-shelf pieces — **we build none of the hard parts**:
 
 ```
 User types "wasaga"
-      │  (debounced)
+      │  (debounced, client-side)
       ▼
-GET /api/zmanim/geocode?q=wasaga   ── server proxy to Nominatim (search)
+GET https://photon.komoot.io/api/?q=wasaga&limit=6   ── direct from browser (CORS)
       │
-      ▼  returns [{ label, lat, lon, countryCode }]
+      ▼  map GeoJSON → [{ label, lat, lon, countryCode }]
 User picks "Wasaga Beach, ON"
       │
       ▼  tz-lookup(lat, lon) → "America/Toronto"   (client, offline)
-      │  isIsrael = countryCode === "il"
+      │  isIsrael = countryCode === "IL"
       ▼  save to localStorage
 GET /api/zmanim?mode=week&date=...&lat=..&lon=..&tzid=..&label=..&il=0
       │
@@ -94,8 +104,9 @@ Screen: "Zmanim for Wasaga Beach, ON" — full week, tz-correct
 ```
 
 The **"Use my location"** path skips the search box: `navigator.geolocation`
-gives lat/lon directly → one reverse-geocode call for the label → same tz-lookup
-and same `/api/zmanim` call.
+gives lat/lon directly → one Photon **reverse** call
+(`https://photon.komoot.io/reverse?lat=..&lon=..`) for the label + country → same
+tz-lookup and same `/api/zmanim` call.
 
 ## Components & Changes
 
@@ -114,11 +125,14 @@ Currently every function uses the module-level `torontoLocation` constant.
   `America/Toronto` (`zmanim.ts:184`), as does the English date string
   (`zmanim.ts:142`). Both must take the target `tzid` so a Miami sunset formats
   in Eastern time, not always Toronto. `formatZmanTime(date, tzid)`.
-- **Israel candle-lighting nuance:** the `il` flag drives 1-day vs 2-day Yom Tov.
-  The 40-minute Jerusalem candle-lighting custom must be verified against the
-  `@hebcal/core` API during implementation — set `candleLightingMins`
-  appropriately for Israeli locations (default diaspora stays 18). This is an
-  implementation detail to confirm, not assume.
+- **Israel rules (decided):** pass `il: location.isIsrael` to
+  `HebrewCalendar.calendar(...)` — this gives correct **1-day Yom Tov** for
+  Israeli locations. **Candle lighting stays hebcal's 18-minute default
+  everywhere, including Israel.** The 40-minute value is a *Jerusalem-specific*
+  custom and is wrong for most Israeli cities (Haifa, Tel Aviv, Bet Shemesh, etc.
+  use other values), so we do **not** apply a blanket 40. 18 min is the base
+  halacha; communities add their own chumra. (Revisit per-city only if a rav
+  specifies.)
 
 ### 2. `src/app/api/zmanim/route.ts` — accept location params
 
@@ -141,29 +155,34 @@ Currently every function uses the module-level `torontoLocation` constant.
   displayed times (4 decimals ≈ 11 m precision, far finer than zmanim need).
 - Keep `revalidate = 3600`; the response naturally varies by query params.
 
-### 3. `src/app/api/zmanim/geocode/route.ts` — NEW
+### 3. `src/lib/geocode.ts` — NEW (client-side Photon helper)
 
-- `GET ?q=<place>` → forward to Nominatim search; set a proper `User-Agent`
-  (Nominatim usage policy); return a trimmed list
-  `[{ label, lat, lon, countryCode }]` (cap ~6 results).
-- `GET ?lat=..&lon=..` → Nominatim reverse geocode → single `{ label, countryCode }`
-  (used by "Use my location").
-- Small in-memory cache keyed by query to stay within Nominatim's 1 req/sec/IP
-  policy under light bursts.
-- On upstream failure, return a graceful error the client can surface.
+No server route. A small browser-callable module wrapping Photon:
+
+- `searchPlaces(q, signal?)` → `GET https://photon.komoot.io/api/?q=<q>&limit=6&lang=en`
+  → map the GeoJSON `FeatureCollection` to `GeocodeResult[]`
+  (`{ label, lat, lon, countryCode }`). Photon features give
+  `geometry.coordinates: [lon, lat]` and `properties: { name, city, state,
+  country, countrycode }`; build `label` from the available name parts.
+- `reverseGeocode(lat, lon)` → `GET https://photon.komoot.io/reverse?lat=..&lon=..&lang=en`
+  → single `{ label, countryCode }` (used by "Use my location").
+- Pure enough to unit-test by mocking `fetch` (no DOM needed).
+- On non-OK response or fetch error, throw/return an empty result the caller can
+  surface as "couldn't find that place."
 
 ### 4. `src/components/zmanim/LocationPicker.tsx` — NEW (shared)
 
 - Props: current `ZmanimLocation`, `onChange(location)`, and a `compact` flag
   (widget vs full page).
 - Debounced search (mirror the existing `UniversalSearch` pattern — 300ms +
-  `AbortController`) hitting `/api/zmanim/geocode`.
-- On result select: `tz-lookup` for tzid, compute `isIsrael`, persist to
-  `localStorage`, call `onChange`.
-- "📍 Use my location": `navigator.geolocation.getCurrentPosition` → reverse
-  geocode for label → same path. Handle permission-denied / unavailable
-  gracefully (show a message, keep current location).
-- "Back to Toronto" reset clears `localStorage`.
+  `AbortController`) calling `searchPlaces()` from `src/lib/geocode.ts`.
+- On result select: `tz-lookup` for tzid, `isIsrael = countryCode === "IL"`,
+  build the `ZmanimLocation`, call `onChange` (parent persists to `localStorage`).
+- "📍 Use my location": `navigator.geolocation.getCurrentPosition` →
+  `reverseGeocode()` for the label + country → same path. Handle
+  permission-denied / unavailable gracefully (show a message, keep current
+  location).
+- "Back to Toronto" reset calls `onChange(TORONTO_LOCATION)`.
 
 ### 5. Consumers
 
@@ -187,23 +206,26 @@ Currently every function uses the module-level `torontoLocation` constant.
 - **GPS denied/unavailable**: show a short message; keep current location.
 - **Invalid `/api/zmanim` params**: 400; client falls back to Toronto and clears
   the bad `localStorage` entry.
-- **Nominatim rate limit**: mitigated by server-side proxy + in-memory cache +
-  client debounce.
+- **Photon rate/fair-use**: naturally distributed (per-user browser IP) + 300ms
+  client debounce + min-2-chars keep request volume low. If Photon's public
+  instance is ever unreliable, the `src/lib/geocode.ts` interface is the single
+  swap point (self-hosted Photon, or a keyed provider like Geoapify/LocationIQ)
+  with no consumer changes.
 
 ## Testing
 
 - **`zmanim.ts` unit**: same date, different `ZmanimLocation` inputs (Toronto,
-  Wasaga Beach, Miami, Jerusalem) produce distinct, plausible times; times
-  format in the correct timezone; Jerusalem applies Israel rules (1-day Yom Tov,
-  Israel candle lighting) on a Yom Tov date.
-- **`formatZmanTime`**: a fixed instant renders differently for Toronto vs Miami
-  tzid (regression test for the hardcoded-timezone bug).
+  Miami, Jerusalem) produce distinct, plausible times; times format in the
+  correct timezone; an Israeli location computes without error (exact Yom Tov /
+  candle-time behavior verified live — brittle to assert).
+- **`formatZmanTime`**: a fixed instant renders differently for two tzids with
+  different offsets (regression test for the hardcoded-timezone bug).
 - **`/api/zmanim`**: no params → Toronto (unchanged); valid params → that
   location; invalid lat/lon → 400.
-- **geocode route**: known place returns results with coordinates + country;
-  reverse geocode returns a label.
-- **`LocationPicker`**: search-select updates state + persists; "Back to Toronto"
-  resets; GPS-denied path keeps current location.
+- **`src/lib/geocode.ts`**: mock `fetch`; a Photon FeatureCollection maps to
+  `{ label, lat, lon, countryCode }`; reverse maps to `{ label, countryCode }`;
+  non-OK response surfaces an error/empty result.
+- **`LocationPicker`**: verified live (repo has no React component test harness).
 
 ## Known Limitations
 
@@ -216,5 +238,5 @@ Currently every function uses the module-level `torontoLocation` constant.
 ## Rollout
 
 - Backward compatible: default path is unchanged Toronto behavior; only additive
-  params and a new route/component.
-- No DB migration.
+  params and new client-side files.
+- No DB migration. No new server route. No new env vars/secrets.
