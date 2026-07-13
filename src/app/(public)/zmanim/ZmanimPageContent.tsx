@@ -378,7 +378,7 @@ export function ZmanimPageContent() {
         <h3 className="font-medium text-gray-900 mb-2">About These Zmanim</h3>
         <ul className="text-sm text-gray-600 space-y-1">
           <li>• Times are calculated for {location.label} ({location.lat.toFixed(2)}°, {location.lon.toFixed(2)}°)</li>
-          <li>• Zmanim are based on the Magen Avraham calculation method</li>
+          <li>• Sof Zman Shma/Tefila use the GRA (Vilna Gaon) calculation method</li>
           <li>• Candle lighting is 18 minutes before sunset</li>
           <li>• Havdalah is calculated at 50 minutes after sunset</li>
           <li>• Always verify times with your local Rabbi</li>
