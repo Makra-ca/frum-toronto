@@ -20,6 +20,16 @@ import {
   MapPin,
   Star,
 } from "lucide-react";
+import { LocationPicker } from "@/components/zmanim/LocationPicker";
+import {
+  type ZmanimLocation,
+  TORONTO_LOCATION,
+  parseStoredLocation,
+  serializeLocation,
+  buildZmanimParams,
+} from "@/lib/zmanim-location";
+
+const ZMANIM_LOCATION_STORAGE_KEY = "ft_zmanim_location";
 
 interface ZmanimDay {
   date: string;
@@ -66,10 +76,34 @@ export function ZmanimPageContent() {
   const [weekData, setWeekData] = useState<ZmanimDay[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [startDate, setStartDate] = useState<Date>(() => getStartOfWeek(new Date()));
+  const [location, setLocation] = useState<ZmanimLocation>(TORONTO_LOCATION);
+
+  // Hydrate the saved location from localStorage on mount.
+  useEffect(() => {
+    const stored = parseStoredLocation(
+      localStorage.getItem(ZMANIM_LOCATION_STORAGE_KEY)
+    );
+    if (stored) setLocation(stored);
+  }, []);
+
+  const handleLocationChange = (loc: ZmanimLocation) => {
+    setLocation(loc);
+    if (
+      loc.label === TORONTO_LOCATION.label &&
+      loc.lat === TORONTO_LOCATION.lat &&
+      loc.lon === TORONTO_LOCATION.lon
+    ) {
+      localStorage.removeItem(ZMANIM_LOCATION_STORAGE_KEY);
+    } else {
+      localStorage.setItem(ZMANIM_LOCATION_STORAGE_KEY, serializeLocation(loc));
+    }
+  };
 
   useEffect(() => {
     setIsLoading(true);
-    fetch(`/api/zmanim?mode=week&date=${startDate.toISOString()}`)
+    fetch(
+      `/api/zmanim?mode=week&date=${startDate.toISOString()}&${buildZmanimParams(location).toString()}`
+    )
       .then((res) => res.json())
       .then((data) => {
         setWeekData(data);
@@ -79,7 +113,7 @@ export function ZmanimPageContent() {
         console.error("Failed to fetch zmanim:", err);
         setIsLoading(false);
       });
-  }, [startDate]);
+  }, [startDate, location]);
 
   const goToPreviousWeek = () => {
     setStartDate((prev) => {
@@ -170,12 +204,15 @@ export function ZmanimPageContent() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Zmanim for Toronto
+          Zmanim for {location.label}
         </h1>
         <p className="text-gray-600 flex items-center gap-1">
           <MapPin className="h-4 w-4" />
-          Toronto, Ontario, Canada
+          {location.label}
         </p>
+        <div className="mt-4">
+          <LocationPicker value={location} onChange={handleLocationChange} />
+        </div>
       </div>
 
       {/* Shabbat Banner */}
@@ -368,7 +405,7 @@ export function ZmanimPageContent() {
       <div className="mt-8 p-4 bg-gray-50 rounded-lg">
         <h3 className="font-medium text-gray-900 mb-2">About These Zmanim</h3>
         <ul className="text-sm text-gray-600 space-y-1">
-          <li>• Times are calculated for Toronto, ON (43.66°N, 79.40°W)</li>
+          <li>• Times are calculated for {location.label} ({location.lat.toFixed(2)}°, {location.lon.toFixed(2)}°)</li>
           <li>• Zmanim are based on the Magen Avraham calculation method</li>
           <li>• Candle lighting is 18 minutes before sunset</li>
           <li>• Havdalah is calculated at 50 minutes after sunset</li>
