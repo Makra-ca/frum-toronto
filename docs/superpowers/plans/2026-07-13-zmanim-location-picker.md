@@ -512,7 +512,7 @@ Expected: FAIL — module `@/lib/geocode` not found.
 
 - [ ] **Step 3: Implement the helper**
 
-Create `src/lib/geocode.ts` exporting `GeocodeResult` (`{ label, lat, lon, countryCode }`), `searchPlaces(q, signal?)`, and `reverseGeocode(lat, lon)`. Map Photon GeoJSON features (remember `coordinates` is `[lon, lat]`), build labels via a private `buildLabel(props)`, guard a blank query (return `[]`), pass the optional `AbortSignal` to `fetch`, and throw on non-OK responses. **Before finalizing, make one real call** (`curl 'https://photon.komoot.io/api/?q=wasaga&limit=2'`) to confirm the property names (`countrycode`, `name`, `city`, `state`, `country`) match — the test mocks assume these; correct them if Photon differs.
+Create `src/lib/geocode.ts` exporting `GeocodeResult` (`{ label, lat, lon, countryCode }`), `searchPlaces(q, signal?)`, and `reverseGeocode(lat, lon)`. Map Photon GeoJSON features (remember `coordinates` is `[lon, lat]`), build labels via a private `buildLabel(props)`, guard a blank query (return `[]`), pass the optional `AbortSignal` to `fetch`, and throw on non-OK responses. Note: `reverseGeocode` returns only `{ label, countryCode }` (no coords) — the caller already has lat/lon from `navigator.geolocation` and feeds those to `tzlookup` itself, so don't wire coordinates the caller won't use. **Before finalizing, make one real call** (`curl 'https://photon.komoot.io/api/?q=wasaga&limit=2'`) to confirm the property names (`countrycode`, `name`, `city`, `state`, `country`) match — the test mocks assume these; correct them if Photon differs.
 
 - [ ] **Step 4: Run test to verify it passes**
 
