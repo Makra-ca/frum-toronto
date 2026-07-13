@@ -22,15 +22,29 @@ function parseLocation(
     return { location: TORONTO_LOCATION };
   }
 
-  // At least one location param present → require a complete, valid set
+  // At least one location param present → require a complete, valid set.
+  // Guard against empty/whitespace strings: Number("") === 0 would otherwise
+  // coerce blank coords to a valid (0, 0) location instead of a 400.
   const lat = Number(latParam);
   const lon = Number(lonParam);
 
-  if (latParam === null || !Number.isFinite(lat) || lat < -90 || lat > 90) {
+  if (
+    latParam === null ||
+    latParam.trim() === "" ||
+    !Number.isFinite(lat) ||
+    lat < -90 ||
+    lat > 90
+  ) {
     return { error: "Invalid or missing 'lat' (must be a number between -90 and 90)" };
   }
 
-  if (lonParam === null || !Number.isFinite(lon) || lon < -180 || lon > 180) {
+  if (
+    lonParam === null ||
+    lonParam.trim() === "" ||
+    !Number.isFinite(lon) ||
+    lon < -180 ||
+    lon > 180
+  ) {
     return { error: "Invalid or missing 'lon' (must be a number between -180 and 180)" };
   }
 

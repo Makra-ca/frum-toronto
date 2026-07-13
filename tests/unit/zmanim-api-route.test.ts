@@ -24,6 +24,11 @@ describe('GET /api/zmanim location params', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 400 on empty-string coordinates', async () => {
+    const res = await GET(req('?lat=&lon=&tzid=America/Toronto'));
+    expect(res.status).toBe(400);
+  });
+
   it('computes for a valid custom location', async () => {
     const res = await GET(req('?lat=25.7617&lon=-80.1918&tzid=America/New_York&label=Miami&il=0'));
     expect(res.status).toBe(200);
