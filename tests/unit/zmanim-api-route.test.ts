@@ -29,6 +29,24 @@ describe('GET /api/zmanim location params', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 400 on out-of-range longitude', async () => {
+    expect((await GET(req('?lat=0&lon=999&tzid=America/Toronto'))).status).toBe(400);
+  });
+
+  it('returns 400 when only latitude is provided', async () => {
+    expect((await GET(req('?lat=25.76&tzid=America/Toronto'))).status).toBe(400);
+  });
+
+  it('returns 400 on non-numeric coordinates', async () => {
+    expect((await GET(req('?lat=abc&lon=def&tzid=America/Toronto'))).status).toBe(400);
+  });
+
+  it('a custom location produces different times than Toronto', async () => {
+    const toronto = await (await GET(req(''))).json();
+    const tokyo = await (await GET(req('?lat=35.6762&lon=139.6503&tzid=Asia/Tokyo&label=Tokyo&il=0'))).json();
+    expect(tokyo.zmanim.sunrise).not.toBe(toronto.zmanim.sunrise);
+  });
+
   it('computes for a valid custom location', async () => {
     const res = await GET(req('?lat=25.7617&lon=-80.1918&tzid=America/New_York&label=Miami&il=0'));
     expect(res.status).toBe(200);

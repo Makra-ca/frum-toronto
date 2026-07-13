@@ -7,7 +7,8 @@ import {
 } from "@/lib/zmanim";
 import { TORONTO_LOCATION, type ZmanimLocation } from "@/lib/zmanim-location";
 
-// Cache for 1 hour - zmanim only change once per day
+// revalidate hint; handler is dynamic because it reads query params —
+// each location is computed fresh (no cross-location cache poisoning)
 export const revalidate = 3600;
 
 function parseLocation(
