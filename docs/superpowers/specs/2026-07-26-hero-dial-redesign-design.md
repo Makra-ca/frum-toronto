@@ -21,7 +21,7 @@
 
 Two problems found while investigating, both verified:
 
-- **Urbanist has no Hebrew glyphs.** Confirmed against Google's served CSS: Urbanist ships `latin` and `latin-ext` only. Every Hebrew string on the site — Hebrew dates on `/community/calendar` and its detail page, `hebrewName` / `motherHebrewName` on tehillim, `niftarNameHebrew` on shiva notices — falls back to an arbitrary OS font (Segoe UI/David on Windows, Arial Hebrew on macOS, Noto on Android), mismatched in weight and x-height against Urbanist.
+- **Hebrew text on the site is rendered by an arbitrary OS font.** Two independent causes, both verified: `src/app/layout.tsx` requests `subsets: ["latin"]` only, so no Hebrew glyphs are ever loaded; and Urbanist ships no Hebrew subset in the first place (confirmed against Google's served CSS — `latin` and `latin-ext` only). Every Hebrew string on the site — Hebrew dates on `/community/calendar` and its detail page, `hebrewName` / `motherHebrewName` on tehillim, `niftarNameHebrew` on shiva notices — falls back to an arbitrary OS font (Segoe UI/David on Windows, Arial Hebrew on macOS, Noto on Android), mismatched in weight and x-height against Urbanist.
 - **The most-wanted recurring information is at the bottom of the homepage.** `src/app/page.tsx` lines 62–67 place `ZmanimWidget` and `EruvWidget` below the hero, banner ads, `QuickLinks`, `CommunityCornerTabs`, `FeaturedBusinesses` *and* `UpcomingEvents`.
 
 ### Non-goals
@@ -58,22 +58,53 @@ Two problems found while investigating, both verified:
 
 Top to bottom:
 
-1. **Live strip** — full-width, one line: candle-lighting time, eruv status, Hebrew date (parsha + date in Hebrew). Visually distinct from the hero body by a faint accent-tinted background and a bottom hairline.
+1. **Live strip** — full-width, one line: the primary zman (see *Primary zman* below), eruv status, Hebrew date (parsha + date in Hebrew). Visually distinct from the hero body by a faint accent-tinted background and a bottom hairline.
 2. **Two-column body** (single column below `md`):
-   - **Left:** `<h1>`, supporting sentence, search field, "Popular:" chips, one static stat line (`142 businesses · 38 shuls · 12 events this week`).
+   - **Left:** `<h1>`, supporting sentence, search field, "Popular:" chips, one stat line.
    - **Right:** the dial.
 3. No CTA button row. No scroll indicator. No eyebrow above the `<h1>`.
+
+The stat line reads `142 businesses · 38 shuls · 12 events this week`. Those numbers are **live** (§3) — the illustrative values here are placeholders. "Static" throughout this spec means *unanimated*: no count-up, rendered at its final value.
+
+### Primary zman — the value shown in the strip and the hub
+
+`getZmanimForDate()` returns `candleLighting` only on Friday and Yom Tov eve, and `havdalah` only when the day ends Shabbos/Yom Tov. On a Tuesday both are `null`. A single resolver, `resolvePrimaryZman()` in `src/lib/hero/primaryZman.ts`, is the only place this is decided, and both the strip and the hub consume its output:
+
+| Condition | Shown | Label |
+|---|---|---|
+| `candleLighting` is non-null | that time | `Candle lighting` |
+| else `havdalah` is non-null | that time | `Havdalah` |
+| else | upcoming Shabbos candle lighting via the existing `getUpcomingShabbat()` | `Candle lighting Fri` |
+| all three unavailable | the FrumToronto wordmark in the hub; the strip omits the zman segment entirely and shows only eruv + Hebrew date | — |
+
+The final row exists so no code path can render `formatZmanTime(null)` → `"--:--"`. The resolver returns `{ time: Date; label: string } | null`; a `null` return is what triggers the wordmark fallback. This is the only invented rule in the spec and it is confined to one function.
 
 ### The dial
 
 - A hairline ring with **72 tick marks**, one per 20 minutes of the day (72 × 20 min = 1440 min). Every sixth tick (each two hours) is longer.
-- Ticks for elapsed time today are rendered at low opacity; upcoming ticks at higher opacity. The boundary is a real reading of the current time in the **displayed location's** timezone.
+- Ticks for elapsed time today are rendered at low opacity; upcoming ticks at higher opacity.
+- **Elapsed ticks are computed client-side only.** On the server, and on the first client render, every tick renders as *upcoming* — so server and client markup agree and there is no hydration mismatch. After mount, `minutesElapsedInDay(new Date(), tzid)` runs and the ring updates, then re-runs **every 60 seconds** so a 20-minute boundary is never more than a minute stale. The interval is cleared on unmount.
 - **Eight navigation discs** ride the ring, evenly spaced, orbiting at **0.5°/sec** (one lap ≈ 12 minutes; the implementation constant is the single source of truth and may be tuned between 0.4 and 0.6°/sec without other changes).
 - Each disc: 44px, circular, 1px accent border, transparent-dark fill, one monochrome outline icon, and a label **outside** the disc at 9.5px uppercase. Disc size and label size never change.
 - Discs stay upright while orbiting — the ring rotates and each disc counter-rotates by the same amount.
-- **Hub** (centre): tonight's candle-lighting time and the label "Candle lighting". On hovering a disc, the hub instead shows that destination's name and its count (e.g. "Shuls" / "38 shuls in Toronto"), reverting on mouse-out. This replaces the current hover-resize behaviour, so nothing moves on hover.
+- **Hub** (centre): the primary zman and its label. On hovering a disc, the hub instead shows that destination's name and its secondary line, reverting on mouse-out. This replaces the current hover-resize behaviour, so nothing moves on hover.
 
 The eight destinations, in ring order: Shuls, Zmanim, Events, Directory, Shiurim, Classifieds, Simchas, Ask the Rabbi. (Nine → eight; **Shiva is dropped from the dial** — it remains in the nav and on `/shiva`. Eight divides the ring evenly and keeps the sombre item out of a decorative rotation.)
+
+**Only three destinations have a live count.** `heroNodes.ts` gives every node a required `description` string and an optional `countKey`:
+
+| Destination | `countKey` | Hub secondary line |
+|---|---|---|
+| Directory | `businesses` | `142 kosher businesses` (live) |
+| Shuls | `shuls` | `38 shuls in Toronto` (live) |
+| Events | `events` | `12 this week` (live) |
+| Zmanim | — | `Today's times` |
+| Shiurim | — | `Torah classes near you` |
+| Classifieds | — | `Buy, sell & trade` |
+| Simchas | — | `Share your good news` |
+| Ask the Rabbi | — | `Answered questions` |
+
+Nodes without a `countKey` render `description` verbatim. No additional count queries are introduced.
 
 ---
 
@@ -81,15 +112,34 @@ The eight destinations, in ring order: Shuls, Zmanim, Events, Directory, Shiurim
 
 `HeroSection.tsx` currently performs six jobs in one file: background decoration, orbit animation, stats fetching + count-up animation, search, CTA rendering, and scroll control. It splits into units with single responsibilities:
 
-| File | Responsibility | Depends on |
-|---|---|---|
-| `src/lib/hero/dial.ts` | **Pure geometry and time maths.** No React, no DOM. | nothing |
-| `src/components/home/hero/HeroSection.tsx` | Layout shell. Receives all data as props. Renders the other units. | the units below |
-| `src/components/home/hero/LiveStrip.tsx` | Client. Renders the strip; owns location hydration. | `useStoredZmanimLocation`, `lib/zmanim-location` |
-| `src/components/home/hero/CommunityDial.tsx` | Client. RAF orbit loop, tick rendering, hub state, hover/focus pause. | `lib/hero/dial` |
-| `src/components/home/hero/HeroSearch.tsx` | Client. Wraps `UniversalSearch`, renders popular chips. | `UniversalSearch` |
-| `src/components/home/hero/LightRays.tsx` | Client. React Bits component, vendored. Gated renderer. | `ogl` |
-| `src/components/home/hero/heroNodes.ts` | The eight destinations: id, label, href, icon, count-accessor key. | `lucide-react` |
+| File | S/C | Responsibility | Depends on |
+|---|---|---|---|
+| `src/lib/hero/dial.ts` | — | **Pure geometry and time maths.** No React, no DOM. | nothing |
+| `src/lib/hero/primaryZman.ts` | — | **Pure.** `resolvePrimaryZman()` — the candle-lighting/havdalah/upcoming fallback chain. | `lib/zmanim` |
+| `src/components/home/hero/heroNodes.ts` | — | The eight destinations: `id`, `label`, `href`, `icon`, `description`, optional `countKey`. | `lucide-react` |
+| `src/components/home/hero/HeroSection.tsx` | **Server** | Layout shell. Receives all server data as props, renders `HeroLiveData` and `HeroSearch`. Holds no state. | the units below |
+| `src/components/home/hero/HeroLiveData.tsx` | **Client** | **Owns the resolved location** and everything derived from it. Calls `useStoredZmanimLocation()`, performs the non-Toronto fetch, and renders `LiveStrip` + `CommunityDial` as children, passing each the resolved values. | `useStoredZmanimLocation`, `lib/hero/primaryZman` |
+| `src/components/home/hero/LiveStrip.tsx` | **Client** | Presentational. Renders zman + eruv + Hebrew date from props. No fetching, no location logic. | — |
+| `src/components/home/hero/CommunityDial.tsx` | **Client** | RAF orbit loop, tick rendering, hub state, hover/focus pause. Receives zman + counts + `tzid` as props. | `lib/hero/dial` |
+| `src/components/home/hero/HeroSearch.tsx` | **Client** | Wraps `UniversalSearch`, renders popular chips. Owns the `useRouter` call that currently lives in `HeroSection`. | `UniversalSearch` |
+| `src/components/home/hero/LightRays.tsx` | **Client** | React Bits component, vendored. Gated renderer. | `ogl` |
+
+`HeroLiveData` exists specifically to resolve the ownership question: the strip and the dial both display location-dependent times, and siblings cannot pass props to each other. It is the single client boundary that owns the location, and it is what makes §5 coherent. Its props are the server-rendered Toronto values; its state is the resolved location plus whatever times that location produced.
+
+`HeroSection.tsx` becomes a **server component** — the `useRouter` call that forces `"use client"` today moves into `HeroSearch`.
+
+### `src/lib/hero/primaryZman.ts` interface
+
+```ts
+export interface PrimaryZman { time: Date; label: string }
+
+/** Applies the fallback chain in §1. Returns null when no zman is available. */
+export function resolvePrimaryZman(
+  zmanim: Pick<ZmanimResponse, "candleLighting" | "havdalah">,
+  location: ZmanimLocation,
+  now: Date,
+): PrimaryZman | null
+```
 
 `src/components/home/HeroSection.tsx` is deleted; `src/app/page.tsx` imports from the new path.
 
@@ -116,21 +166,36 @@ Every value the dial needs comes from these three functions. `CommunityDial` hol
 
 ## 3. Data flow
 
-`src/app/page.tsx` is already a server component and stays one.
+`src/app/page.tsx` is already a server component. It becomes **`async`**, and it must declare `export const dynamic = "force-dynamic"`.
+
+**The `force-dynamic` declaration is required, not optional.** `page.tsx` currently uses no dynamic APIs, so Next.js statically prerenders it at build time. Adding `getZmanimForDate(new Date())` and the count queries without it would bake build-time candle lighting, eruv status and counts into the HTML permanently. The two routes whose work is moving into the page — `/api/stats/route.ts` and `/api/community/eruv/route.ts` — both carry `dynamic = "force-dynamic"` today; moving their queries into the page without it silently drops that guarantee. This also matches the project `CLAUDE.md` rule for admin-managed content.
 
 **Server, on render:**
 1. `getZmanimForDate(new Date(), TORONTO_LOCATION)` → candle lighting, havdalah, Hebrew date, parsha, `isShabbat`.
-2. Direct Drizzle query for today's `eruvStatus` row.
-3. Direct Drizzle count queries for approved+active `businesses`, active `shuls`, and future approved+active `events` within 7 days.
+2. `resolvePrimaryZman(...)` on that result → the strip's and hub's initial value.
+3. Drizzle query for the **latest** `eruvStatus` row: `orderBy(desc(eruvStatus.statusDate)).limit(1)`.
+4. Drizzle count queries for approved+active `businesses`, active `shuls`, and future approved+active `events` within 7 days. These are the only three counts (§1).
 
-These are passed to `<HeroSection>` as props. This removes two client-side fetch waterfalls: the hero's own `fetch("/api/stats")` (current lines 224–229) and `EruvWidget`'s fetch is *not* touched — `EruvWidget` keeps its own fetch since it stays on the page unchanged.
+**Eruv semantics — deliberately identical to `/api/community/eruv`.** That route returns the latest row by `statusDate`, *not* today's row, and applies **no staleness cutoff**. Admins post a row per update rather than per day, so a `statusDate = today` query would usually return nothing and the strip would show no eruv while `EruvWidget` further down the same page showed "Up". Matching the existing query exactly is what prevents the two disagreeing. **When there is no row at all, the strip omits the eruv segment** — it never renders "Unknown" or a default state.
+
+These are passed to `<HeroSection>` as props. This removes **one** client-side fetch waterfall — the hero's own `fetch("/api/stats")` (current lines 224–229). `EruvWidget` keeps its own fetch, since it stays on the page unchanged.
 
 **Client, after hydration:**
-`LiveStrip` calls the existing `useStoredZmanimLocation()` hook. If it returns Toronto (the default, and the case with no `localStorage` entry), nothing further happens — no request, no re-render of times. If it returns a non-Toronto location, `LiveStrip` fetches `/api/zmanim?lat=…&lon=…&tzid=…&label=…&il=…` (the route already accepts and validates these) and replaces the displayed times.
+`HeroLiveData` calls the existing `useStoredZmanimLocation()` hook. If it returns Toronto (the default, and the case with no `localStorage` entry), nothing further happens — no request, no re-render of times. If it returns a non-Toronto location, it fetches `/api/zmanim?lat=…&lon=…&tzid=…&label=…&il=…` (the route already accepts and validates these), re-runs `resolvePrimaryZman()` on the result, and passes the new values down to both children in one update.
 
-`@hebcal/core` therefore stays out of the client bundle.
+`@hebcal/core` therefore stays out of the client bundle. `resolvePrimaryZman` is pure: it takes `candleLighting`, `havdalah` and `upcomingCandleLighting` as `Date | null` inputs and picks one. The server supplies the third from `getUpcomingShabbat(TORONTO_LOCATION)`.
 
-`CommunityDial` receives `candleLighting` and `tzid` as props from whatever `LiveStrip` resolved, so hub and strip never disagree. Both live under a single client boundary component that owns the resolved location; `HeroSection` passes the server-rendered Toronto values into it as initial state.
+**One additive API change is required.** For a non-Toronto location the client needs that third value too, and the default (`mode=today`) response of `/api/zmanim` does not currently include it. The response gains one field:
+
+```ts
+upcomingCandleLighting: string | null   // formatted in the requested location's tzid
+```
+
+computed by `getUpcomingShabbat(location)` — a function that **already accepts a location parameter**, so no new halachic logic is introduced and no existing behaviour changes. This is purely additive; existing consumers ignore the new field. The route's separate `mode=shabbat` branch remains hardcoded to Toronto and is **not** touched (it has no callers, per the 2026-07-13 session notes).
+
+Without this, non-Toronto visitors would lose the zman segment on every non-Friday — a silent regression, which is why it is specified rather than deferred.
+
+Because `HeroLiveData` owns the location, the strip and the hub cannot disagree: there is one resolved value and both receive it as props.
 
 ---
 
@@ -142,14 +207,12 @@ These are passed to `<HeroSection>` as props. This removes two client-side fetch
 import { Frank_Ruhl_Libre, Assistant } from "next/font/google";
 
 const frankRuhl = Frank_Ruhl_Libre({
-  variable: "--font-display",
+  variable: "--font-frank",       // NOT --font-display, see below
   subsets: ["latin", "hebrew"],
-  weight: ["400", "500", "700"],
 });
 const assistant = Assistant({
-  variable: "--font-sans-base",
+  variable: "--font-assistant",   // NOT --font-sans
   subsets: ["latin", "hebrew"],
-  weight: ["300", "400", "600", "700", "800"],
 });
 ```
 
@@ -158,9 +221,13 @@ Both variables go on `<body>`. The `Urbanist` import is removed.
 `src/app/globals.css`, inside the existing `@theme inline` block:
 
 ```css
---font-sans: var(--font-sans-base);   /* was var(--font-urbanist) */
---font-display: var(--font-display);
+--font-sans: var(--font-assistant);   /* was var(--font-urbanist) */
+--font-display: var(--font-frank);
 ```
+
+**The `next/font` variable names must differ from the Tailwind theme token names.** Writing `--font-display: var(--font-display)` is self-referential and resolves to nothing, so the `<h1>` would silently fall back to the sans stack with no error. The existing Urbanist setup works precisely because the two names differ (`--font-sans: var(--font-urbanist)`); the new pairs follow the same rule.
+
+**No `weight` array is passed.** Both families are variable fonts on Google Fonts; specifying discrete weights would load fixed instances and give up the variable axis. Omitting `weight` keeps the full range available.
 
 `--font-display` becomes available as Tailwind's `font-display` utility and is applied to the hero `<h1>`, the hub time, the "Today"-style headings, and the logo wordmark. Everything else inherits Assistant via `font-sans`.
 
@@ -177,6 +244,7 @@ Following the saved location means the hub time and the strip cannot be purely s
 3. While the non-Toronto fetch is in flight, times keep their server-rendered values and the strip marks itself `aria-busy="true"`; values are replaced in one update, never digit-by-digit.
 4. **The eruv row is hidden for non-Toronto locations.** Eruv status in the database is Toronto's; showing it under another city's heading would be wrong.
 5. Fetch failure leaves the Toronto values in place and logs `[HERO]`-prefixed console output. No error UI in the hero.
+6. **The dial's tick ring shifts too, and that is already handled by §1.** Elapsed ticks are never server-rendered — every tick starts as *upcoming* and the elapsed boundary is computed after mount from the resolved location's `tzid`. So a non-Toronto visitor's ring is correct on its first painted state rather than correcting itself, and there is no second visible change.
 
 ---
 
@@ -184,7 +252,9 @@ Following the saved location means the hub time and the strip cannot be purely s
 
 - **Pause on interaction.** The RAF loop skips its angle increment while a pointer is inside the dial container or while focus is within it (`focusin` / `focusout`). A moving link becomes stationary exactly when someone tries to click it. The current rotating links are a WCAG 2.2.2 (Pause, Stop, Hide) failure and a motor-accessibility problem.
 - **`prefers-reduced-motion: reduce`** → the RAF loop never starts; one static frame is painted; `LightRays` is not mounted, replaced by a static gradient plus SVG grain.
-- **Below `md`** → no dial, no WebGL. Mobile order: strip → `<h1>` → search → three destination chips. Nothing 300px tall between the headline and the content.
+- **Below `md`** → no dial, no WebGL. Mobile order: strip → `<h1>` → search → **destination chips** → stat line. Nothing 300px tall between the headline and the content.
+- **Mobile chips are the first three entries of `heroNodes.ts`** — Shuls, Zmanim, Events — rendered as links to their `href`. They are a `.slice(0, 3)` of the single source of truth, not a second hardcoded list.
+- **The "Popular:" search chips (§1) are hidden below `md`.** Two rows of chips on a phone reads as noise, and the destination chips are the more useful of the two. So: mobile shows destination chips only; `md` and above shows "Popular:" chips under the search field and the destinations live in the dial.
 - Each disc is a real `next/link` `<a>` with an `aria-label` combining label and description ("Shuls — 38 shuls in Toronto"), and a visible `focus-visible` ring.
 - The tick ring is decorative: `aria-hidden="true"`.
 - Hub text changes on hover are cosmetic only; the accessible name of each link never depends on hub state.
@@ -210,7 +280,7 @@ From `src/app/globals.css` — each grepped across `src/**/*.tsx` and confirmed 
 
 `star-twinkle` (keyframes + class), `shimmer-effect` (+ `shimmer` keyframes), `animate-pulse-ring` and `animate-pulse-ring-delayed` (+ `pulse-ring` keyframes), `animate-gradient-shift` (+ `gradient-shift` keyframes), `animate-bounce-slow` (+ `bounce-slow` keyframes). Also `animate-pulse-ring-slow` and `pulse-ring-expand`, which are already unreferenced anywhere in the codebase.
 
-`/api/stats/route.ts` is **kept** — it must be re-grepped for other callers before any decision to remove it; this spec does not remove it.
+`/api/stats/route.ts` **becomes dead code and is deliberately kept.** Grepped: `HeroSection.tsx:225` is its only caller anywhere in `src/`, so removing that fetch leaves the route unreferenced. It is left in place rather than deleted — deleting a working public endpoint is a separate decision for the owner, and the route costs nothing while unused. This is a conscious deferral, not an unchecked assumption.
 
 ---
 
@@ -223,7 +293,15 @@ From `src/app/globals.css` — each grepped across `src/**/*.tsx` and confirmed 
 - `getNodePosition` distributes 8 nodes at 45° intervals; `angleDeg = 360` is identical to `angleDeg = 0`; all results stay within 0–100.
 - `minutesElapsedInDay` is computed in the supplied `tzid`, not the runner's local zone: a single UTC instant yields different values for `America/Toronto` and `Asia/Jerusalem`. Result is clamped to 0–1440.
 
-**Not unit-tested:** the RAF loop, pause-on-hover, WebGL mounting, and font loading. The repo has no React component test harness, consistent with the zmanim location picker work. These are verified in a real browser against a checklist:
+**`tests/unit/hero-primary-zman.test.ts`** against `src/lib/hero/primaryZman.ts`:
+
+- Friday (`candleLighting` set) → that time, label `Candle lighting`.
+- Saturday (`havdalah` set, `candleLighting` null) → havdalah, label `Havdalah`.
+- Tuesday (both null, `upcomingCandleLighting` set) → upcoming, label `Candle lighting Fri`.
+- All three null → returns `null` (which drives the wordmark fallback).
+- The function never returns a `PrimaryZman` whose `time` is null or an invalid `Date`.
+
+**Not unit-tested:** the RAF loop, pause-on-hover, WebGL mounting, and font loading. `@testing-library/react` and `@testing-library/jest-dom` *are* devDependencies, but `jsdom` is not installed and `vitest.config.mts` sets `environment: 'node'` — so there is no DOM environment to render into. Standing one up is out of scope here; component behaviour is verified in a real browser instead, consistent with the zmanim location picker work. Checklist:
 
 1. Ring rotates; hovering the cluster stops it; leaving resumes it.
 2. Keyboard-tabbing into a disc stops rotation; tabbing out resumes it.
@@ -233,7 +311,10 @@ From `src/app/globals.css` — each grepped across `src/**/*.tsx` and confirmed 
 6. At 375px width → no dial, no canvas, correct stacking order.
 7. Hebrew renders in Assistant/Frank Ruhl Libre (not an OS font) on the hero strip, `/community/calendar`, and `/community/tehillim`.
 8. With `ft_zmanim_location` set to Jerusalem → strip shows the location name, times update once, eruv row absent.
-9. `eslint` and `tsc` at 0 errors before commit.
+9. On a **non-Friday**, hub and strip show the upcoming Shabbos lighting labelled `Candle lighting Fri` — not `--:--` and not an empty hub.
+10. Hard-reload twice several minutes apart in production build → candle lighting, eruv and counts differ from the build-time values, confirming `force-dynamic` took effect.
+11. Hebrew headline text (`font-display`) renders in Frank Ruhl Libre, not the sans fallback — the check that catches the circular-variable mistake in §4.
+12. `eslint` and `tsc` at 0 errors before commit.
 
 ---
 
