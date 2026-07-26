@@ -92,3 +92,43 @@ describe('GET /api/zmanim date param is a calendar date (spec §11)', () => {
     expect(body.candleLighting).not.toBe('--:--');
   });
 });
+
+describe('GET /api/zmanim ISO fields for the hero (spec §3)', () => {
+  it('exposes raw ISO values alongside the formatted ones on erev Shabbos', async () => {
+    const res = await GET(req('?date=2026-07-24T12:00:00.000Z'));
+    const body = await res.json();
+
+    // Formatted values stay exactly as they were, for existing consumers.
+    expect(body.candleLighting).toBe('8:31 PM');
+    // ISO values are machine-readable and never the "--:--" sentinel.
+    expect(body.candleLightingISO).toBe('2026-07-25T00:31:00.000Z');
+    expect(body.havdalahISO).toBeNull();
+    expect(body.upcomingCandleLightingISO).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('returns null ISO values on an ordinary weekday, never "--:--"', async () => {
+    const res = await GET(req('?date=2026-07-21T12:00:00.000Z'));
+    const body = await res.json();
+
+    expect(body.candleLighting).toBe('--:--');       // legacy formatted field
+    expect(body.candleLightingISO).toBeNull();        // the field the hero reads
+    expect(body.havdalahISO).toBeNull();
+    // The weekday fallback: there is always an upcoming Shabbos.
+    expect(body.upcomingCandleLightingISO).not.toBeNull();
+  });
+
+  it('gives havdalah an ISO value on Shabbos', async () => {
+    const res = await GET(req('?date=2026-07-25T12:00:00.000Z'));
+    const body = await res.json();
+    expect(body.havdalahISO).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(body.candleLightingISO).toBeNull();
+  });
+
+  it('computes upcomingCandleLightingISO for the requested location, not Toronto', async () => {
+    const toronto = await (await GET(req('?date=2026-07-21T12:00:00.000Z'))).json();
+    const jerusalem = await (
+      await GET(req('?date=2026-07-21T12:00:00.000Z&lat=31.7683&lon=35.2137&tzid=Asia/Jerusalem&il=1'))
+    ).json();
+    expect(jerusalem.upcomingCandleLightingISO).not.toBe(toronto.upcomingCandleLightingISO);
+  });
+});

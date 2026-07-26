@@ -28,6 +28,15 @@ export interface NodePosition {
 export const TICKS_PER_DAY = 72;
 export const MINUTES_PER_TICK = 24 * 60 / TICKS_PER_DAY; // 20
 
+/**
+ * Math.cos/Math.sin are not bit-identical across V8 builds, so a server-rendered
+ * coordinate and the client's recomputation of it can differ in the last decimal
+ * places — enough for React to report a hydration mismatch on all 72 ticks.
+ * Rounding removes the whole class of problem; 4 decimals is far below sub-pixel
+ * for a 400-unit viewBox.
+ */
+const round4 = (n: number) => Math.round(n * 1e4) / 1e4;
+
 const MINOR_TICK_LENGTH = 7;
 const MAJOR_TICK_LENGTH = 14;
 
@@ -57,10 +66,10 @@ export function getTickMarks(
     const sin = Math.sin(angle);
 
     return {
-      x1: centre + cos * radius,
-      y1: centre + sin * radius,
-      x2: centre + cos * (radius - length),
-      y2: centre + sin * (radius - length),
+      x1: round4(centre + cos * radius),
+      y1: round4(centre + sin * radius),
+      x2: round4(centre + cos * (radius - length)),
+      y2: round4(centre + sin * (radius - length)),
       elapsed: i < elapsedTicks,
     };
   });
@@ -82,8 +91,8 @@ export function getNodePosition(
   const rad = ((base + angleDeg) * Math.PI) / 180;
 
   return {
-    x: 50 + Math.sin(rad) * radiusPct,
-    y: 50 - Math.cos(rad) * radiusPct,
+    x: round4(50 + Math.sin(rad) * radiusPct),
+    y: round4(50 - Math.cos(rad) * radiusPct),
   };
 }
 

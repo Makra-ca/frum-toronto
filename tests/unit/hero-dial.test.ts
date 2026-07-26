@@ -18,12 +18,15 @@ describe("tick geometry", () => {
     expect(getTickMarks(SIZE, RADIUS, 0)).toHaveLength(72);
   });
 
+  // Distances derived from coordinates that are rounded to 4 decimals carry up to
+  // ~1e-4 of error, so these tolerances are precision 3 rather than 6. See the
+  // rounding rationale in src/lib/hero/dial.ts.
   it("draws every tick inward from the ring radius", () => {
     const centre = SIZE / 2;
     for (const t of getTickMarks(SIZE, RADIUS, 0)) {
       const outer = Math.hypot(t.x1 - centre, t.y1 - centre);
       const inner = Math.hypot(t.x2 - centre, t.y2 - centre);
-      expect(outer).toBeCloseTo(RADIUS, 6);
+      expect(outer).toBeCloseTo(RADIUS, 3);
       expect(inner).toBeLessThan(outer);
     }
   });
@@ -38,7 +41,7 @@ describe("tick geometry", () => {
     expect(major).toBeGreaterThan(minor);
 
     for (let i = 0; i < 72; i++) {
-      expect(len(i), `tick ${i}`).toBeCloseTo(i % 6 === 0 ? major : minor, 6);
+      expect(len(i), `tick ${i}`).toBeCloseTo(i % 6 === 0 ? major : minor, 3);
     }
     // 72 / 6 = 12 major marks, one every two hours.
     expect(marks.filter((_, i) => i % 6 === 0)).toHaveLength(12);
@@ -112,7 +115,7 @@ describe("node placement", () => {
       const b = getNodePosition(1, 8, angle, 40);
       return Math.hypot(a.x - b.x, a.y - b.y);
     };
-    expect(gap(0)).toBeCloseTo(gap(137), 6);
+    expect(gap(0)).toBeCloseTo(gap(137), 3);
   });
 });
 
@@ -137,6 +140,32 @@ describe("minutesElapsedInDay", () => {
       const m = minutesElapsedInDay(d, "America/Toronto");
       expect(m).toBeGreaterThanOrEqual(0);
       expect(m).toBeLessThanOrEqual(1440);
+    }
+  });
+});
+
+describe("coordinates are rounded so SSR and the client agree", () => {
+  // Math.cos/Math.sin are not bit-identical across V8 builds, so the server and
+  // the browser serialise these numbers differently in the 14th decimal place —
+  // enough for React to report a hydration mismatch on every tick. Rounding in
+  // the pure module removes the class of problem entirely.
+  const isRounded = (n: number) => Math.abs(n - Math.round(n * 1e4) / 1e4) < 1e-12;
+
+  it("rounds every tick coordinate to 4 decimal places", () => {
+    for (const t of getTickMarks(400, 158, 500)) {
+      for (const v of [t.x1, t.y1, t.x2, t.y2]) {
+        expect(isRounded(v), `${v} is not rounded`).toBe(true);
+      }
+    }
+  });
+
+  it("rounds every node percentage to 4 decimal places", () => {
+    for (let angle = 0; angle < 360; angle += 11) {
+      for (let i = 0; i < 8; i++) {
+        const p = getNodePosition(i, 8, angle, 38);
+        expect(isRounded(p.x), `${p.x} is not rounded`).toBe(true);
+        expect(isRounded(p.y), `${p.y} is not rounded`).toBe(true);
+      }
     }
   });
 });

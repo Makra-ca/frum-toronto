@@ -162,6 +162,20 @@ export async function GET(request: Request) {
       },
       candleLighting: formatZmanTime(zmanimData.candleLighting, location.tzid),
       havdalah: formatZmanTime(zmanimData.havdalah, location.tzid),
+
+      // Raw ISO values for machine consumers (the homepage hero).
+      //
+      // The formatted fields above cannot express absence: formatZmanTime(null)
+      // returns the string "--:--", which is TRUTHY, so a caller cannot tell "no
+      // candle lighting today" from a real time. These are null when there is no
+      // such zman, and are what resolvePrimaryZman() consumes.
+      //
+      // `upcoming` is always relative to NOW, never to the `date` param —
+      // getUpcomingShabbat() calls new Date() internally.
+      candleLightingISO: zmanimData.candleLighting?.toISOString() ?? null,
+      havdalahISO: zmanimData.havdalah?.toISOString() ?? null,
+      upcomingCandleLightingISO:
+        getUpcomingShabbat(location).candleLighting?.toISOString() ?? null,
     };
 
     return NextResponse.json(formattedData);

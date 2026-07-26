@@ -1,4 +1,5 @@
-import { HeroSection } from "@/components/home/HeroSection";
+import { HeroSection } from "@/components/home/hero/HeroSection";
+import { getHeroData } from "@/lib/hero/heroData";
 import { CommunityCornerTabs } from "@/components/home/CommunityCornerTabs";
 import { QuickLinks } from "@/components/home/QuickLinks";
 import { FeaturedBusinesses } from "@/components/home/FeaturedBusinesses";
@@ -10,11 +11,18 @@ import { OmerWidget } from "@/components/widgets/OmerWidget";
 import { HomepageBanner } from "@/components/homepage/HomepageBanner";
 import { HomepageSidebarAds, HomepageSidebarAdsMobile } from "@/components/homepage/HomepageSidebarAds";
 
-export default function HomePage() {
+// The hero renders live zmanim, eruv status and counts on the server. Without
+// this the page would be statically prerendered and those values frozen at build
+// time. /api/stats and /api/community/eruv both declare the same thing.
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const hero = await getHeroData();
+
   return (
     <div>
       {/* Hero Section */}
-      <HeroSection />
+      <HeroSection zmanim={hero.zmanim} eruv={hero.eruv} counts={hero.counts} />
 
       {/* Banner Ads - After Hero */}
       <HomepageBanner />
