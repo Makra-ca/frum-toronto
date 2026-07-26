@@ -85,7 +85,7 @@ Two guarantees make that airtight: the resolver takes `Date | null` inputs and n
 
 - A hairline ring with **72 tick marks**, one per 20 minutes of the day (72 × 20 min = 1440 min). Every sixth tick (each two hours) is longer.
 - Ticks for elapsed time today are rendered at low opacity; upcoming ticks at higher opacity.
-- **Elapsed ticks are computed client-side only, and only once the location is final.** On the server, and on every client render until `isResolved` is true (§2), every tick renders as *upcoming* — so server and client markup agree and there is no hydration mismatch. Once `isResolved` is true, `minutesElapsedInDay(new Date(), tzid)` runs against the final `tzid` and the ring updates, then re-runs **every 60 seconds** so a 20-minute boundary is never more than a minute stale. The interval is cleared on unmount. Gating on `isResolved` rather than on mount is what prevents the ring painting against Toronto and then jumping.
+- **Elapsed ticks are computed client-side only, and only once the stored location is known.** On the server, and on every client render until `isHydrated` is true (§2), every tick renders as *upcoming* — so server and client markup agree and there is no hydration mismatch. Once `isHydrated` is true, `minutesElapsedInDay(new Date(), tzid)` runs against that `tzid` and the ring updates, then re-runs **every 60 seconds** so a 20-minute boundary is never more than a minute stale. The interval is cleared on unmount. Gating on `isHydrated` rather than on mount prevents painting against Toronto and then jumping; gating on it rather than on the fetch keeps the ring working when the network doesn't.
 - **Eight navigation discs** ride the ring, evenly spaced, orbiting at **0.5°/sec** (one lap ≈ 12 minutes; the implementation constant is the single source of truth and may be tuned between 0.4 and 0.6°/sec without other changes).
 - Each disc: 44px, circular, 1px accent border, transparent-dark fill, one monochrome outline icon, and a label **outside** the disc at 9.5px uppercase. Disc size and label size never change.
 - Discs stay upright while orbiting — the ring rotates and each disc counter-rotates by the same amount.
@@ -117,10 +117,10 @@ Nodes without a `countKey` render `description` verbatim. No additional count qu
 | File | S/C | Responsibility | Depends on |
 |---|---|---|---|
 | `src/lib/hero/dial.ts` | — | **Pure geometry and time maths.** No React, no DOM. | nothing |
-| `src/lib/hero/primaryZman.ts` | — | **Pure.** `resolvePrimaryZman()` — the candle-lighting/havdalah/upcoming fallback chain. | `lib/zmanim` |
+| `src/lib/hero/primaryZman.ts` | — | **Pure.** `resolvePrimaryZman()` — the candle-lighting/havdalah/upcoming fallback chain. | `lib/zmanim` **(types only)** |
 | `src/components/home/hero/heroNodes.ts` | — | The eight destinations: `id`, `label`, `href`, `icon`, `description`, optional `countKey`. | `lucide-react` |
 | `src/components/home/hero/HeroSection.tsx` | **Server** | Layout shell. Receives all server data as props, renders `HeroLiveData` and `HeroSearch`. Holds no state. | the units below |
-| `src/components/home/hero/HeroLiveData.tsx` | **Client** | **Owns the resolved location** and everything derived from it. A *context provider* that renders `{children}` — it imposes no layout. Calls `useStoredZmanimLocation()`, performs the non-Toronto fetch, resolves the primary zman, and exposes `{ location, primaryZman, eruv, counts, isResolved }` via context. | `useStoredZmanimLocation`, `lib/hero/primaryZman` |
+| `src/components/home/hero/HeroLiveData.tsx` | **Client** | **Owns the resolved location** and everything derived from it. A *context provider* that renders `{children}` — it imposes no layout. Calls `useStoredZmanimLocation()`, performs the non-Toronto fetch, resolves the primary zman, and exposes `{ location, primaryZman, eruv, counts, isHydrated, isTimesResolved }` via context. | `useStoredZmanimLocation`, `lib/hero/primaryZman` |
 | `src/components/home/hero/LiveStrip.tsx` | **Client** | Presentational. Reads the context; renders zman + eruv + Hebrew date. No fetching, no location logic. | `HeroLiveData` context |
 | `src/components/home/hero/CommunityDial.tsx` | **Client** | RAF orbit loop, tick rendering, hub state, hover/focus pause. Reads zman + counts + `tzid` from context. | `lib/hero/dial`, `HeroLiveData` context |
 | `src/components/home/hero/HeroSearch.tsx` | **Client** | Wraps `UniversalSearch`, renders popular chips. Owns the `useRouter` call that currently lives in `HeroSection`. | `UniversalSearch` |
@@ -130,10 +130,13 @@ Nodes without a `countKey` render `description` verbatim. No additional count qu
 
 **It is a context provider, not a layout wrapper.** It renders `{children}` and nothing else, so §1's composition is unaffected: `HeroSection` (server) renders `<HeroLiveData>` around the whole hero body, then lays out the strip full-width and the two columns beneath it exactly as §1 describes. `LiveStrip` and `CommunityDial` consume the context wherever they sit in the tree. A prop-passing wrapper was rejected because it would have forced `HeroLiveData` to own the two-column layout and receive the server-rendered left column through a slot — moving the ownership problem into a layout problem.
 
-**`isResolved` gates the tick ring.** `useStoredZmanimLocation` returns `TORONTO_LOCATION` on first client render and hydrates from `localStorage` in an effect, and it currently offers **no way to tell "not yet hydrated" from "no saved location"**. Without a signal, the dial would compute elapsed ticks with Toronto's `tzid` and then recompute when a stored location landed — for Jerusalem a 7-hour offset, roughly 21 ticks, a very visible jump. Two changes prevent it:
+**Gating, so nothing visibly jumps.** `useStoredZmanimLocation` returns `TORONTO_LOCATION` on first client render and hydrates from `localStorage` in an effect, and it currently offers **no way to tell "not yet hydrated" from "no saved location"**. Without a signal, the dial would compute elapsed ticks with Toronto's `tzid` and then recompute when a stored location landed — for Jerusalem a 7-hour offset, roughly 21 ticks, a very visible jump. Two changes prevent it:
 
 1. **`useStoredZmanimLocation` gains a third, additive return value: `isHydrated: boolean`.** Existing consumers destructure `[location, setLocation]` and are unaffected. This is a deliberate, stated exception to the non-goal below — the hook is shared with the zmanim page and widget, and the change is additive only.
-2. `HeroLiveData` exposes `isResolved` (hydrated **and**, for non-Toronto, the fetch settled). `CommunityDial` renders every tick as *upcoming* until `isResolved` is true, then computes elapsed ticks once against the final `tzid`. The ring's first non-default paint is therefore already correct — no correction step.
+2. **Two separate gates, because the ring and the times have different dependencies.** `minutesElapsedInDay` needs only a `tzid`, which comes from `localStorage` with no network involved; the displayed times need the fetch.
+   - **Ticks gate on `isHydrated` alone.** As soon as the stored location is known, the ring computes against that `tzid`. It never waits on a network request it does not need.
+   - **Times gate on `isTimesResolved`** = `isHydrated` **and** (location is Toronto **or** the fetch has settled).
+   - **A failed fetch counts as settled.** Per §5 item 5 the Toronto times are retained; `isTimesResolved` becomes true either way. Without this, a visitor with a saved non-Toronto location on a flaky connection would be stuck in a permanent loading state — and under the earlier single-gate design, would have had an all-upcoming ring forever.
 
 `HeroSection.tsx` becomes a **server component** — the `useRouter` call that forces `"use client"` today moves into `HeroSearch`.
 
@@ -194,7 +197,7 @@ Every value the dial needs comes from these three functions. `CommunityDial` hol
 These are passed to `<HeroSection>` as props. This removes **one** client-side fetch waterfall — the hero's own `fetch("/api/stats")` (current lines 224–229). `EruvWidget` keeps its own fetch, since it stays on the page unchanged.
 
 **Client, after hydration:**
-`HeroLiveData` calls the existing `useStoredZmanimLocation()` hook. If it returns Toronto (the default, and the case with no `localStorage` entry), nothing further happens — no request, no re-render of times. If it returns a non-Toronto location, it fetches `/api/zmanim?lat=…&lon=…&tzid=…&label=…&il=…` (the route already accepts and validates these), re-runs `resolvePrimaryZman()` on the result, and passes the new values down to both children in one update.
+`HeroLiveData` calls the existing `useStoredZmanimLocation()` hook. If it returns Toronto (the default, and the case with no `localStorage` entry), nothing further happens — no request, no re-render of times. If it returns a non-Toronto location, it fetches `/api/zmanim?lat=…&lon=…&tzid=…&label=…&il=…` (the route already accepts and validates these), re-runs `resolvePrimaryZman()` on the result, and exposes the new values via context in one update.
 
 **The hero adds no `@hebcal/core` to the client bundle.** (It is already there site-wide via `OmerWidget` and `ShulEventsCalendar`, both `"use client"` — so this is a statement about the hero's own contribution, not an existing guarantee.) `resolvePrimaryZman` is pure: it takes `candleLighting`, `havdalah` and `upcomingCandleLighting` as `Date | null` inputs and picks one. The server supplies the third from `getUpcomingShabbat(TORONTO_LOCATION)`.
 
@@ -212,11 +215,13 @@ upcomingCandleLightingISO: string | null  // from getUpcomingShabbat(location)
 
 `HeroLiveData` parses these into `Date`s (or keeps `null`) and passes them to `resolvePrimaryZman`. The sentinel string never reaches the resolver.
 
+**`upcomingCandleLightingISO` is always relative to *now*, never to the route's `date` parameter.** `getUpcomingShabbat()` calls `new Date()` internally (`zmanim.ts:209`) and ignores any date passed to it. The hero never sends `date`, so there is no live bug — but the field's semantics are stated here so a future caller doesn't assume `?date=2026-08-01` shifts it.
+
 `getUpcomingShabbat(location)` **already accepts a location parameter**, so no new halachic logic is introduced and no existing behaviour changes. All three fields are purely additive — the only consumers of this route are `ZmanimWidget` (`mode=today`) and `ZmanimPageContent` (`mode=week`), and neither breaks on added fields. The route's separate `mode=shabbat` branch remains hardcoded to Toronto and is **not** touched (verified: zero callers).
 
 Without this, non-Toronto visitors would lose the zman segment on every non-Friday — a silent regression, which is why it is specified rather than deferred.
 
-Because `HeroLiveData` owns the location, the strip and the hub cannot disagree: there is one resolved value and both receive it as props.
+Because `HeroLiveData` owns the location, the strip and the hub cannot disagree: there is one resolved value and both read it from the same context.
 
 ---
 
@@ -265,7 +270,7 @@ Following the saved location means the hub time and the strip cannot be purely s
 3. While the non-Toronto fetch is in flight, times keep their server-rendered values and the strip marks itself `aria-busy="true"`; values are replaced in one update, never digit-by-digit.
 4. **The eruv row is hidden for non-Toronto locations.** Eruv status in the database is Toronto's; showing it under another city's heading would be wrong.
 5. Fetch failure leaves the Toronto values in place and logs `[HERO]`-prefixed console output. No error UI in the hero.
-6. **The dial's tick ring is gated on `isResolved` (§2).** Elapsed ticks are never server-rendered — every tick starts as *upcoming*, and the elapsed boundary is computed only once the location is final. Without that gate the ring would paint against Toronto and then jump (~21 ticks for Jerusalem); with it, the first non-default paint is already correct.
+6. **The dial's tick ring is gated on `isHydrated` (§2), not on the fetch.** Elapsed ticks are never server-rendered — every tick starts as *upcoming*, and the boundary is computed as soon as the stored `tzid` is known. Without a gate the ring would paint against Toronto and then jump (~21 ticks for Jerusalem); gating on the fetch instead would strand the ring whenever the network failed.
 
 ---
 
