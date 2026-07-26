@@ -409,15 +409,20 @@ export function anchorCivilDate(civil: { year: number; month: number; day: numbe
 export function todayInLocation(location: ZmanimLocation, now?: Date): Date
 
 /** Meaning 2 — an explicit calendar date, re-anchored without shifting the day.
- *  Reads the server-local Y/M/D of `date`, which is how every existing caller expresses intent. */
+ *  Reads the server-local Y/M/D of `date`. Safe for any Date whose server-local Y/M/D
+ *  already denotes the intended civil day — which covers both local-component
+ *  construction (`new Date(2026, 7, 1)`) and noon-UTC instants
+ *  (`new Date('2026-08-01T12:00:00Z')`, the form used by existing test fixtures). */
 export function anchorCalendarDate(date: Date): Date
 ```
 
 `civilDateInTimeZone` uses `Intl.DateTimeFormat(..., { timeZone: tzid }).formatToParts` — no new dependency.
 
-**Why anchor at 12:00 UTC.** hebcal's `HDate`, `Zmanim` and `HebrewCalendar.calendar` all read a `Date`'s **local** components to determine the civil day. The invariant we need is therefore "this Date's server-local Y/M/D equals the intended civil day". Noon UTC satisfies that for every server offset in (−12, +12): 12:00 ± offset never crosses midnight. Anchoring at midnight would not — a one-hour DST shift or any negative offset flips the day.
+**Why anchor at 12:00 UTC.** hebcal's `HDate`, `Zmanim` and `HebrewCalendar.calendar` all read a `Date`'s **local** components to determine the civil day — verified at source: `HDate` documents "using local time… hours, minutes, seconds and milliseconds are ignored" and routes through `greg2abs` → `getFullYear/getMonth/getDate`; the `Zmanim` constructor builds a `Temporal.PlainDate` from those same local getters and uses `location` for lat/lon only; `HebrewCalendar.calendar({start, end})` reaches `greg2abs` too. **Nothing reads the instant.**
 
-**Stated limitation:** a server running at UTC+13 or UTC+14 (Kiribati, Samoa, Tonga) would break the invariant. Production is UTC and every realistic dev machine is inside (−12, +12). Documented rather than defended against.
+The invariant we need is therefore "this Date's server-local Y/M/D equals the intended civil day". Noon UTC satisfies that for every server offset in **[−12, +12)**: 12:00 ± offset never crosses midnight. Anchoring at midnight would not — any negative offset flips the day.
+
+**Stated limitation:** the interval is closed at −12 and **open at +12**. At exactly UTC+12:00 (Auckland standard time, Fiji, Kamchatka) noon UTC is already 00:00 the following day, so the invariant fails there — not only at +13/+14. This constrains the **server's** offset, not the viewer's location: a Toronto server rendering Auckland zmanim is fine. Production is UTC and every realistic dev machine is inside the safe interval. Documented rather than defended against.
 
 Anchoring does **not** affect the times themselves. `Zmanim` derives sunrise/sunset from lat/lon for a civil day and returns absolute instants; `tzid` only matters at display time. So §11 changes *which day* is computed and nothing about *how*.
 
@@ -427,11 +432,28 @@ Anchoring does **not** affect the times themselves. `Zmanim` derives sunrise/sun
 |---|---|
 | `getZmanimForDate(date?, location)` | `date` becomes optional. First line: `const dayDate = date ? anchorCalendarDate(date) : todayInLocation(location)`. Lines 54, 55, 62–64, 93, 121 use `dayDate`. |
 | line 144 (English date) | formats `dayDate` with `timeZone: "UTC"` — the anchor already *is* the intended civil day, so converting it through `location.tzid` would reintroduce a shift for locations at large positive offsets. |
-| `getZmanimForWeek(startDate?, location)` | `startDate` optional; base becomes `startDate ? anchorCalendarDate(startDate) : todayInLocation(location)`. Day *i* is derived by adding *i* days to the civil date and re-anchoring — **not** by `setDate` on a Date object, which double-shifts across a DST transition. |
+| `getZmanimForWeek(startDate?, location)` | `startDate` optional; base becomes `startDate ? anchorCalendarDate(startDate) : todayInLocation(location)`. Day *i* is derived by adding *i* days to the **civil date** and re-anchoring — not by `setDate` on a Date object. To be precise about why: `setDate` does **not** produce a day error today; it preserves local wall time, so across a DST transition the anchored *instant* drifts by an hour (12:00Z → 13:00Z for a week from 2026-10-30, → 11:00Z from 2026-03-06). Since hebcal ignores time-of-day, that drift is currently harmless. Civil-date arithmetic is still required because it holds every anchor at exactly 12:00Z, so the safety margin never erodes — drift only becomes a day error once the anchor sits within an hour of local midnight (|offset| ≥ 11h), and re-anchoring makes that unreachable. |
 | `getUpcomingShabbat(location)` | replaces `new Date()` / `today.getDay()` with `todayInLocation(location)` and that date's day-of-week. |
-| `/api/zmanim` route line 83 | an explicit `date` param is parsed to civil Y/M/D and passed through `anchorCivilDate`, so it means the same day regardless of server timezone. Absent `date` → omit the argument and let `getZmanimForDate` call `todayInLocation`. |
+| `/api/zmanim` route line 83 | An explicit `date` param is parsed with **`civilDateInTimeZone(instant, "UTC")`** — explicitly UTC, not `location.tzid` — then passed through `anchorCivilDate`. Absent `date` → omit the argument and let `getZmanimForDate` call `todayInLocation`. **Parsing in `location.tzid` would be a bug:** a Toronto viewer picking Aug 1 sends `2026-08-01T16:00:00Z`, which is Aug **2** in `Pacific/Auckland`. |
+| `/api/zmanim` route line 115 | `getUpcomingShabbat()` is called with **no** location argument, relying on the Toronto default. Harmless today (that branch is Toronto-only by design and has zero callers), but it must be passed `location` if it is ever wired up. Left as-is; noted so it is not mistaken for an oversight. |
+| `ZmanimPageContent` — `getStartOfWeek` (lines 52–58) | **Change `setHours(0, 0, 0, 0)` to `setHours(12, 0, 0, 0)`.** The picked date is built at local noon (line 129), but `getStartOfWeek` then zeroes the time before line 77 serialises it with `.toISOString()` — so the wire value is local **midnight**. A UTC civil-date parse recovers the intended day for negative-offset viewers (all of the Americas) but is off by one for positive offsets: a viewer at UTC+5:30 picking Sunday sends Saturday 18:30Z. Anchoring the week start at local noon makes the UTC parse correct for any viewer offset in (−12, +12). |
+| `src/app/(public)/community/calendar/[id]/page.tsx:79` | `new HDate(date)` on an event's stored timestamp — same bug class. Routed through the shared helper so the event's Hebrew date is derived from its civil day rather than the server's. |
+| `src/app/api/businesses/[id]/shoutouts/route.ts:30` | `isChag()` does `new HDate(date)` on a server instant — same bug class, and it gates real behaviour rather than display. Routed through the shared helper. |
 
 Public signatures stay source-compatible: every existing caller keeps working, and `date`/`startDate` going from defaulted to optional is not a breaking change.
+
+### Coverage
+
+Grepped across `src/`, `tests/` and `scripts/`: the only callers of `getZmanimForDate`, `getZmanimForWeek` and `getUpcomingShabbat` are `src/app/api/zmanim/route.ts` (lines 87, 115, 133), `tests/unit/zmanim-calc.test.ts`, and the new `page.tsx` / `HeroLiveData` from this spec. The call-site table covers all of them.
+
+Four other places derive a Hebrew day independently. Two are already safe and stay untouched:
+
+- `src/app/(public)/community/calendar/page.tsx:65,74,76` — `new HDate(new Date(year, month, day))`, explicit local components. **Safe.**
+- `src/components/widgets/OmerWidget.tsx:10` and `src/components/shuls/ShulEventsCalendar.tsx:55,61` — client components, so they read the *viewer's* local time, which is the correct behaviour there. **Safe.**
+
+The other two read a server instant and are in scope (see the call-site table). They are included because leaving them out would make §9's manual check 1 — "the hero strip and `/community/calendar` agree with each other" — fail in the evening for reasons this spec claims to fix.
+
+**The client's local-noon convention is now load-bearing.** `ZmanimPageContent` line 129 (`new Date(val + "T12:00:00")`) and the amended `getStartOfWeek` must both keep a mid-day local anchor; "simplifying" either to `new Date(val)` or back to `setHours(0,…)` silently reintroduces an off-by-one day for some viewers. Both sites get a code comment saying so.
 
 ### Tests — `tests/unit/zmanim-day.test.ts`
 
@@ -441,21 +463,32 @@ Timezone-independent: each case asserts on a fixed instant, never on the runner'
 - `anchorCivilDate`: returns 12:00 UTC; the round trip `civilDateInTimeZone(anchorCivilDate(c), "UTC")` equals `c`.
 - `anchorCalendarDate`: a Date built from local components keeps its Y/M/D.
 - `todayInLocation`: with `now = 2026-07-25T00:30:00Z`, Toronto yields the Friday anchor and Jerusalem the Saturday anchor.
-- DST: a week starting `2026-11-01` (US DST ends) yields seven distinct consecutive civil dates — no repeat, no skip.
+- **DST, with a discriminating assertion.** "Seven distinct consecutive dates" is *not* sufficient — `setDate` passes that too. Instead: for weeks starting `2026-10-30` (DST ends) and `2026-03-06` (DST starts), assert every one of the seven anchors has an ISO time of exactly `12:00:00.000Z`. Civil-date arithmetic holds 12:00Z throughout; `setDate` drifts to 13:00Z / 11:00Z, so this assertion fails against the wrong implementation. Seven distinct consecutive civil dates is asserted as well.
+- The `+12` boundary: `anchorCivilDate` output read back at a simulated server offset of exactly `+12:00` lands on the following day — asserted so the documented limitation is pinned rather than folklore.
 
 ### Tests — additions to `tests/unit/zmanim-calc.test.ts`
 
-- **The evening case, end to end.** `getZmanimForDate(undefined, TORONTO_LOCATION)` with the clock at `2026-07-25T00:30:00Z` returns Friday's Hebrew date, Friday's parsha and a **non-null** `candleLighting`, with `isShabbat` reflecting Friday — not Saturday's values.
+**The clock must be injected with `vi.useFakeTimers()` / `vi.setSystemTime()`, torn down with `vi.useRealTimers()`.** `getZmanimForDate(undefined, location)` gives a test no parameter through which to pass `now` — `todayInLocation`'s optional `now` is not reachable from there — so "with the clock at X" is only implementable via fake timers.
+
+- **The evening case, end to end.** With the clock at `2026-07-25T00:30:00Z`, `getZmanimForDate(undefined, TORONTO_LOCATION)` returns Friday's Hebrew date, Friday's parsha and a **non-null** `candleLighting`, with `isShabbat` reflecting Friday — not Saturday's values.
 - The same instant for a Jerusalem location correctly returns **Saturday** (it genuinely is Saturday there), with `havdalah` non-null.
-- `getUpcomingShabbat(TORONTO_LOCATION)` at Friday 8:30 PM ET returns **that** Shabbos, not the following week's.
-- **Regression:** every existing assertion in `zmanim-calc.test.ts` and `zmanim-api-route.test.ts` passes unchanged. Any diff in a midday Toronto value means the anchoring is wrong.
+- `getUpcomingShabbat(TORONTO_LOCATION)` at Friday 8:30 PM ET returns **that** Shabbos, not the following week's. Also fake-timer driven.
+- **The route's `date` param** — the highest-risk seam, and the only one whose failure mode is silently wrong-by-a-day: `?mode=today&date=2026-08-01T16:00:00Z` returns **Aug 1** regardless of the runner's timezone. Add to `tests/unit/zmanim-api-route.test.ts`.
+- **Regression:** every existing assertion in `zmanim-calc.test.ts` and `zmanim-api-route.test.ts` passes **unchanged**. This works because those fixtures are already noon-UTC instants (`new Date('2026-07-14T12:00:00Z')`) and noon-UTC anchoring keeps their server-local reads stable for any runner in the safe interval — that property is the entire basis of the regression check. Any diff in a midday Toronto value means the anchoring is wrong.
+
+**Sequencing note:** §3's three ISO fields and §11's `date`-param case both land in `tests/unit/zmanim-api-route.test.ts`. Land §11's first (it is the earlier phase), then §3's, so the two do not collide.
 
 ### Manual verification (required before commit)
 
 Repeat the July MyZmanim comparison, since this changes displayed halachic times:
 
-1. Toronto, **morning** — `/zmanim`, `ZmanimWidget`, hero strip, and `/community/calendar` Hebrew date all agree with MyZmanim and with each other.
+1. Toronto, **morning** — `/zmanim`, `ZmanimWidget`, hero strip, `/community/calendar`, and a single event's detail page (`/community/calendar/[id]`) all agree with MyZmanim and with each other. The event detail page is included because its `HDate` derivation is now routed through the shared helper.
 2. Toronto, **after 8:00 PM ET** — the same four surfaces still show **today**, not tomorrow. This is the case that is broken today.
 3. Jerusalem via the location picker — same two checks in that timezone.
 4. `/zmanim` **date picker**: selecting a date shows that date, in any server timezone. This is the regression the two-meanings split exists to prevent.
 5. A Friday evening and a Saturday evening, since those are where `isShabbat` / `havdalah` flip.
+6. `/zmanim` week navigation (previous/next week arrows) still lands on the intended weeks after the `getStartOfWeek` change.
+
+### Sequencing
+
+**§11 is its own phase, executed, verified and committed before any hero or typography work.** It is a change of comparable risk to the rest of the spec combined: a new pure module, five edits inside the most safety-critical file in the repo, two adjacent `HDate` call sites, a route change, a client change, cases across two test files, and a full MyZmanim re-verification — affecting four user-facing surfaces the hero never touches. The hero's server render depends on corrected behaviour, and an anchoring mistake must be isolated in its own diff rather than interleaved with a font swap and a vendored WebGL component.
