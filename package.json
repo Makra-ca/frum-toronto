@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run --project unit",
-    "test:integration": "vitest run --project integration"
+    "test:integration": "vitest run --project integration",
+    "zmanim:verify": "npx --yes vite-node -c vitest.config.mts scripts/verify-zmanim.ts --"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",

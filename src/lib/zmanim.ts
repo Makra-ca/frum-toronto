@@ -76,7 +76,20 @@ export function getZmanimForDate(
     il: location.isIsrael, // Israel rules (1-day Yom Tov)
     sedrot: true,
     candlelighting: true,
-    havdalahMins: 50, // 50 minutes after sunset for Havdalah
+    // Havdalah at 8.5 degrees of solar depression ("three small stars"), which
+    // is the same definition MyZmanim publishes as "Nightfall - 3 stars emerge /
+    // 36 minutes as degrees", and the same value the tzait row above uses — so
+    // the site no longer shows two different nightfall times for one moment.
+    //
+    // This replaced a fixed `havdalahMins: 50`. A fixed offset cannot track the
+    // seasons: it ran up to ~8 minutes later than 8.5 degrees in March and ~2
+    // minutes later in January. See tests/unit/zmanim-havdalah.test.ts.
+    //
+    // If a rav specifies a different shiur, this is the ONE place to change it:
+    // `havdalahMins: 72` for the stringent 72-clock-minute custom (the site
+    // already displays that separately as tzait72), or `havdalahDeg: 7.083` for
+    // three medium-sized stars.
+    havdalahDeg: 8.5,
   });
 
   let parsha: string | null = null;

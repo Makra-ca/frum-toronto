@@ -100,7 +100,9 @@ describe('candle lighting and havdalah are extracted from hebcal events', () => 
   it('returns a havdalah time on Shabbos', () => {
     const r = getZmanimForDate(shabbos, TORONTO_LOCATION);
     expect(r.havdalah).toBeInstanceOf(Date);
-    expect(formatZmanTime(r.havdalah, TORONTO_LOCATION.tzid)).toBe('9:38 PM');
+    // 8.5-degree nightfall (tzeis 9:38:41), which hebcal rounds to the whole
+    // minute. Was 9:38 PM under the previous fixed `havdalahMins: 50`.
+    expect(formatZmanTime(r.havdalah, TORONTO_LOCATION.tzid)).toBe('9:39 PM');
   });
 
   it('returns no candle lighting on an ordinary weekday', () => {
