@@ -44,3 +44,6 @@ login.txt
 next-env.d.ts
 .claude/worktrees/
 setup-intergration.txt
+
+# Superpowers brainstorm sessions
+.superpowers/
