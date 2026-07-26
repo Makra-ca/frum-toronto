@@ -191,3 +191,47 @@ describe('getUpcomingShabbat resolves from the location, not the server', () => 
     expect(s.candleLighting).not.toBeNull();
   });
 });
+
+describe('resolution is independent of the SERVER timezone', () => {
+  const originalTz = process.env.TZ;
+
+  afterEach(() => {
+    process.env.TZ = originalTz;
+    vi.useRealTimers();
+  });
+
+  // Node re-reads process.env.TZ, so this genuinely relocates the "server".
+  // Offsets are kept inside the documented safe interval [-12, +12).
+  const serverZones = ['UTC', 'Asia/Tokyo', 'Asia/Kolkata', 'America/Toronto', 'America/Los_Angeles'];
+
+  it('resolves the same Toronto civil day from every server timezone', () => {
+    const results = serverZones.map((tz) => {
+      process.env.TZ = tz;
+      vi.useFakeTimers();
+      vi.setSystemTime(fridayEveningToronto); // Fri 8:30 PM in Toronto
+      const r = getZmanimForDate(undefined, TORONTO_LOCATION);
+      vi.useRealTimers();
+      return { tz, date: r.date, hebrew: r.hebrewDate, cl: r.candleLighting?.toISOString() ?? null };
+    });
+
+    // Every server timezone must agree it is Friday 24 July in Toronto.
+    for (const r of results) {
+      expect(r.date, `server TZ ${r.tz}`).toContain('July 24, 2026');
+      expect(r.hebrew, `server TZ ${r.tz}`).toBe('10 Av 5786');
+      expect(r.cl, `server TZ ${r.tz}`).toBe('2026-07-25T00:31:00.000Z');
+    }
+
+    // And they must agree with each other, not merely be individually plausible.
+    expect(new Set(results.map((r) => r.date)).size).toBe(1);
+  });
+
+  it('resolves an explicit calendar date identically from every server timezone', () => {
+    const dates = serverZones.map((tz) => {
+      process.env.TZ = tz;
+      return getZmanimForDate(new Date('2026-08-01T12:00:00Z'), TORONTO_LOCATION).date;
+    });
+
+    expect(new Set(dates).size).toBe(1);
+    expect(dates[0]).toContain('August 1, 2026');
+  });
+});
