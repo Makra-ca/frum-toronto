@@ -28,7 +28,7 @@ Two problems found while investigating, both verified:
 
 - No change to `QuickLinks`, `CommunityCornerTabs`, `FeaturedBusinesses`, `UpcomingEvents`, or the homepage ad components.
 - `ZmanimWidget` and `EruvWidget` stay where they are. The live strip partly duplicates them; removing or relocating them is a separate decision for the owner.
-- No change to `/zmanim`, the zmanim location picker, or `src/lib/zmanim.ts`'s calculations.
+- No change to `/zmanim` or the zmanim location picker UI, and **no change to any calculation in `src/lib/zmanim.ts`**. Two additive exceptions are in scope and specified below: three ISO fields on the `mode=today` response of `/api/zmanim` (§3), and an `isHydrated` return value on the shared `useStoredZmanimLocation` hook (§2). Neither alters existing behaviour or any existing consumer.
 - No new halachic opinions or times beyond those `getZmanimForDate()` already returns.
 
 ---
@@ -77,13 +77,15 @@ The stat line reads `142 businesses · 38 shuls · 12 events this week`. Those n
 | else | upcoming Shabbos candle lighting via the existing `getUpcomingShabbat()` | `Candle lighting Fri` |
 | all three unavailable | the FrumToronto wordmark in the hub; the strip omits the zman segment entirely and shows only eruv + Hebrew date | — |
 
-The final row exists so no code path can render `formatZmanTime(null)` → `"--:--"`. The resolver returns `{ time: Date; label: string } | null`; a `null` return is what triggers the wordmark fallback. This is the only invented rule in the spec and it is confined to one function.
+The final row exists so no code path can render `"--:--"`. The resolver returns `{ time: Date; label: string } | null`; a `null` return is what triggers the wordmark fallback.
+
+Two guarantees make that airtight: the resolver takes `Date | null` inputs and never sees a formatted string, and the client receives raw ISO values rather than `formatZmanTime()` output — which returns the **truthy** sentinel `"--:--"` for a null time (§3). This is the only invented rule in the spec and it is confined to one function.
 
 ### The dial
 
 - A hairline ring with **72 tick marks**, one per 20 minutes of the day (72 × 20 min = 1440 min). Every sixth tick (each two hours) is longer.
 - Ticks for elapsed time today are rendered at low opacity; upcoming ticks at higher opacity.
-- **Elapsed ticks are computed client-side only.** On the server, and on the first client render, every tick renders as *upcoming* — so server and client markup agree and there is no hydration mismatch. After mount, `minutesElapsedInDay(new Date(), tzid)` runs and the ring updates, then re-runs **every 60 seconds** so a 20-minute boundary is never more than a minute stale. The interval is cleared on unmount.
+- **Elapsed ticks are computed client-side only, and only once the location is final.** On the server, and on every client render until `isResolved` is true (§2), every tick renders as *upcoming* — so server and client markup agree and there is no hydration mismatch. Once `isResolved` is true, `minutesElapsedInDay(new Date(), tzid)` runs against the final `tzid` and the ring updates, then re-runs **every 60 seconds** so a 20-minute boundary is never more than a minute stale. The interval is cleared on unmount. Gating on `isResolved` rather than on mount is what prevents the ring painting against Toronto and then jumping.
 - **Eight navigation discs** ride the ring, evenly spaced, orbiting at **0.5°/sec** (one lap ≈ 12 minutes; the implementation constant is the single source of truth and may be tuned between 0.4 and 0.6°/sec without other changes).
 - Each disc: 44px, circular, 1px accent border, transparent-dark fill, one monochrome outline icon, and a label **outside** the disc at 9.5px uppercase. Disc size and label size never change.
 - Discs stay upright while orbiting — the ring rotates and each disc counter-rotates by the same amount.
@@ -118,13 +120,20 @@ Nodes without a `countKey` render `description` verbatim. No additional count qu
 | `src/lib/hero/primaryZman.ts` | — | **Pure.** `resolvePrimaryZman()` — the candle-lighting/havdalah/upcoming fallback chain. | `lib/zmanim` |
 | `src/components/home/hero/heroNodes.ts` | — | The eight destinations: `id`, `label`, `href`, `icon`, `description`, optional `countKey`. | `lucide-react` |
 | `src/components/home/hero/HeroSection.tsx` | **Server** | Layout shell. Receives all server data as props, renders `HeroLiveData` and `HeroSearch`. Holds no state. | the units below |
-| `src/components/home/hero/HeroLiveData.tsx` | **Client** | **Owns the resolved location** and everything derived from it. Calls `useStoredZmanimLocation()`, performs the non-Toronto fetch, and renders `LiveStrip` + `CommunityDial` as children, passing each the resolved values. | `useStoredZmanimLocation`, `lib/hero/primaryZman` |
-| `src/components/home/hero/LiveStrip.tsx` | **Client** | Presentational. Renders zman + eruv + Hebrew date from props. No fetching, no location logic. | — |
-| `src/components/home/hero/CommunityDial.tsx` | **Client** | RAF orbit loop, tick rendering, hub state, hover/focus pause. Receives zman + counts + `tzid` as props. | `lib/hero/dial` |
+| `src/components/home/hero/HeroLiveData.tsx` | **Client** | **Owns the resolved location** and everything derived from it. A *context provider* that renders `{children}` — it imposes no layout. Calls `useStoredZmanimLocation()`, performs the non-Toronto fetch, resolves the primary zman, and exposes `{ location, primaryZman, eruv, counts, isResolved }` via context. | `useStoredZmanimLocation`, `lib/hero/primaryZman` |
+| `src/components/home/hero/LiveStrip.tsx` | **Client** | Presentational. Reads the context; renders zman + eruv + Hebrew date. No fetching, no location logic. | `HeroLiveData` context |
+| `src/components/home/hero/CommunityDial.tsx` | **Client** | RAF orbit loop, tick rendering, hub state, hover/focus pause. Reads zman + counts + `tzid` from context. | `lib/hero/dial`, `HeroLiveData` context |
 | `src/components/home/hero/HeroSearch.tsx` | **Client** | Wraps `UniversalSearch`, renders popular chips. Owns the `useRouter` call that currently lives in `HeroSection`. | `UniversalSearch` |
 | `src/components/home/hero/LightRays.tsx` | **Client** | React Bits component, vendored. Gated renderer. | `ogl` |
 
 `HeroLiveData` exists specifically to resolve the ownership question: the strip and the dial both display location-dependent times, and siblings cannot pass props to each other. It is the single client boundary that owns the location, and it is what makes §5 coherent. Its props are the server-rendered Toronto values; its state is the resolved location plus whatever times that location produced.
+
+**It is a context provider, not a layout wrapper.** It renders `{children}` and nothing else, so §1's composition is unaffected: `HeroSection` (server) renders `<HeroLiveData>` around the whole hero body, then lays out the strip full-width and the two columns beneath it exactly as §1 describes. `LiveStrip` and `CommunityDial` consume the context wherever they sit in the tree. A prop-passing wrapper was rejected because it would have forced `HeroLiveData` to own the two-column layout and receive the server-rendered left column through a slot — moving the ownership problem into a layout problem.
+
+**`isResolved` gates the tick ring.** `useStoredZmanimLocation` returns `TORONTO_LOCATION` on first client render and hydrates from `localStorage` in an effect, and it currently offers **no way to tell "not yet hydrated" from "no saved location"**. Without a signal, the dial would compute elapsed ticks with Toronto's `tzid` and then recompute when a stored location landed — for Jerusalem a 7-hour offset, roughly 21 ticks, a very visible jump. Two changes prevent it:
+
+1. **`useStoredZmanimLocation` gains a third, additive return value: `isHydrated: boolean`.** Existing consumers destructure `[location, setLocation]` and are unaffected. This is a deliberate, stated exception to the non-goal below — the hook is shared with the zmanim page and widget, and the change is additive only.
+2. `HeroLiveData` exposes `isResolved` (hydrated **and**, for non-Toronto, the fetch settled). `CommunityDial` renders every tick as *upcoming* until `isResolved` is true, then computes elapsed ticks once against the final `tzid`. The ring's first non-default paint is therefore already correct — no correction step.
 
 `HeroSection.tsx` becomes a **server component** — the `useRouter` call that forces `"use client"` today moves into `HeroSearch`.
 
@@ -133,13 +142,17 @@ Nodes without a `countKey` render `description` verbatim. No additional count qu
 ```ts
 export interface PrimaryZman { time: Date; label: string }
 
+export interface PrimaryZmanInput {
+  candleLighting: Date | null;
+  havdalah: Date | null;
+  upcomingCandleLighting: Date | null;
+}
+
 /** Applies the fallback chain in §1. Returns null when no zman is available. */
-export function resolvePrimaryZman(
-  zmanim: Pick<ZmanimResponse, "candleLighting" | "havdalah">,
-  location: ZmanimLocation,
-  now: Date,
-): PrimaryZman | null
+export function resolvePrimaryZman(input: PrimaryZmanInput): PrimaryZman | null
 ```
+
+**Three `Date | null` inputs; no `location`, no `now`, no runtime dependency on `lib/zmanim`.** The caller supplies all three values, so the function is pure and callable from either side of the client boundary. Any import from `lib/zmanim` here is **type-only** (`import type`), which erases at compile time. An earlier draft gave this function a `location` parameter and had it call `getUpcomingShabbat()` itself — that would make it impure and pull `@hebcal/core` into the client bundle via `HeroLiveData`. It does not.
 
 `src/components/home/HeroSection.tsx` is deleted; `src/app/page.tsx` imports from the new path.
 
@@ -183,15 +196,23 @@ These are passed to `<HeroSection>` as props. This removes **one** client-side f
 **Client, after hydration:**
 `HeroLiveData` calls the existing `useStoredZmanimLocation()` hook. If it returns Toronto (the default, and the case with no `localStorage` entry), nothing further happens — no request, no re-render of times. If it returns a non-Toronto location, it fetches `/api/zmanim?lat=…&lon=…&tzid=…&label=…&il=…` (the route already accepts and validates these), re-runs `resolvePrimaryZman()` on the result, and passes the new values down to both children in one update.
 
-`@hebcal/core` therefore stays out of the client bundle. `resolvePrimaryZman` is pure: it takes `candleLighting`, `havdalah` and `upcomingCandleLighting` as `Date | null` inputs and picks one. The server supplies the third from `getUpcomingShabbat(TORONTO_LOCATION)`.
+**The hero adds no `@hebcal/core` to the client bundle.** (It is already there site-wide via `OmerWidget` and `ShulEventsCalendar`, both `"use client"` — so this is a statement about the hero's own contribution, not an existing guarantee.) `resolvePrimaryZman` is pure: it takes `candleLighting`, `havdalah` and `upcomingCandleLighting` as `Date | null` inputs and picks one. The server supplies the third from `getUpcomingShabbat(TORONTO_LOCATION)`.
 
-**One additive API change is required.** For a non-Toronto location the client needs that third value too, and the default (`mode=today`) response of `/api/zmanim` does not currently include it. The response gains one field:
+**An additive API change is required, and it must carry raw ISO values — not formatted strings.**
+
+The `mode=today` branch of `/api/zmanim` currently passes every time through `formatZmanTime()` before responding, so `candleLighting` reaches the client as `"7:12 PM"`. Critically, **`formatZmanTime(null)` returns the string `"--:--"`**, which is truthy. A resolver receiving the existing wire shape would take branch 1 on a Tuesday and render `--:--` in the hub — the precise outcome the fourth row of the fallback table exists to prevent. (`ZmanimWidget:95` already guards this with `data.candleLighting !== "--:--"`, confirming the sentinel leaks to consumers today.) A formatted string also cannot be reparsed into a `Date` for the resolver.
+
+So the `mode=today` response gains three fields **alongside** the existing formatted ones:
 
 ```ts
-upcomingCandleLighting: string | null   // formatted in the requested location's tzid
+candleLightingISO: string | null          // raw ISO 8601, or null — never "--:--"
+havdalahISO: string | null
+upcomingCandleLightingISO: string | null  // from getUpcomingShabbat(location)
 ```
 
-computed by `getUpcomingShabbat(location)` — a function that **already accepts a location parameter**, so no new halachic logic is introduced and no existing behaviour changes. This is purely additive; existing consumers ignore the new field. The route's separate `mode=shabbat` branch remains hardcoded to Toronto and is **not** touched (it has no callers, per the 2026-07-13 session notes).
+`HeroLiveData` parses these into `Date`s (or keeps `null`) and passes them to `resolvePrimaryZman`. The sentinel string never reaches the resolver.
+
+`getUpcomingShabbat(location)` **already accepts a location parameter**, so no new halachic logic is introduced and no existing behaviour changes. All three fields are purely additive — the only consumers of this route are `ZmanimWidget` (`mode=today`) and `ZmanimPageContent` (`mode=week`), and neither breaks on added fields. The route's separate `mode=shabbat` branch remains hardcoded to Toronto and is **not** touched (verified: zero callers).
 
 Without this, non-Toronto visitors would lose the zman segment on every non-Friday — a silent regression, which is why it is specified rather than deferred.
 
@@ -244,7 +265,7 @@ Following the saved location means the hub time and the strip cannot be purely s
 3. While the non-Toronto fetch is in flight, times keep their server-rendered values and the strip marks itself `aria-busy="true"`; values are replaced in one update, never digit-by-digit.
 4. **The eruv row is hidden for non-Toronto locations.** Eruv status in the database is Toronto's; showing it under another city's heading would be wrong.
 5. Fetch failure leaves the Toronto values in place and logs `[HERO]`-prefixed console output. No error UI in the hero.
-6. **The dial's tick ring shifts too, and that is already handled by §1.** Elapsed ticks are never server-rendered — every tick starts as *upcoming* and the elapsed boundary is computed after mount from the resolved location's `tzid`. So a non-Toronto visitor's ring is correct on its first painted state rather than correcting itself, and there is no second visible change.
+6. **The dial's tick ring is gated on `isResolved` (§2).** Elapsed ticks are never server-rendered — every tick starts as *upcoming*, and the elapsed boundary is computed only once the location is final. Without that gate the ring would paint against Toronto and then jump (~21 ticks for Jerusalem); with it, the first non-default paint is already correct.
 
 ---
 
@@ -305,7 +326,7 @@ From `src/app/globals.css` — each grepped across `src/**/*.tsx` and confirmed 
 
 1. Ring rotates; hovering the cluster stops it; leaving resumes it.
 2. Keyboard-tabbing into a disc stops rotation; tabbing out resumes it.
-3. Hovering a disc changes hub text; leaving restores the candle-lighting time.
+3. Hovering a disc changes hub text; leaving restores the primary zman (which is not candle lighting on most days — see item 9).
 4. Discs stay upright through a full lap; labels never rotate.
 5. OS "reduce motion" on → nothing animates and no WebGL canvas exists in the DOM.
 6. At 375px width → no dial, no canvas, correct stacking order.
@@ -327,3 +348,6 @@ From `src/app/globals.css` — each grepped across `src/**/*.tsx` and confirmed 
 | Non-Toronto visitors see a value swap in the hero | §5, items 1–5. |
 | 0.5°/sec still feels like motion to some visitors | Rotation is a single named constant; reduced-motion users get zero motion regardless. |
 | Dropping Shiva from the dial reduces its discoverability | It stays in the nav dropdown and in `QuickLinks`; the strip and dial are not the only paths to it. |
+| `getUpcomingShabbat()` runs `getZmanimForDate` twice (Friday + Saturday), each a full `HebrewCalendar.calendar()` plus a complete `Zmanim` set — so it roughly triples hebcal work on both the now-uncached homepage render and every `mode=today` API response | Cheap in absolute terms (pure computation, no I/O). Measure the homepage TTFB before and after; if it registers, memoise per (date, location) for the request's lifetime. |
+| **Pre-existing, but this change puts it above the fold for the first time:** the day boundary is *server-local*, not the displayed location's. `getUpcomingShabbat` uses `today.getDay()` and `getZmanimForDate` uses `new HDate(date)` / `date.getDay()`. On Vercel (UTC) that means from roughly 7–8pm ET the homepage shows the *next* Hebrew date and the next day's zmanim | Not fixed here — `/api/zmanim` has the same behaviour today, so `ZmanimWidget` is already affected and a fix belongs in `lib/zmanim.ts`, which is a non-goal. Documented so it is not discovered post-launch. Worth a follow-up ticket. |
+| `next/font/google` subset names for `Frank_Ruhl_Libre` / `Assistant` unverified offline | Both ship Hebrew on Google Fonts, and an invalid subset name fails the build loudly rather than silently — confirm on the first `next build`. |
