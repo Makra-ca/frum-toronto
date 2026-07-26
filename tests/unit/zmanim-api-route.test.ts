@@ -54,3 +54,41 @@ describe('GET /api/zmanim location params', () => {
     expect(body.zmanim.sunset).toMatch(/AM|PM/);
   });
 });
+
+describe('GET /api/zmanim date param is a calendar date (spec §11)', () => {
+  it('honours an explicit date sent as a mid-day local anchor', async () => {
+    // What ZmanimPageContent actually serialises: a local-noon Date via
+    // toISOString(). For a UTC-4 viewer picking 1 Aug that is 16:00Z.
+    const res = await GET(req('?date=2026-08-01T16:00:00.000Z'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.date).toContain('August 1, 2026');
+  });
+
+  it('does not shift the requested date for a far-positive-offset location', async () => {
+    // Read in location.tzid instead of UTC, 2026-08-01T16:00Z would be 2 Aug in
+    // Auckland. The date param must be location-independent.
+    const res = await GET(
+      req('?date=2026-08-01T16:00:00.000Z&lat=-36.85&lon=174.76&tzid=Pacific/Auckland')
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.date).toContain('August 1, 2026');
+  });
+
+  it('falls back to today when the date param is unparseable', async () => {
+    const res = await GET(req('?date=not-a-date'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.date).toMatch(/\d{4}/);
+  });
+
+  it('returns a real candle-lighting time for an erev Shabbos date', async () => {
+    // Regression guard for the getDesc() colon defect: this was "--:--" for
+    // every date on every surface of the site.
+    const res = await GET(req('?date=2026-07-24T12:00:00.000Z'));
+    const body = await res.json();
+    expect(body.candleLighting).toBe('8:31 PM');
+    expect(body.candleLighting).not.toBe('--:--');
+  });
+});

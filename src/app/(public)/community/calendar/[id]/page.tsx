@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button";
 import { EventActions } from "@/components/calendar/EventActions";
 import { EVENT_TYPES } from "@/lib/validations/content";
 import { HDate, gematriya } from "@hebcal/core";
+import { anchorCivilDate, civilDateInTimeZone } from "@/lib/zmanim-day";
+import { TORONTO_LOCATION } from "@/lib/zmanim-location";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -76,7 +78,12 @@ function getEventTypeConfig(type: string | null) {
 }
 
 function getHebrewDate(date: Date): string {
-  const hdate = new HDate(date);
+  // Anchor to the Toronto civil day first: HDate reads a Date's local
+  // components, so on a UTC server an evening event instant would resolve to the
+  // next Hebrew date.
+  const hdate = new HDate(
+    anchorCivilDate(civilDateInTimeZone(date, TORONTO_LOCATION.tzid)),
+  );
   const day = gematriya(hdate.getDate());
   const month = hdate.getMonthName();
   return `${day} ${month}`;

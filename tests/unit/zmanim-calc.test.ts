@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { getZmanimForDate, formatZmanTime } from '@/lib/zmanim';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import {
+  getZmanimForDate,
+  getZmanimForWeek,
+  getUpcomingShabbat,
+  formatZmanTime,
+} from '@/lib/zmanim';
 import { TORONTO_LOCATION, type ZmanimLocation } from '@/lib/zmanim-location';
 
 const miami: ZmanimLocation = {
@@ -62,5 +67,127 @@ describe('formatZmanTime respects the given timezone (regression for hardcoded T
 
   it('returns --:-- for null', () => {
     expect(formatZmanTime(null, 'America/Toronto')).toBe('--:--');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Candle lighting / havdalah extraction.
+//
+// hebcal's getDesc() returns "Candle lighting" and "Havdalah" — the colon and
+// the "(50 min)" suffix only appear in render(). Matching getDesc() against
+// "Candle lighting:" therefore never fires, which left both fields permanently
+// null on every surface of the site.
+// ---------------------------------------------------------------------------
+
+describe('candle lighting and havdalah are extracted from hebcal events', () => {
+  // Friday 2026-07-24 and Saturday 2026-07-25, requested explicitly so this is
+  // independent of how "today" is resolved.
+  const erevShabbos = new Date('2026-07-24T12:00:00Z');
+  const shabbos = new Date('2026-07-25T12:00:00Z');
+
+  it('returns a candle lighting time on erev Shabbos', () => {
+    const r = getZmanimForDate(erevShabbos, TORONTO_LOCATION);
+    expect(r.candleLighting).toBeInstanceOf(Date);
+    expect(formatZmanTime(r.candleLighting, TORONTO_LOCATION.tzid)).toBe('8:31 PM');
+  });
+
+  it('marks erev Shabbos as Shabbos rather than Yom Tov', () => {
+    const r = getZmanimForDate(erevShabbos, TORONTO_LOCATION);
+    expect(r.isShabbat).toBe(true);
+    expect(r.isYomTov).toBe(false);
+  });
+
+  it('returns a havdalah time on Shabbos', () => {
+    const r = getZmanimForDate(shabbos, TORONTO_LOCATION);
+    expect(r.havdalah).toBeInstanceOf(Date);
+    expect(formatZmanTime(r.havdalah, TORONTO_LOCATION.tzid)).toBe('9:38 PM');
+  });
+
+  it('returns no candle lighting on an ordinary weekday', () => {
+    const tuesday = new Date('2026-07-21T12:00:00Z');
+    const r = getZmanimForDate(tuesday, TORONTO_LOCATION);
+    expect(r.candleLighting).toBeNull();
+    expect(r.havdalah).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Day-boundary correctness (spec §11).
+//
+// Every calendar-day decision used to be made from the SERVER's local clock.
+// On Vercel (UTC) that means from ~8 PM Toronto time the server's date has
+// already rolled over, so the site reported tomorrow's Hebrew date, parsha and
+// zmanim. These fixtures pin an instant that is Friday evening in Toronto but
+// already Saturday in UTC.
+// ---------------------------------------------------------------------------
+
+// Friday 2026-07-24, 8:30 PM in Toronto === Saturday 2026-07-25, 00:30 UTC.
+const fridayEveningToronto = new Date('2026-07-25T00:30:00Z');
+
+describe('getZmanimForDate resolves "today" in the location, not on the server', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('reports Friday for a Toronto evening instant that is already Saturday in UTC', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(fridayEveningToronto);
+
+    const r = getZmanimForDate(undefined, TORONTO_LOCATION);
+
+    expect(r.hebrewDate).toContain('Av'); // 10 Av 5786 — not 11 Av (Shabbos)
+    expect(r.candleLighting).not.toBeNull();
+    expect(r.isShabbat).toBe(true); // Friday: candle lighting means erev Shabbos
+    expect(r.isYomTov).toBe(false);
+  });
+
+  it('reports Saturday for the same instant in Jerusalem, where it genuinely is Saturday', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(fridayEveningToronto);
+
+    const r = getZmanimForDate(undefined, jerusalem);
+
+    expect(r.havdalah).not.toBeNull();
+    expect(r.candleLighting).toBeNull();
+    expect(r.isShabbat).toBe(true);
+  });
+
+  it('still honours an explicitly requested calendar date', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(fridayEveningToronto);
+
+    // Asking for 1 Aug 2026 must return 1 Aug, not "today".
+    const r = getZmanimForDate(new Date('2026-08-01T12:00:00Z'), TORONTO_LOCATION);
+
+    expect(r.date).toContain('August 1, 2026');
+  });
+});
+
+describe('getZmanimForWeek anchors every day at noon UTC', () => {
+  it('returns seven consecutive days across the DST-end transition', () => {
+    const week = getZmanimForWeek(new Date('2026-10-30T12:00:00Z'), TORONTO_LOCATION);
+
+    expect(week).toHaveLength(7);
+    expect(week[0].date).toContain('October 30, 2026');
+    expect(week[6].date).toContain('November 5, 2026');
+  });
+});
+
+describe('getUpcomingShabbat resolves from the location, not the server', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns THIS Shabbos on a Friday evening in Toronto, not next week', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(fridayEveningToronto);
+
+    const s = getUpcomingShabbat(TORONTO_LOCATION);
+
+    // Saturday 2026-07-25 is the Shabbos that starts on this very Friday night.
+    expect(s.date.getUTCFullYear()).toBe(2026);
+    expect(s.date.getUTCMonth()).toBe(6); // July
+    expect(s.date.getUTCDate()).toBe(25);
+    expect(s.candleLighting).not.toBeNull();
   });
 });

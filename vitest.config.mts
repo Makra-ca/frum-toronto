@@ -19,6 +19,13 @@ export default defineConfig({
         test: {
           name: 'unit',
           include: ['tests/unit/**/*.test.ts'],
+          // Pin to UTC so tests reproduce production (Vercel runs UTC) and are
+          // deterministic on any dev machine. The zmanim day-boundary bug only
+          // manifests when the server's local day differs from the location's —
+          // on an America/Toronto laptop it silently does not reproduce.
+          env: {
+            TZ: 'UTC',
+          },
         },
       },
       {

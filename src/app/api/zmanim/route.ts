@@ -1,3 +1,4 @@
+import { anchorCivilDate, civilDateInTimeZone } from "@/lib/zmanim-day";
 import { NextResponse } from "next/server";
 import {
   getZmanimForDate,
@@ -79,8 +80,18 @@ export async function GET(request: Request) {
   const { location } = parsed;
 
   try {
-    // Parse date if provided
-    const date = dateParam ? new Date(dateParam) : new Date();
+    // An explicit `date` param is a CALENDAR DATE, so it is read in **UTC** and
+    // re-anchored — never in location.tzid, which would shift it (a Toronto
+    // viewer picking Aug 1 sends 2026-08-01T16:00:00Z, which is Aug 2 in
+    // Pacific/Auckland). Clients serialise a mid-day local anchor for exactly
+    // this reason; see ZmanimPageContent.
+    // When absent we pass `undefined` so the library resolves "today" in the
+    // location rather than on the server.
+    const parsedDateParam = dateParam ? new Date(dateParam) : null;
+    const date =
+      parsedDateParam && !Number.isNaN(parsedDateParam.getTime())
+        ? anchorCivilDate(civilDateInTimeZone(parsedDateParam, "UTC"))
+        : undefined;
 
     if (mode === "week") {
       // Return week of zmanim

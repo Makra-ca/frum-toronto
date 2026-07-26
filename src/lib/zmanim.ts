@@ -1,5 +1,10 @@
 import { HDate, Location, Zmanim, HebrewCalendar, flags, TimedEvent } from "@hebcal/core";
 import { TORONTO_LOCATION, type ZmanimLocation } from "@/lib/zmanim-location";
+import {
+  anchorCalendarDate,
+  todayInLocation,
+  addAnchoredDays,
+} from "@/lib/zmanim-day";
 
 /**
  * Build a @hebcal/core Location from a ZmanimLocation.
@@ -47,12 +52,17 @@ export interface ZmanimResponse {
  * Get zmanim for a specific date in Toronto
  */
 export function getZmanimForDate(
-  date: Date = new Date(),
+  date?: Date,
   location: ZmanimLocation = TORONTO_LOCATION,
 ): ZmanimResponse {
+  // Which civil day are we computing? `date` given => that calendar date;
+  // omitted => "today" as observed in `location`. See src/lib/zmanim-day.ts for
+  // why both are anchored at noon UTC before touching hebcal.
+  const dayDate = date ? anchorCalendarDate(date) : todayInLocation(location);
+
   const hebcalLoc = toHebcalLocation(location);
-  const zmanim = new Zmanim(hebcalLoc, date, false);
-  const hdate = new HDate(date);
+  const zmanim = new Zmanim(hebcalLoc, dayDate, false);
+  const hdate = new HDate(dayDate);
 
   // Get Hebrew date string
   const hebrewDate = hdate.toString(); // e.g., "17 Kislev 5785"
@@ -60,8 +70,8 @@ export function getZmanimForDate(
 
   // Get parsha and special days
   const events = HebrewCalendar.calendar({
-    start: date,
-    end: date,
+    start: dayDate,
+    end: dayDate,
     location: hebcalLoc,
     il: location.isIsrael, // Israel rules (1-day Yom Tov)
     sedrot: true,
@@ -84,13 +94,16 @@ export function getZmanimForDate(
       parsha = desc.replace("Parashat ", "");
     }
 
-    // Check for candle lighting
-    if (desc.startsWith("Candle lighting:")) {
+    // Check for candle lighting.
+    // NOTE: match without a colon. hebcal's getDesc() returns "Candle lighting";
+    // the colon and time ("Candle lighting: 8:31pm") only appear in render().
+    // Matching "Candle lighting:" here silently left this field null forever.
+    if (desc.startsWith("Candle lighting")) {
       if (ev instanceof TimedEvent) {
         candleLighting = ev.eventTime || null;
       }
       // If there's candle lighting, it's either Friday or Yom Tov eve
-      const dayOfWeek = date.getDay();
+      const dayOfWeek = dayDate.getUTCDay();
       if (dayOfWeek === 5) {
         isShabbat = true;
       } else {
@@ -98,8 +111,9 @@ export function getZmanimForDate(
       }
     }
 
-    // Check for Havdalah
-    if (desc.startsWith("Havdalah:") || desc.startsWith("Havdalah (")) {
+    // Check for Havdalah. getDesc() is plain "Havdalah"; the "(50 min)" suffix
+    // and the time only appear in render(). Same defect as candle lighting.
+    if (desc.startsWith("Havdalah")) {
       if (ev instanceof TimedEvent) {
         havdalah = ev.eventTime || null;
       }
@@ -118,7 +132,7 @@ export function getZmanimForDate(
   }
 
   // Check if it's Shabbat (Saturday)
-  if (date.getDay() === 6) {
+  if (dayDate.getUTCDay() === 6) {
     isShabbat = true;
   }
 
@@ -140,13 +154,16 @@ export function getZmanimForDate(
     tzait72: new Date(zmanim.sunset().getTime() + 72 * 60 * 1000),
   };
 
-  // Format the English date
-  const englishDate = date.toLocaleDateString("en-US", {
+  // Format the English date. `dayDate` is anchored at noon UTC and already
+  // represents the intended civil day, so it is formatted in UTC — converting
+  // it through location.tzid would re-introduce a shift for large positive
+  // offsets (noon UTC is the next day at +12).
+  const englishDate = dayDate.toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
-    timeZone: location.tzid,
+    timeZone: "UTC",
   });
 
   return {
@@ -167,15 +184,16 @@ export function getZmanimForDate(
  * Get zmanim for multiple days (e.g., for a weekly view)
  */
 export function getZmanimForWeek(
-  startDate: Date = new Date(),
+  startDate?: Date,
   location: ZmanimLocation = TORONTO_LOCATION,
 ): ZmanimResponse[] {
+  const base = startDate ? anchorCalendarDate(startDate) : todayInLocation(location);
   const week: ZmanimResponse[] = [];
 
   for (let i = 0; i < 7; i++) {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + i);
-    week.push(getZmanimForDate(date, location));
+    // addAnchoredDays, not setDate: UTC has no DST, so every day stays pinned at
+    // exactly noon UTC instead of drifting an hour across a transition.
+    week.push(getZmanimForDate(addAnchoredDays(base, i), location));
   }
 
   return week;
@@ -206,17 +224,17 @@ export function getUpcomingShabbat(
   parsha: string | null;
   date: Date;
 } {
-  const today = new Date();
-  const dayOfWeek = today.getDay();
+  // "Today" as observed in `location`, not on the server. Before this, a Friday
+  // 8:30 PM visit in Toronto read as Saturday on a UTC server and skipped to the
+  // following week's Shabbos.
+  const today = todayInLocation(location);
+  const dayOfWeek = today.getUTCDay();
 
   // Calculate days until Friday
   const daysUntilFriday = dayOfWeek <= 5 ? 5 - dayOfWeek : 6;
 
-  const friday = new Date(today);
-  friday.setDate(friday.getDate() + daysUntilFriday);
-
-  const saturday = new Date(friday);
-  saturday.setDate(saturday.getDate() + 1);
+  const friday = addAnchoredDays(today, daysUntilFriday);
+  const saturday = addAnchoredDays(friday, 1);
 
   const fridayZmanim = getZmanimForDate(friday, location);
   const saturdayZmanim = getZmanimForDate(saturday, location);

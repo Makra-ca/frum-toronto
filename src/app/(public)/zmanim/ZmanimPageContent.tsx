@@ -54,7 +54,11 @@ function getStartOfWeek(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay(); // 0 = Sunday
   d.setDate(d.getDate() - day);
-  d.setHours(0, 0, 0, 0);
+  // Local NOON, not midnight. This value is serialised with toISOString() and
+  // read back as a UTC calendar date by /api/zmanim, so a mid-day anchor is what
+  // survives the round trip for any viewer offset in (-12, +12). Anchoring at
+  // midnight sends the previous day for positive-offset viewers.
+  d.setHours(12, 0, 0, 0);
   return d;
 }
 

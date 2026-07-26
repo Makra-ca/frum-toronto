@@ -9,6 +9,8 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, or, desc, gte } from "drizzle-orm";
 import { HDate } from "@hebcal/core";
+import { anchorCivilDate, civilDateInTimeZone } from "@/lib/zmanim-day";
+import { TORONTO_LOCATION } from "@/lib/zmanim-location";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
@@ -16,8 +18,17 @@ export const dynamic = "force-dynamic";
 /**
  * Check if a date falls on Shabbat (Friday or Saturday).
  */
+/**
+ * Resolve an instant to the Toronto civil day it falls on, anchored at noon UTC
+ * so day-of-week and Hebrew-date reads are not made against the server's clock.
+ * On a UTC server, a Friday-evening Toronto instant otherwise reads as Saturday.
+ */
+function torontoCivilDay(date: Date): Date {
+  return anchorCivilDate(civilDateInTimeZone(date, TORONTO_LOCATION.tzid));
+}
+
 function isShabbat(date: Date): boolean {
-  const day = date.getDay(); // 0=Sun, 5=Fri, 6=Sat
+  const day = torontoCivilDay(date).getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
   return day === 5 || day === 6;
 }
 
@@ -27,7 +38,7 @@ function isShabbat(date: Date): boolean {
  * Sukkot (15-22 Tishrei), Pesach (15-22 Nisan), Shavuot (6-7 Sivan).
  */
 function isChag(date: Date): boolean {
-  const hdate = new HDate(date);
+  const hdate = new HDate(torontoCivilDay(date));
   const month = hdate.getMonth();
   const day = hdate.getDay();
 
