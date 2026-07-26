@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-26
 **Status:** Approved for planning
-**Scope:** Homepage hero only (`src/components/home/HeroSection.tsx` and its direct dependencies), plus the site-wide font change required to render Hebrew correctly.
+**Scope:** (1) the homepage hero — `src/components/home/HeroSection.tsx` and its direct dependencies; (2) the site-wide font change required to render Hebrew correctly; (3) **site-wide correction of the zmanim day boundary** in `src/lib/zmanim.ts` (§11), which the hero surfaces above the fold for the first time.
 
 ---
 
@@ -28,8 +28,9 @@ Two problems found while investigating, both verified:
 
 - No change to `QuickLinks`, `CommunityCornerTabs`, `FeaturedBusinesses`, `UpcomingEvents`, or the homepage ad components.
 - `ZmanimWidget` and `EruvWidget` stay where they are. The live strip partly duplicates them; removing or relocating them is a separate decision for the owner.
-- No change to `/zmanim` or the zmanim location picker UI, and **no change to any calculation in `src/lib/zmanim.ts`**. Two additive exceptions are in scope and specified below: three ISO fields on the `mode=today` response of `/api/zmanim` (§3), and an `isHydrated` return value on the shared `useStoredZmanimLocation` hook (§2). Neither alters existing behaviour or any existing consumer.
-- No new halachic opinions or times beyond those `getZmanimForDate()` already returns.
+- No change to the zmanim location picker UI, and **no change to which halachic opinion any zman uses** — no new degrees, no new minute offsets, no relabelling. §11 changes *which calendar day* is computed, never *how* a time is computed.
+- Additive, in scope, specified below: three ISO fields on the `mode=today` response of `/api/zmanim` (§3), and an `isHydrated` return value on the shared `useStoredZmanimLocation` hook (§2). Neither alters an existing consumer.
+- §11 **does** change displayed values on `/zmanim`, `ZmanimWidget`, `/api/zmanim` and the calendar pages during evening hours. That is the fix, not a side effect.
 
 ---
 
@@ -42,6 +43,7 @@ Two problems found while investigating, both verified:
 | Background | **React Bits `LightRays`** | Adds `ogl`. Gated — see §7. |
 | Live strip above the fold | **Yes** | Candle lighting · eruv · Hebrew date. |
 | Location for displayed times | **Follows the visitor's saved zmanim location** | Owner chose this over always-Toronto, accepting the tradeoff in §5. |
+| Zmanim day boundary | **Fixed site-wide, in this spec** | Owner chose this over a hero-only fix or a separate ticket. See §11. |
 
 ### Rejected, with reasons
 
@@ -340,7 +342,8 @@ From `src/app/globals.css` — each grepped across `src/**/*.tsx` and confirmed 
 9. On a **non-Friday**, hub and strip show the upcoming Shabbos lighting labelled `Candle lighting Fri` — not `--:--` and not an empty hub.
 10. Hard-reload twice several minutes apart in production build → candle lighting, eruv and counts differ from the build-time values, confirming `force-dynamic` took effect.
 11. Hebrew headline text (`font-display`) renders in Frank Ruhl Libre, not the sans fallback — the check that catches the circular-variable mistake in §4.
-12. `eslint` and `tsc` at 0 errors before commit.
+12. §11's manual verification list (Toronto morning + after 8 PM, Jerusalem, the `/zmanim` date picker, a Friday and a Saturday evening) all pass against MyZmanim.
+13. `eslint` and `tsc` at 0 errors before commit.
 
 ---
 
@@ -354,5 +357,105 @@ From `src/app/globals.css` — each grepped across `src/**/*.tsx` and confirmed 
 | 0.5°/sec still feels like motion to some visitors | Rotation is a single named constant; reduced-motion users get zero motion regardless. |
 | Dropping Shiva from the dial reduces its discoverability | It stays in the nav dropdown and in `QuickLinks`; the strip and dial are not the only paths to it. |
 | `getUpcomingShabbat()` runs `getZmanimForDate` twice (Friday + Saturday), each a full `HebrewCalendar.calendar()` plus a complete `Zmanim` set — so it roughly triples hebcal work on both the now-uncached homepage render and every `mode=today` API response | Cheap in absolute terms (pure computation, no I/O). Measure the homepage TTFB before and after; if it registers, memoise per (date, location) for the request's lifetime. |
-| **Pre-existing, but this change puts it above the fold for the first time:** the day boundary is *server-local*, not the displayed location's. `getUpcomingShabbat` uses `today.getDay()` and `getZmanimForDate` uses `new HDate(date)` / `date.getDay()`. On Vercel (UTC) that means from roughly 7–8pm ET the homepage shows the *next* Hebrew date and the next day's zmanim | Not fixed here — `/api/zmanim` has the same behaviour today, so `ZmanimWidget` is already affected and a fix belongs in `lib/zmanim.ts`, which is a non-goal. Documented so it is not discovered post-launch. Worth a follow-up ticket. |
+| **§11 changes displayed halachic times site-wide.** A mistake in the anchoring would be wrong times on every zmanim surface — the highest-consequence risk in this spec | Existing `zmanim-calc` / `zmanim-api-route` assertions must pass **unchanged** (any midday diff means the anchoring is wrong); new fixed-instant tests cover the evening and DST cases; and the full MyZmanim comparison is repeated for Toronto and Jerusalem, morning and evening, before commit. |
+| §11 could shift the `/zmanim` date picker by a day — the classic failure of a blunt timezone normalisation | The two-meanings split (`todayInLocation` vs `anchorCalendarDate`) exists precisely for this, with a dedicated unit test and manual check 4. |
+| Noon-UTC anchoring assumes a server offset within (−12, +12) | True for production (UTC) and every realistic dev machine; stated as a limitation in §11 rather than defended against. |
 | `next/font/google` subset names for `Frank_Ruhl_Libre` / `Assistant` unverified offline | Both ship Hebrew on Google Fonts, and an invalid subset name fails the build loudly rather than silently — confirm on the first `next build`. |
+
+---
+
+## 11. Zmanim day-boundary correctness (site-wide)
+
+### The bug
+
+Every calendar-day decision in `src/lib/zmanim.ts` is made from the **server's** local clock rather than the location being displayed. On Vercel the server is UTC and Toronto is UTC−4 in summer, so from roughly 8:00 PM Toronto time the server's date has already rolled over and the site reports **tomorrow**.
+
+Verified sites in `getZmanimForDate` (line numbers as of `1d5ff78`):
+
+| Line | Expression | What it decides |
+|---|---|---|
+| 54 | `new Zmanim(hebcalLoc, date, false)` | which day's sunrise/sunset, and therefore every zman |
+| 55 | `new HDate(date)` | the Hebrew date and `renderGematriya()` output |
+| 62–64 | `HebrewCalendar.calendar({ start: date, end: date, … })` | parsha, candle lighting, havdalah, Yom Tov, fasts |
+| 93 | `date.getDay()` | whether candle lighting means Friday or Yom Tov eve |
+| 121 | `date.getDay()` | whether the day is Shabbos |
+
+**Line 144 is already correct** — `toLocaleDateString(..., { timeZone: location.tzid })`. So the English date is right while the Hebrew date, the parsha and every zman for that day can be a day ahead. That internal inconsistency is the clearest evidence this is a defect rather than a deliberate choice.
+
+Also affected: `getZmanimForWeek` (defaults to `new Date()`, then does `setDate` arithmetic on server-local components) and `getUpcomingShabbat` (calls `new Date()` and `today.getDay()`, line 209). And `src/app/api/zmanim/route.ts:83` does `new Date(dateParam)`, which parses `"2026-07-26"` as UTC midnight — correct today only because the server happens to be UTC.
+
+### Two meanings, currently tangled
+
+The root cause is that one representation is carrying two different intents:
+
+1. **"Today, in the displayed location"** — an *instant*, which must be converted to that location's civil day.
+2. **"The specific date the user picked"** — a *calendar day*, which must **not** be shifted by any timezone conversion.
+
+Both currently resolve through the server's local components. A single blunt normalisation breaks meaning 2: converting a picked "Aug 1" through a timezone can land on July 31. The fix must therefore separate them explicitly.
+
+### The fix — `src/lib/zmanim-day.ts` (new, pure)
+
+```ts
+/** The civil calendar date at `instant` as observed in `tzid`. */
+export function civilDateInTimeZone(
+  instant: Date,
+  tzid: string,
+): { year: number; month: number; day: number }
+
+/** A Date anchored at 12:00 UTC on the given civil date. */
+export function anchorCivilDate(civil: { year: number; month: number; day: number }): Date
+
+/** Meaning 1 — "today" in the location. */
+export function todayInLocation(location: ZmanimLocation, now?: Date): Date
+
+/** Meaning 2 — an explicit calendar date, re-anchored without shifting the day.
+ *  Reads the server-local Y/M/D of `date`, which is how every existing caller expresses intent. */
+export function anchorCalendarDate(date: Date): Date
+```
+
+`civilDateInTimeZone` uses `Intl.DateTimeFormat(..., { timeZone: tzid }).formatToParts` — no new dependency.
+
+**Why anchor at 12:00 UTC.** hebcal's `HDate`, `Zmanim` and `HebrewCalendar.calendar` all read a `Date`'s **local** components to determine the civil day. The invariant we need is therefore "this Date's server-local Y/M/D equals the intended civil day". Noon UTC satisfies that for every server offset in (−12, +12): 12:00 ± offset never crosses midnight. Anchoring at midnight would not — a one-hour DST shift or any negative offset flips the day.
+
+**Stated limitation:** a server running at UTC+13 or UTC+14 (Kiribati, Samoa, Tonga) would break the invariant. Production is UTC and every realistic dev machine is inside (−12, +12). Documented rather than defended against.
+
+Anchoring does **not** affect the times themselves. `Zmanim` derives sunrise/sunset from lat/lon for a civil day and returns absolute instants; `tzid` only matters at display time. So §11 changes *which day* is computed and nothing about *how*.
+
+### Call-site changes
+
+| Site | Change |
+|---|---|
+| `getZmanimForDate(date?, location)` | `date` becomes optional. First line: `const dayDate = date ? anchorCalendarDate(date) : todayInLocation(location)`. Lines 54, 55, 62–64, 93, 121 use `dayDate`. |
+| line 144 (English date) | formats `dayDate` with `timeZone: "UTC"` — the anchor already *is* the intended civil day, so converting it through `location.tzid` would reintroduce a shift for locations at large positive offsets. |
+| `getZmanimForWeek(startDate?, location)` | `startDate` optional; base becomes `startDate ? anchorCalendarDate(startDate) : todayInLocation(location)`. Day *i* is derived by adding *i* days to the civil date and re-anchoring — **not** by `setDate` on a Date object, which double-shifts across a DST transition. |
+| `getUpcomingShabbat(location)` | replaces `new Date()` / `today.getDay()` with `todayInLocation(location)` and that date's day-of-week. |
+| `/api/zmanim` route line 83 | an explicit `date` param is parsed to civil Y/M/D and passed through `anchorCivilDate`, so it means the same day regardless of server timezone. Absent `date` → omit the argument and let `getZmanimForDate` call `todayInLocation`. |
+
+Public signatures stay source-compatible: every existing caller keeps working, and `date`/`startDate` going from defaulted to optional is not a breaking change.
+
+### Tests — `tests/unit/zmanim-day.test.ts`
+
+Timezone-independent: each case asserts on a fixed instant, never on the runner's clock.
+
+- `civilDateInTimeZone`: `2026-07-25T00:30:00Z` → `America/Toronto` gives **2026-07-24** (8:30 PM Friday) and `Asia/Jerusalem` gives **2026-07-25** (3:30 AM Saturday). Same instant, two civil days — the bug in one assertion.
+- `anchorCivilDate`: returns 12:00 UTC; the round trip `civilDateInTimeZone(anchorCivilDate(c), "UTC")` equals `c`.
+- `anchorCalendarDate`: a Date built from local components keeps its Y/M/D.
+- `todayInLocation`: with `now = 2026-07-25T00:30:00Z`, Toronto yields the Friday anchor and Jerusalem the Saturday anchor.
+- DST: a week starting `2026-11-01` (US DST ends) yields seven distinct consecutive civil dates — no repeat, no skip.
+
+### Tests — additions to `tests/unit/zmanim-calc.test.ts`
+
+- **The evening case, end to end.** `getZmanimForDate(undefined, TORONTO_LOCATION)` with the clock at `2026-07-25T00:30:00Z` returns Friday's Hebrew date, Friday's parsha and a **non-null** `candleLighting`, with `isShabbat` reflecting Friday — not Saturday's values.
+- The same instant for a Jerusalem location correctly returns **Saturday** (it genuinely is Saturday there), with `havdalah` non-null.
+- `getUpcomingShabbat(TORONTO_LOCATION)` at Friday 8:30 PM ET returns **that** Shabbos, not the following week's.
+- **Regression:** every existing assertion in `zmanim-calc.test.ts` and `zmanim-api-route.test.ts` passes unchanged. Any diff in a midday Toronto value means the anchoring is wrong.
+
+### Manual verification (required before commit)
+
+Repeat the July MyZmanim comparison, since this changes displayed halachic times:
+
+1. Toronto, **morning** — `/zmanim`, `ZmanimWidget`, hero strip, and `/community/calendar` Hebrew date all agree with MyZmanim and with each other.
+2. Toronto, **after 8:00 PM ET** — the same four surfaces still show **today**, not tomorrow. This is the case that is broken today.
+3. Jerusalem via the location picker — same two checks in that timezone.
+4. `/zmanim` **date picker**: selecting a date shows that date, in any server timezone. This is the regression the two-meanings split exists to prevent.
+5. A Friday evening and a Saturday evening, since those are where `isShabbat` / `havdalah` flip.
