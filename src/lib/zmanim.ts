@@ -26,6 +26,9 @@ export interface ZmanimTimes {
   sunrise: Date;
   sofZmanShma: Date;
   sofZmanTfilla: Date;
+  /** Magen Avraham, day measured from 16.1 degrees ("72 minutes as degrees"). */
+  sofZmanShmaMGA: Date;
+  sofZmanTfillaMGA: Date;
   chatzot: Date;
   minchaGedola: Date;
   minchaKetana: Date;
@@ -152,10 +155,18 @@ export function getZmanimForDate(
   // Calculate all zmanim times
   const zmanimTimes: ZmanimTimes = {
     alotHaShachar: zmanim.alotHaShachar(),
-    misheyakir: zmanim.misheyakir(),
+    // 10.2 degrees below the horizon, matching the rule MyZmanim publishes for
+    // this row ("Sun is 10.2 degrees below horizon"). hebcal's misheyakir()
+    // default is 11.5 degrees, which ran ~9.5 minutes earlier.
+    misheyakir: zmanim.timeAtAngle(10.2, true),
     sunrise: zmanim.sunrise(),
     sofZmanShma: zmanim.sofZmanShma(), // GRA / Vilna Gaon
     sofZmanTfilla: zmanim.sofZmanTfilla(), // GRA / Vilna Gaon
+    // Magen Avraham: the halachic day runs from alos to tzeis at 16.1 degrees,
+    // so these fall earlier than the GRA equivalents. MyZmanim lists the same
+    // pair as "72 minutes as 16.1 degrees".
+    sofZmanShmaMGA: zmanim.sofZmanShmaMGA16Point1(),
+    sofZmanTfillaMGA: zmanim.sofZmanTfillaMGA16Point1(),
     chatzot: zmanim.chatzot(),
     minchaGedola: zmanim.minchaGedola(),
     minchaKetana: zmanim.minchaKetana(),

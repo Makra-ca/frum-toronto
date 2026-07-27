@@ -315,6 +315,8 @@ export interface ZmanimData {
     sunrise: Date;
     sofZmanShma: Date;
     sofZmanTfilla: Date;
+    sofZmanShmaMGA: Date;
+    sofZmanTfillaMGA: Date;
     chatzot: Date;
     minchaGedola: Date;
     minchaKetana: Date;

@@ -154,6 +154,8 @@ export async function GET(request: Request) {
         sunrise: formatZmanTime(zmanimData.zmanim.sunrise, location.tzid),
         sofZmanShma: formatZmanTime(zmanimData.zmanim.sofZmanShma, location.tzid),
         sofZmanTfilla: formatZmanTime(zmanimData.zmanim.sofZmanTfilla, location.tzid),
+        sofZmanShmaMGA: formatZmanTime(zmanimData.zmanim.sofZmanShmaMGA, location.tzid),
+        sofZmanTfillaMGA: formatZmanTime(zmanimData.zmanim.sofZmanTfillaMGA, location.tzid),
         chatzot: formatZmanTime(zmanimData.zmanim.chatzot, location.tzid),
         minchaGedola: formatZmanTime(zmanimData.zmanim.minchaGedola, location.tzid),
         minchaKetana: formatZmanTime(zmanimData.zmanim.minchaKetana, location.tzid),

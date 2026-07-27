@@ -25,7 +25,7 @@
  *     sunrise shows as 6:05 here and 6:06 there.
  *   - hebcal rounds havdalah to the whole minute, so it can read one minute later
  *     than the tzeis row despite being the same moment.
- *   - Misheyakir uses hebcal's default degrees, not MyZmanim's 10.2.
+ *   - Misheyakir now uses 10.2 degrees, matching MyZmanim's stated rule.
  */
 
 import { getZmanimForDate, formatZmanTime } from "../src/lib/zmanim";
@@ -71,9 +71,11 @@ const rows: Array<[string, string]> = [
   ["Special day", r.specialDay ?? "—"],
   ["", ""],
   ["Alos (dawn)", t(r.zmanim.alotHaShachar)],
-  ["Misheyakir", `${t(r.zmanim.misheyakir)}   <- hebcal default degrees, not MyZmanim 10.2`],
+  ["Misheyakir (10.2deg)", t(r.zmanim.misheyakir)],
   ["Sunrise / Hanetz", t(r.zmanim.sunrise)],
+  ["Sof Zman Shma (MGA 16.1)", t(r.zmanim.sofZmanShmaMGA)],
   ["Sof Zman Shma (GRA)", t(r.zmanim.sofZmanShma)],
+  ["Sof Zman Tefila (MGA 16.1)", t(r.zmanim.sofZmanTfillaMGA)],
   ["Sof Zman Tefila (GRA)", t(r.zmanim.sofZmanTfilla)],
   ["Chatzos", t(r.zmanim.chatzot)],
   ["Mincha Gedola", t(r.zmanim.minchaGedola)],

@@ -22,6 +22,8 @@ interface ZmanimApiResponse {
     sunrise: string;
     sofZmanShma: string;
     sofZmanTfilla: string;
+    sofZmanShmaMGA: string;
+    sofZmanTfillaMGA: string;
     chatzot: string;
     minchaGedola: string;
     minchaKetana: string;
@@ -116,8 +118,9 @@ export function ZmanimWidget() {
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
           <ZmanRow icon={Moon} label="Alos" time={data.zmanim.alotHaShachar} />
           <ZmanRow icon={Sunrise} label="Sunrise" time={data.zmanim.sunrise} />
-          <ZmanRow label="Shma" time={data.zmanim.sofZmanShma} highlight />
-          <ZmanRow label="Tefilla" time={data.zmanim.sofZmanTfilla} />
+          <ZmanRow label="Shma (MGA)" time={data.zmanim.sofZmanShmaMGA} />
+          <ZmanRow label="Shma (GRA)" time={data.zmanim.sofZmanShma} highlight />
+          <ZmanRow label="Tefilla (GRA)" time={data.zmanim.sofZmanTfilla} />
           <ZmanRow icon={Sun} label="Chatzos" time={data.zmanim.chatzot} />
           <ZmanRow label="Mincha G." time={data.zmanim.minchaGedola} />
           <ZmanRow label="Plag" time={data.zmanim.plagHaMincha} />

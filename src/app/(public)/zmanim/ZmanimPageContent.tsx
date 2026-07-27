@@ -36,6 +36,8 @@ interface ZmanimDay {
     sunrise: string;
     sofZmanShma: string;
     sofZmanTfilla: string;
+    sofZmanShmaMGA: string;
+    sofZmanTfillaMGA: string;
     chatzot: string;
     minchaGedola: string;
     minchaKetana: string;
@@ -335,8 +337,10 @@ export function ZmanimPageContent() {
                   <ZmanItem icon={Moon} label="Alos HaShachar" time={day.zmanim.alotHaShachar} />
                   <ZmanItem label="Misheyakir" time={day.zmanim.misheyakir} />
                   <ZmanItem icon={Sunrise} label="Sunrise" time={day.zmanim.sunrise} />
-                  <ZmanItem label="Sof Zman Shma" time={day.zmanim.sofZmanShma} highlight />
-                  <ZmanItem label="Sof Zman Tefilla" time={day.zmanim.sofZmanTfilla} />
+                  <ZmanItem label="Sof Zman Shma (MGA)" time={day.zmanim.sofZmanShmaMGA} />
+                  <ZmanItem label="Sof Zman Shma (GRA)" time={day.zmanim.sofZmanShma} highlight />
+                  <ZmanItem label="Sof Zman Tefilla (MGA)" time={day.zmanim.sofZmanTfillaMGA} />
+                  <ZmanItem label="Sof Zman Tefilla (GRA)" time={day.zmanim.sofZmanTfilla} />
                   <ZmanItem icon={Sun} label="Chatzos" time={day.zmanim.chatzot} />
                   <ZmanItem label="Mincha Gedola" time={day.zmanim.minchaGedola} />
                   <ZmanItem label="Mincha Ketana" time={day.zmanim.minchaKetana} />
