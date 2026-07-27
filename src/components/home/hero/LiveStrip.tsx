@@ -13,7 +13,7 @@
 // is omitted, because "--:--" reads as broken.
 
 import Link from "next/link";
-import { formatZmanTime } from "@/lib/zmanim";
+import { formatZman } from "@/lib/zmanim-format";
 import { isTorontoLocation } from "@/lib/zmanim-location";
 import { useHeroLive } from "./HeroLiveData";
 
@@ -41,7 +41,7 @@ export function LiveStrip() {
               )}
               {primaryZman.label}{" "}
               <span className="font-semibold tabular-nums text-white">
-                {formatZmanTime(primaryZman.time, location.tzid)}
+                {formatZman(primaryZman.time, location.tzid, primaryZman.direction)}
               </span>
             </span>
           </Link>

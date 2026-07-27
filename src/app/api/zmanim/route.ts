@@ -1,9 +1,9 @@
 import { anchorCivilDate, civilDateInTimeZone } from "@/lib/zmanim-day";
+import { formatZmanByKey } from "@/lib/zmanim-format";
 import { NextResponse } from "next/server";
 import {
   getZmanimForDate,
   getZmanimForWeek,
-  formatZmanTime,
   getUpcomingShabbat,
 } from "@/lib/zmanim";
 import { TORONTO_LOCATION, type ZmanimLocation } from "@/lib/zmanim-location";
@@ -98,24 +98,20 @@ export async function GET(request: Request) {
       const weekData = getZmanimForWeek(date, location);
 
       // Format times for JSON response
+      // Same per-row rounding as mode=today, and derived from the object's own
+      // keys so a newly added zman cannot be forgotten here. The previous
+      // hand-written list had already gone stale: it omitted the MGA rows.
       const formattedWeek = weekData.map((day) => ({
         ...day,
-        zmanim: {
-          alotHaShachar: formatZmanTime(day.zmanim.alotHaShachar, location.tzid),
-          misheyakir: formatZmanTime(day.zmanim.misheyakir, location.tzid),
-          sunrise: formatZmanTime(day.zmanim.sunrise, location.tzid),
-          sofZmanShma: formatZmanTime(day.zmanim.sofZmanShma, location.tzid),
-          sofZmanTfilla: formatZmanTime(day.zmanim.sofZmanTfilla, location.tzid),
-          chatzot: formatZmanTime(day.zmanim.chatzot, location.tzid),
-          minchaGedola: formatZmanTime(day.zmanim.minchaGedola, location.tzid),
-          minchaKetana: formatZmanTime(day.zmanim.minchaKetana, location.tzid),
-          plagHaMincha: formatZmanTime(day.zmanim.plagHaMincha, location.tzid),
-          sunset: formatZmanTime(day.zmanim.sunset, location.tzid),
-          tzait: formatZmanTime(day.zmanim.tzait, location.tzid),
-          tzait72: formatZmanTime(day.zmanim.tzait72, location.tzid),
-        },
-        candleLighting: formatZmanTime(day.candleLighting, location.tzid),
-        havdalah: formatZmanTime(day.havdalah, location.tzid),
+        zmanim: Object.fromEntries(
+          (Object.keys(day.zmanim) as Array<keyof typeof day.zmanim>).map((key) => [
+            key,
+            formatZmanByKey(key, day.zmanim[key], location.tzid) ?? "--:--",
+          ]),
+        ),
+        candleLighting:
+          formatZmanByKey("candleLighting", day.candleLighting, location.tzid) ?? "--:--",
+        havdalah: formatZmanByKey("havdalah", day.havdalah, location.tzid) ?? "--:--",
       }));
 
       return NextResponse.json(formattedWeek);
@@ -132,11 +128,15 @@ export async function GET(request: Request) {
           month: "long",
           day: "numeric",
         }),
-        candleLighting: formatZmanTime(
-          shabbatData.candleLighting,
-          TORONTO_LOCATION.tzid
-        ),
-        havdalah: formatZmanTime(shabbatData.havdalah, TORONTO_LOCATION.tzid),
+        candleLighting:
+          formatZmanByKey(
+            "candleLighting",
+            shabbatData.candleLighting,
+            TORONTO_LOCATION.tzid
+          ) ?? "--:--",
+        havdalah:
+          formatZmanByKey("havdalah", shabbatData.havdalah, TORONTO_LOCATION.tzid) ??
+          "--:--",
       });
     }
 
@@ -148,24 +148,21 @@ export async function GET(request: Request) {
     // Format times for JSON response
     const formattedData = {
       ...zmanimData,
-      zmanim: {
-        alotHaShachar: formatZmanTime(zmanimData.zmanim.alotHaShachar, location.tzid),
-        misheyakir: formatZmanTime(zmanimData.zmanim.misheyakir, location.tzid),
-        sunrise: formatZmanTime(zmanimData.zmanim.sunrise, location.tzid),
-        sofZmanShma: formatZmanTime(zmanimData.zmanim.sofZmanShma, location.tzid),
-        sofZmanTfilla: formatZmanTime(zmanimData.zmanim.sofZmanTfilla, location.tzid),
-        sofZmanShmaMGA: formatZmanTime(zmanimData.zmanim.sofZmanShmaMGA, location.tzid),
-        sofZmanTfillaMGA: formatZmanTime(zmanimData.zmanim.sofZmanTfillaMGA, location.tzid),
-        chatzot: formatZmanTime(zmanimData.zmanim.chatzot, location.tzid),
-        minchaGedola: formatZmanTime(zmanimData.zmanim.minchaGedola, location.tzid),
-        minchaKetana: formatZmanTime(zmanimData.zmanim.minchaKetana, location.tzid),
-        plagHaMincha: formatZmanTime(zmanimData.zmanim.plagHaMincha, location.tzid),
-        sunset: formatZmanTime(zmanimData.zmanim.sunset, location.tzid),
-        tzait: formatZmanTime(zmanimData.zmanim.tzait, location.tzid),
-        tzait72: formatZmanTime(zmanimData.zmanim.tzait72, location.tzid),
-      },
-      candleLighting: formatZmanTime(zmanimData.candleLighting, location.tzid),
-      havdalah: formatZmanTime(zmanimData.havdalah, location.tzid),
+      // Each row is rounded in its own safe direction — deadlines down,
+      // permitted-from times up. See src/lib/zmanim-format.ts.
+      zmanim: Object.fromEntries(
+        (Object.keys(zmanimData.zmanim) as Array<keyof typeof zmanimData.zmanim>).map(
+          (key) => [
+            key,
+            formatZmanByKey(key, zmanimData.zmanim[key], location.tzid) ?? "--:--",
+          ],
+        ),
+      ),
+      candleLighting:
+        formatZmanByKey("candleLighting", zmanimData.candleLighting, location.tzid) ??
+        "--:--",
+      havdalah:
+        formatZmanByKey("havdalah", zmanimData.havdalah, location.tzid) ?? "--:--",
 
       // Raw ISO values for machine consumers (the homepage hero).
       //

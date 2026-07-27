@@ -13,9 +13,17 @@
 // already-computed times from /api/zmanim. Any import from lib/zmanim here must
 // be `import type`.
 
+import type { RoundDirection } from "@/lib/zmanim-format";
+
 export interface PrimaryZman {
   time: Date;
   label: string;
+  /**
+   * How to round for display. Candle lighting is a DEADLINE (round down, never
+   * imply extra time); havdalah and the upcoming-Shabbos fallback are
+   * permitted-from times (round up).
+   */
+  direction: RoundDirection;
 }
 
 export interface PrimaryZmanInput {
@@ -42,13 +50,17 @@ function usable(d: Date | null): d is Date {
  */
 export function resolvePrimaryZman(input: PrimaryZmanInput): PrimaryZman | null {
   if (usable(input.candleLighting)) {
-    return { time: input.candleLighting, label: "Candle lighting" };
+    return { time: input.candleLighting, label: "Candle lighting", direction: "down" };
   }
   if (usable(input.havdalah)) {
-    return { time: input.havdalah, label: "Havdalah" };
+    return { time: input.havdalah, label: "Havdalah", direction: "up" };
   }
   if (usable(input.upcomingCandleLighting)) {
-    return { time: input.upcomingCandleLighting, label: "Candle lighting Fri" };
+    return {
+      time: input.upcomingCandleLighting,
+      label: "Candle lighting Fri",
+      direction: "down",
+    };
   }
   return null;
 }

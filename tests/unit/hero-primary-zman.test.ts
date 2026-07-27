@@ -12,7 +12,7 @@ describe("resolvePrimaryZman", () => {
       havdalah: null,
       upcomingCandleLighting: UPCOMING,
     });
-    expect(r).toEqual({ time: CANDLES, label: "Candle lighting" });
+    expect(r).toEqual({ time: CANDLES, label: "Candle lighting", direction: "down" });
   });
 
   it("uses havdalah on Shabbos, when there is no candle lighting", () => {
@@ -21,7 +21,7 @@ describe("resolvePrimaryZman", () => {
       havdalah: HAVDALAH,
       upcomingCandleLighting: UPCOMING,
     });
-    expect(r).toEqual({ time: HAVDALAH, label: "Havdalah" });
+    expect(r).toEqual({ time: HAVDALAH, label: "Havdalah", direction: "up" });
   });
 
   it("falls back to the upcoming Shabbos on an ordinary weekday", () => {
@@ -30,7 +30,7 @@ describe("resolvePrimaryZman", () => {
       havdalah: null,
       upcomingCandleLighting: UPCOMING,
     });
-    expect(r).toEqual({ time: UPCOMING, label: "Candle lighting Fri" });
+    expect(r).toEqual({ time: UPCOMING, label: "Candle lighting Fri", direction: "down" });
   });
 
   it("returns null when nothing is available, so the caller can show the wordmark", () => {
@@ -75,6 +75,6 @@ describe("resolvePrimaryZman", () => {
       havdalah: null,
       upcomingCandleLighting: UPCOMING,
     });
-    expect(r).toEqual({ time: UPCOMING, label: "Candle lighting Fri" });
+    expect(r).toEqual({ time: UPCOMING, label: "Candle lighting Fri", direction: "down" });
   });
 });

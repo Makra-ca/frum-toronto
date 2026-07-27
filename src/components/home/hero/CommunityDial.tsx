@@ -31,7 +31,7 @@ import {
   getTickMarks,
   minutesElapsedInDay,
 } from "@/lib/hero/dial";
-import { formatZmanTime } from "@/lib/zmanim";
+import { formatZman } from "@/lib/zmanim-format";
 import { HERO_NODES, nodeDetail } from "./heroNodes";
 import { useHeroLive } from "./HeroLiveData";
 
@@ -164,7 +164,7 @@ export function CommunityDial() {
   const hubPrimary = hovered
     ? hovered.label
     : primaryZman
-      ? formatZmanTime(primaryZman.time, location.tzid)
+      ? formatZman(primaryZman.time, location.tzid, primaryZman.direction)
       : null;
   const hubSecondary = hovered
     ? nodeDetail(hovered, counts)

@@ -21,14 +21,16 @@
  *   https://www.myzmanim.com/search.aspx?q=toronto
  *
  * Known, expected differences:
- *   - MyZmanim ROUNDS to the nearest minute; formatZmanTime TRUNCATES. A 6:05:42
- *     sunrise shows as 6:05 here and 6:06 there.
+ *   - We round DIRECTIONALLY: deadlines down, permitted-from times up, so we
+ *     never show more room than there is. MyZmanim rounds to the nearest minute,
+ *     so a deadline can read one minute later there than here — by design.
  *   - hebcal rounds havdalah to the whole minute, so it can read one minute later
  *     than the tzeis row despite being the same moment.
  *   - Misheyakir now uses 10.2 degrees, matching MyZmanim's stated rule.
  */
 
-import { getZmanimForDate, formatZmanTime } from "../src/lib/zmanim";
+import { getZmanimForDate } from "../src/lib/zmanim";
+import { formatZmanByKey, type ZmanKey } from "../src/lib/zmanim-format";
 import { TORONTO_LOCATION, type ZmanimLocation } from "../src/lib/zmanim-location";
 import { anchorCivilDate } from "../src/lib/zmanim-day";
 
@@ -62,7 +64,8 @@ if (dateArg) {
 }
 
 const r = getZmanimForDate(date, location);
-const t = (d: Date | null) => formatZmanTime(d, location.tzid);
+const t = (key: ZmanKey, d: Date | null) =>
+  formatZmanByKey(key, d, location.tzid) ?? "—";
 
 const rows: Array<[string, string]> = [
   ["Date", r.date],
@@ -70,23 +73,23 @@ const rows: Array<[string, string]> = [
   ["Parsha", r.parsha ?? "—"],
   ["Special day", r.specialDay ?? "—"],
   ["", ""],
-  ["Alos (dawn)", t(r.zmanim.alotHaShachar)],
-  ["Misheyakir (10.2deg)", t(r.zmanim.misheyakir)],
-  ["Sunrise / Hanetz", t(r.zmanim.sunrise)],
-  ["Sof Zman Shma (MGA 16.1)", t(r.zmanim.sofZmanShmaMGA)],
-  ["Sof Zman Shma (GRA)", t(r.zmanim.sofZmanShma)],
-  ["Sof Zman Tefila (MGA 16.1)", t(r.zmanim.sofZmanTfillaMGA)],
-  ["Sof Zman Tefila (GRA)", t(r.zmanim.sofZmanTfilla)],
-  ["Chatzos", t(r.zmanim.chatzot)],
-  ["Mincha Gedola", t(r.zmanim.minchaGedola)],
-  ["Mincha Ketana", t(r.zmanim.minchaKetana)],
-  ["Plag HaMincha", t(r.zmanim.plagHaMincha)],
-  ["Sunset / Shkiah", t(r.zmanim.sunset)],
-  ["Nightfall, 3 stars (8.5deg)", t(r.zmanim.tzait)],
-  ["Nightfall, 72 minutes", t(r.zmanim.tzait72)],
+  ["Alos (dawn)", t("alotHaShachar", r.zmanim.alotHaShachar)],
+  ["Misheyakir (10.2deg)", t("misheyakir", r.zmanim.misheyakir)],
+  ["Sunrise / Hanetz", t("sunrise", r.zmanim.sunrise)],
+  ["Sof Zman Shma (MGA 16.1)", t("sofZmanShmaMGA", r.zmanim.sofZmanShmaMGA)],
+  ["Sof Zman Shma (GRA)", t("sofZmanShma", r.zmanim.sofZmanShma)],
+  ["Sof Zman Tefila (MGA 16.1)", t("sofZmanTfillaMGA", r.zmanim.sofZmanTfillaMGA)],
+  ["Sof Zman Tefila (GRA)", t("sofZmanTfilla", r.zmanim.sofZmanTfilla)],
+  ["Chatzos", t("chatzot", r.zmanim.chatzot)],
+  ["Mincha Gedola", t("minchaGedola", r.zmanim.minchaGedola)],
+  ["Mincha Ketana", t("minchaKetana", r.zmanim.minchaKetana)],
+  ["Plag HaMincha", t("plagHaMincha", r.zmanim.plagHaMincha)],
+  ["Sunset / Shkiah", t("sunset", r.zmanim.sunset)],
+  ["Nightfall, 3 stars (8.5deg)", t("tzait", r.zmanim.tzait)],
+  ["Nightfall, 72 minutes", t("tzait72", r.zmanim.tzait72)],
   ["", ""],
-  ["Candle lighting", r.candleLighting ? t(r.candleLighting) : "— (not erev Shabbos/YT)"],
-  ["Havdalah (8.5deg)", r.havdalah ? t(r.havdalah) : "— (not motzei Shabbos/YT)"],
+  ["Candle lighting", formatZmanByKey("candleLighting", r.candleLighting, location.tzid) ?? "— (not erev Shabbos/YT)"],
+  ["Havdalah (8.5deg)", formatZmanByKey("havdalah", r.havdalah, location.tzid) ?? "— (not motzei Shabbos/YT)"],
 ];
 
 console.log(`\n  ${location.label} — server TZ ${Intl.DateTimeFormat().resolvedOptions().timeZone}\n`);
