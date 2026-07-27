@@ -142,6 +142,8 @@ export async function GET(request: Request) {
 
     // Default: return today's zmanim
     const zmanimData = getZmanimForDate(date, location);
+    // Computed once; feeds both the upcoming ISO time and the upcoming parsha.
+    const upcomingShabbat = getUpcomingShabbat(location);
 
     // Format times for JSON response
     const formattedData = {
@@ -174,8 +176,11 @@ export async function GET(request: Request) {
       // getUpcomingShabbat() calls new Date() internally.
       candleLightingISO: zmanimData.candleLighting?.toISOString() ?? null,
       havdalahISO: zmanimData.havdalah?.toISOString() ?? null,
-      upcomingCandleLightingISO:
-        getUpcomingShabbat(location).candleLighting?.toISOString() ?? null,
+      upcomingCandleLightingISO: upcomingShabbat.candleLighting?.toISOString() ?? null,
+      // The coming Shabbos's parsha, for weekdays where `parsha` above is null.
+      // Computed for the REQUESTED location, because the diaspora and Israel
+      // readings diverge for a few weeks after a Yom Tov that falls on Shabbos.
+      upcomingParsha: upcomingShabbat.parsha ?? null,
     };
 
     return NextResponse.json(formattedData);

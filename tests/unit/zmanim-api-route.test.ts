@@ -132,3 +132,21 @@ describe('GET /api/zmanim ISO fields for the hero (spec §3)', () => {
     expect(jerusalem.upcomingCandleLightingISO).not.toBe(toronto.upcomingCandleLightingISO);
   });
 });
+
+describe('GET /api/zmanim upcomingParsha', () => {
+  it('returns the coming Shabbos parsha on a weekday, when parsha is null', async () => {
+    const res = await GET(req('?date=2026-07-21T12:00:00.000Z'));
+    const body = await res.json();
+    expect(body.parsha).toBeNull();
+    expect(typeof body.upcomingParsha).toBe('string');
+    expect(body.upcomingParsha.length).toBeGreaterThan(0);
+  });
+
+  it('computes it for the requested location', async () => {
+    const res = await GET(
+      req('?date=2026-07-21T12:00:00.000Z&lat=31.7683&lon=35.2137&tzid=Asia/Jerusalem&il=1')
+    );
+    const body = await res.json();
+    expect(typeof body.upcomingParsha).toBe('string');
+  });
+});

@@ -116,7 +116,10 @@ export function HeroLiveData({ zmanim, eruv, counts, children }: HeroLiveDataPro
           havdalahISO: data.havdalahISO ?? null,
           upcomingCandleLightingISO: data.upcomingCandleLightingISO ?? null,
           hebrewDateHebrew: data.hebrewDateHebrew ?? zmanim.hebrewDateHebrew,
-          parsha: data.parsha ?? null,
+          // Fall through to the coming Shabbos's parsha on a weekday, matching
+          // what the server does for Toronto. Without this the parsha silently
+          // disappeared from the strip when a non-Toronto location was chosen.
+          parsha: data.parsha ?? data.upcomingParsha ?? null,
         });
       })
       .catch((err) => {
