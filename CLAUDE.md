@@ -1597,7 +1597,9 @@ Client feedback brain-dump → 6 phases, all committed/pushed to `main`, deploye
 - `src/hooks/useStoredZmanimLocation.ts` — shared localStorage hydrate/persist hook used by both consumers (DRY).
 - Consumers: `src/app/(public)/zmanim/ZmanimPageContent.tsx` (full picker) + `src/components/widgets/ZmanimWidget.tsx` (compact).
 
-**Halacha decision (confirmed with owner):** Israeli locations get **1-day Yom Tov** via hebcal's `il` flag, but **candle-lighting stays the 18-min default everywhere** — a blanket 40 min is *Jerusalem-specific* and wrong for most Israeli cities. If a rav ever specifies per-city minutes, `HebrewCalendar.calendar(...)` in `zmanim.ts` is the one place to change.
+**Halacha decision (confirmed with owner):** Israeli locations get **1-day Yom Tov** via hebcal's `il` flag. The reasoning about candle lighting was that a blanket 40 min is *Jerusalem-specific* and wrong for most Israeli cities — correct reasoning, but see the correction below.
+
+> **CORRECTION (2026-07-27):** the claim that "candle-lighting stays the 18-min default everywhere" is **wrong**. hebcal applies **per-city customs by coordinate**, with no configuration from us: Jerusalem **40 min**, Haifa **30 min**, Tel Aviv and Bnei Brak **18 min**, Toronto **18 min**. Measured across seven coordinate variants around Jerusalem (city centre, Old City, Har Nof, 20 km north) — all resolved to 40 min, so whatever the geocoder returns, the local custom is applied. Verified against Chabad: Jerusalem candles Fri 2026-07-31 = ours 6:56 PM vs Chabad 6:57 PM (we floor, which is the stringent direction for a "not later than" time).
 
 **Notable bug caught only by live verification:** the GPS "Use my location" path silently did nothing under React **Strict Mode** — a `mountedRef` cleanup set it `false` on unmount but setup never reset it `true`, so Strict Mode's setup→cleanup→setup left it stuck `false` and the GPS guard always bailed. Passed unit tests + tsc + code review; only surfaced clicking it in a real browser. Fixed by setting `mountedRef.current = true` in the effect body.
 
@@ -1610,3 +1612,99 @@ Client feedback brain-dump → 6 phases, all committed/pushed to `main`, deploye
 - `tzait72` was `tzeit(16.1°)` (≈114 min in Toronto summer, mislabeled "72") → now **`sunset + 72 fixed clock minutes`** (10:10 PM Toronto, matches MyZmanim's "72 Minutes" row).
 - Still known/unchanged: Misheyakir uses hebcal's default degree (~4:32 Toronto) vs MyZmanim's 10.2° (4:42) — a minor opinion difference, left as-is. If MGA sof-zman-shma is ever wanted, add `sofZmanShmaMGA()` as a separate row.
 - Also fixed a duplicate-results bug in `src/lib/geocode.ts`: Photon returns multiple OSM entries with identical labels (e.g. two "Jerusalem, Jerusalem District, Israel"); `searchPlaces` now dedupes by label (over-fetch 10 → dedupe → cap 6).
+
+---
+
+### 2026-07-26 — Production domain cutover (emails pointed at vercel.app)
+
+**Symptom:** a new signup received a verification email whose approve link pointed at `https://frum-toronto.vercel.app` instead of the real domain.
+
+**Root cause:** no code bug. Production env vars had been set at project creation (207d prior) and never updated after the domain was acquired:
+
+```
+NEXTAUTH_URL        = "https://frum-toronto.vercel.app\n"
+NEXT_PUBLIC_APP_URL = "https://frum-toronto.vercel.app\n"
+```
+
+Note the **literal trailing newline** baked into both values — that injected a newline into the middle of every generated `href`.
+
+`NEXT_PUBLIC_APP_URL` is the single source for every absolute URL in server-rendered email (~40 usages), so ALL of these were affected: signup verification (`src/lib/email/send.ts:15`), password reset, newsletter unsubscribe/preferences + open/click tracking, shiva notices, event notifications, business video approve/reject, Ask the Rabbi answers, and **PayPal subscription return URLs** (`src/app/api/paypal/create-subscription/route.ts:109`) — the last meaning a paying customer got dropped on vercel.app where their session cookie didn't exist.
+
+**Fix (env only — no code changed):** both prod vars set to `https://www.frumtoronto.com`, newline stripped.
+
+- `www` is canonical: apex `frumtoronto.com` 308-redirects to `www`, which serves 200.
+- `NEXTAUTH_URL` is *contractual* — Google exact-string-matches it. Added to OAuth client `275980391799-…`: redirect URI `https://www.frumtoronto.com/api/auth/callback/google` + JS origin `https://www.frumtoronto.com`. Existing localhost/apex/vercel.app entries kept so there was no gap. Changing `NEXTAUTH_URL` without this = `redirect_uri_mismatch` and dead Google login.
+- Apex alone wouldn't have sufficed: a 308 mid-OAuth changes host, and NextAuth's `state`/PKCE cookie is host-scoped.
+
+**Deploy:** `vercel redeploy https://frum-toronto-e1enyte6p-…` (needs `--scope daniels-projects-6286b7f6`) — rebuilds the identical source with fresh env vars, shipping zero new code. Env var changes are inert until a redeploy.
+
+**Verified in prod after deploy:**
+- `GET /api/newsletter/track/click` (no params → redirects to `APP_URL`, returns before any DB write) → `location: https://www.frumtoronto.com/`
+- `/api/auth/providers` → `callbackUrl: https://www.frumtoronto.com/api/auth/callback/google`
+- POST to `/api/auth/signin/google` → Google URL carries `redirect_uri=https%3A%2F%2Fwww.frumtoronto.com%2Fapi%2Fauth%2Fcallback%2Fgoogle`
+
+**Open item:** prod `PAYPAL_WEBHOOK_ID` not audited — two IDs exist (`PAYPAL_WEBHOOK_ID_VERCEL` / `PAYPAL_WEBHOOK_ID_PRODUCTION`) and which is active vs. which domain PayPal actually posts to was not verified.
+
+---
+
+### 2026-07-26/27 — Homepage hero redesign ("the dial"), typography, and two zmanim bugs
+
+**Spec:** `docs/superpowers/specs/2026-07-26-hero-dial-redesign-design.md` (494 lines; 4 rounds of adversarial review, 19 findings, all verified against the repo before acting).
+
+#### Two production bugs found while building — both shipped fixes
+
+**1. Candle lighting and havdalah were ALWAYS null, everywhere.** hebcal's `getDesc()` returns `"Candle lighting"` / `"Havdalah"`; the colon and the `(50 min)` suffix appear only in `render()`. `zmanim.ts` matched `startsWith("Candle lighting:")` — with a colon — so neither branch ever fired. `/api/zmanim` returned `"--:--"` for both on every date, the widget's Shabbos section never rendered, and `isShabbat` was never true on a Friday. Fixed by matching without the colon.
+
+**2. Every calendar-day decision was made from the SERVER's clock.** `new HDate(date)`, `new Zmanim(...)`, `HebrewCalendar.calendar({start,end})` and two `date.getDay()` calls all read server-local components, so from ~8 PM Toronto time a UTC server reported **tomorrow's** Hebrew date, parsha and zmanim. `getUpcomingShabbat` had it too and skipped a whole week on Friday night. Line 144 (`toLocaleDateString` with `timeZone`) was already correct — that inconsistency is what proved it was a defect.
+
+New `src/lib/zmanim-day.ts` separates two meanings that were tangled together:
+- `todayInLocation()` — "today, where the viewer is": an instant → that location's civil day.
+- `anchorCalendarDate()` — "the date the caller picked": must NOT shift. Collapsing these breaks the `/zmanim` date picker by a day.
+
+Both anchor at **12:00 UTC**, because hebcal reads a Date's *local* components to pick the day; noon ± any offset in `[-12, +12)` never crosses midnight. **Limitation:** fails on a server at exactly UTC+12 or beyond (constrains the *server*, not the viewer's location). `addAnchoredDays()` replaces `setDate()` so anchors stay pinned at exactly 12:00Z across DST.
+
+**Neither bug reproduces on an America/Toronto dev machine** — that is why they survived. `vitest.config.mts` now pins the unit project to `TZ=UTC`, and `tests/unit/zmanim-calc.test.ts` relocates the "server" across UTC/Tokyo/Kolkata/Toronto/LA via `process.env.TZ` and asserts all five agree.
+
+#### Havdalah: fixed 50 min → 8.5 degrees
+
+MyZmanim publishes two nightfall rows: "3 stars emerge" (labelled *"36 minutes as degrees"* = 8.5°) and "72 minutes". A fixed 50 min matched neither and contradicted our own tzeis row (site showed tzeis 9:37 and havdalah 9:30 for the same moment). Now `havdalahDeg: 8.5`, matching the tzeis row. Measured against 8.5°, the old fixed offset was ~2 min late in January and **~8 min late in March** — one day's agreement proved nothing, which is why `tests/unit/zmanim-havdalah.test.ts` pins the *definition* across 52 Saturdays plus a NOAA cross-check, not a value.
+
+**Verified (2026-07-27):** Toronto candles 8:23 PM = MyZmanim exactly. Jerusalem candles 6:56 vs Chabad 6:57; Jerusalem Shabbat ends 8:15 vs Chabad 8:16 — 8.5° matches Israeli practice within a minute.
+
+**Open, deliberately not changed:**
+- Our minute for havdalah falls on the **lenient** side (we are ~1 min earlier than Chabad). For a time that *ends* Shabbos you would rather round later. Part of a broader rounding-policy question: MyZmanim **rounds** to the nearest minute, `formatZmanTime` **truncates**, so our 6:05:42 sunrise displays as 6:05 and theirs as 6:06. Halachically you want *earliest* times rounded up and *latest* times rounded down; we do neither deliberately.
+- Some Israeli communities use 42 min or Rabbeinu Tam 72 min for motzei Shabbos. 72 min is already displayed separately as `tzait72`.
+- Misheyakir still uses hebcal's default degrees, not MyZmanim's 10.2 (pre-existing).
+
+`npm run zmanim:verify -- [YYYY-MM-DD] [toronto|jerusalem]` prints our values in MyZmanim's row order for a human diff. Re-run after any `@hebcal/core` upgrade.
+
+#### Typography
+
+Urbanist → **Frank Ruhl Libre** (display, `--font-display`) + **Assistant** (UI/body, `--font-sans`), both with `subsets: ["latin", "hebrew"]`. Urbanist shipped no Hebrew glyphs *and* `layout.tsx` requested `subsets: ["latin"]`, so every Hebrew string — calendar dates, tehillim `hebrewName`, shiva `niftarNameHebrew` — fell back to an arbitrary OS font.
+
+**Gotcha:** the `next/font` variable names must differ from the Tailwind theme tokens they feed. `--font-display: var(--font-display)` is self-referential and silently resolves to nothing. Hence `--font-frank` / `--font-assistant`.
+
+`src/lib/email/templates.ts` still lists `'Urbanist'` in an inline stack — inert (email clients cannot load `next/font`), left alone.
+
+#### The hero
+
+`src/components/home/HeroSection.tsx` (527 lines, six jobs in one client component) → seven focused files under `src/components/home/hero/` behind a **server** component, plus pure `src/lib/hero/{dial,primaryZman,heroData}.ts`.
+
+- **The dial**: tick ring, 72 ticks (one per 20 min, every sixth longer, elapsed ones dimmed), 8 destinations orbiting at **0.5°/sec** (was 3°/sec), hub showing the primary zman.
+- **`resolvePrimaryZman()`**: candle lighting → havdalah → upcoming Shabbos → `null`. Needed because candle lighting is null 5 days a week; `null` drives a wordmark fallback so no path can render `"--:--"`. It also rejects `Invalid Date`, which is an *object*, not null, and would render as "Invalid Date".
+- **Motion**: pauses on pointer-enter and focus-within (chasing a moving link is a WCAG 2.2.2 failure — Playwright literally refuses to hover one, reporting "element is not stable"). `prefers-reduced-motion` paints one static frame; **verified** by temporarily forcing the flag.
+- **Mobile**: no dial, no WebGL. `hidden md:block` keeps a component *mounted*, so the RAF loop is gated on real visibility via ResizeObserver — **measured 0 animation frames in 600 ms at 375px**.
+- `page.tsx` is now `async` + `export const dynamic = "force-dynamic"`. Without it Next would statically prerender and freeze candle lighting, eruv and counts at build time.
+
+**Three bugs worth remembering:**
+1. Dropping `el.style.left/top = "50%"` from the RAF paint made the JSX percentage and the pixel transform stack, flinging every node out of the ring. The old code carried a comment warning about exactly this.
+2. `Math.cos/sin` are not bit-identical across V8 builds, so unrounded SVG coordinates caused a hydration mismatch on all 72 ticks (`78.96497798720155` vs `...152`). `dial.ts` rounds to 4 decimals.
+3. `useStoredZmanimLocation` kept per-instance state and read localStorage only on mount, so changing the location in `ZmanimWidget` left the hero stale until a reload. The native `storage` event does **not** fix this — it never fires in the document that performed the write. `setLocation` now dispatches `ft:zmanim-location-changed`; instances listen to that (same tab) and `storage` (other tabs).
+
+**Additive API/hook changes** (existing consumers unaffected): `/api/zmanim` `mode=today` gained `candleLightingISO`, `havdalahISO`, `upcomingCandleLightingISO`, `upcomingParsha` — the formatted fields cannot express absence, since `formatZmanTime(null)` returns the **truthy** string `"--:--"`. `useStoredZmanimLocation` gained a third return value, `isHydrated`.
+
+**Deleted:** 105 lines of dead CSS (`star-twinkle`, `shimmer`, `pulse-ring`, `gradient-shift`, `bounce-slow` + two already-unreferenced blocks), each re-grepped after the old hero was removed. `/api/stats` is now unreferenced but deliberately kept.
+
+**Tests: 61 → 135.** `tsc` 0 errors; `eslint` 0 errors in touched files (43 pre-existing errors elsewhere in the repo, untouched).
+
+**Not done:** `QuickLinks` still duplicates the dial's destinations, and `ZmanimWidget`/`EruvWidget` remain at the bottom of the homepage though the strip now covers them — both left as the owner's call.
