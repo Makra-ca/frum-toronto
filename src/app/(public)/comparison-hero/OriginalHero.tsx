@@ -1,0 +1,537 @@
+// src/app/(public)/comparison-hero/OriginalHero.tsx
+//
+// The hero exactly as it was before the redesign, recovered verbatim from
+// 7554843^ so the comparison page shows an honest "before" rather than a
+// reconstruction. Only the export name changed, to avoid colliding with the
+// current HeroSection.
+//
+// Its animations live in ./original-hero.css, which the comparison page imports.
+// Do not use this component anywhere else — it is a reference exhibit.
+
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Building2,
+  Landmark,
+  Calendar,
+  Tag,
+  BookOpen,
+  MessageCircle,
+  Clock,
+  Heart,
+  HandHeart,
+  ChevronDown,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { UniversalSearch } from "@/components/search/UniversalSearch";
+
+// Community feature nodes with descriptions
+const communityNodes = [
+  { id: "directory", label: "Directory", description: "100+ kosher businesses", icon: Building2, href: "/directory", color: "from-blue-500 to-blue-600" },
+  { id: "shuls", label: "Shuls", description: "Find your minyan", icon: Landmark, href: "/shuls", color: "from-indigo-500 to-indigo-600" },
+  { id: "events", label: "Events", description: "Community calendar", icon: Calendar, href: "/community/calendar", color: "from-purple-500 to-purple-600" },
+  { id: "classifieds", label: "Classifieds", description: "Buy, sell & trade", icon: Tag, href: "/classifieds", color: "from-cyan-500 to-cyan-600" },
+  { id: "shiurim", label: "Shiurim", description: "Torah classes", icon: BookOpen, href: "/shiurim", color: "from-emerald-500 to-emerald-600" },
+  { id: "ask-the-rabbi", label: "Ask Rabbi", description: "Torah Q&A", icon: MessageCircle, href: "/ask-the-rabbi", color: "from-pink-500 to-pink-600" },
+  { id: "zmanim", label: "Zmanim", description: "Daily times", icon: Clock, href: "/zmanim", color: "from-amber-500 to-amber-600" },
+  { id: "simchas", label: "Simchas", description: "Celebrate together", icon: Heart, href: "/simchas", color: "from-rose-500 to-rose-600" },
+  { id: "shiva", label: "Shiva", description: "Shiva notices", icon: HandHeart, href: "/shiva", color: "from-slate-500 to-slate-600" },
+];
+
+// Star particle data (pre-generated static values to avoid hydration mismatch)
+const starParticles = [
+  { id: 0, left: 12, top: 8, size: 2, delay: 0, duration: 3 },
+  { id: 1, left: 85, top: 15, size: 1.5, delay: 1.2, duration: 4 },
+  { id: 2, left: 45, top: 22, size: 2.5, delay: 0.5, duration: 3.5 },
+  { id: 3, left: 78, top: 35, size: 1, delay: 2, duration: 2.5 },
+  { id: 4, left: 23, top: 42, size: 3, delay: 0.8, duration: 4 },
+  { id: 5, left: 92, top: 48, size: 1.5, delay: 1.5, duration: 3 },
+  { id: 6, left: 8, top: 55, size: 2, delay: 2.5, duration: 3.5 },
+  { id: 7, left: 67, top: 12, size: 1, delay: 0.3, duration: 4.5 },
+  { id: 8, left: 35, top: 68, size: 2.5, delay: 1.8, duration: 3 },
+  { id: 9, left: 55, top: 75, size: 1.5, delay: 3, duration: 4 },
+  { id: 10, left: 18, top: 82, size: 2, delay: 0.7, duration: 3.5 },
+  { id: 11, left: 88, top: 88, size: 1, delay: 2.2, duration: 2.5 },
+  { id: 12, left: 42, top: 92, size: 3, delay: 1, duration: 4 },
+  { id: 13, left: 72, top: 5, size: 1.5, delay: 3.5, duration: 3 },
+  { id: 14, left: 5, top: 28, size: 2, delay: 0.2, duration: 4.5 },
+  { id: 15, left: 95, top: 62, size: 1, delay: 2.8, duration: 3.5 },
+  { id: 16, left: 28, top: 18, size: 2.5, delay: 1.3, duration: 3 },
+  { id: 17, left: 62, top: 45, size: 1.5, delay: 4, duration: 4 },
+  { id: 18, left: 15, top: 72, size: 2, delay: 0.9, duration: 2.5 },
+  { id: 19, left: 82, top: 78, size: 1, delay: 2.1, duration: 3.5 },
+  { id: 20, left: 48, top: 38, size: 3, delay: 1.6, duration: 4 },
+  { id: 21, left: 38, top: 85, size: 1.5, delay: 3.2, duration: 3 },
+  { id: 22, left: 75, top: 25, size: 2, delay: 0.4, duration: 4.5 },
+  { id: 23, left: 3, top: 95, size: 1, delay: 2.6, duration: 3.5 },
+  { id: 24, left: 58, top: 58, size: 2.5, delay: 1.1, duration: 3 },
+  { id: 25, left: 25, top: 52, size: 1.5, delay: 3.8, duration: 4 },
+  { id: 26, left: 90, top: 32, size: 2, delay: 0.6, duration: 2.5 },
+  { id: 27, left: 52, top: 8, size: 1, delay: 2.4, duration: 3.5 },
+  { id: 28, left: 32, top: 35, size: 3, delay: 1.4, duration: 4 },
+  { id: 29, left: 68, top: 65, size: 1.5, delay: 3.3, duration: 3 },
+];
+
+// 3 degrees/second orbital speed
+const DEG_PER_MS = 3 / 1000;
+const RADIUS_PCT = 33;
+
+function getNodeXY(index: number, angleDeg: number) {
+  const baseAngle = (index / communityNodes.length) * 360;
+  const rad = ((baseAngle + angleDeg) * Math.PI) / 180;
+  return {
+    x: 50 + Math.sin(rad) * RADIUS_PCT,
+    y: 50 - Math.cos(rad) * RADIUS_PCT,
+  };
+}
+
+// Animated counter hook
+function useCountUp(end: number, duration: number = 2000, startOnView: boolean = true) {
+  const [count, setCount] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!startOnView) {
+      setHasStarted(true);
+    }
+  }, [startOnView]);
+
+  useEffect(() => {
+    if (!startOnView) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasStarted) {
+          setHasStarted(true);
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasStarted, startOnView]);
+
+  useEffect(() => {
+    if (!hasStarted) return;
+
+    let startTime: number;
+    let animationFrame: number;
+
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+
+      const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+      setCount(Math.floor(easeOutQuart * end));
+
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animate);
+      }
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(animationFrame);
+  }, [hasStarted, end, duration]);
+
+  return { count, ref };
+}
+
+export function OriginalHero() {
+  const router = useRouter();
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const [activeConnections, setActiveConnections] = useState<number[]>([]);
+  const [stats, setStats] = useState({ businesses: 0, shuls: 0 });
+
+  // RAF-based orbit: no React state involved in the animation loop.
+  // Nodes are anchored at the container center and moved with GPU-composited
+  // transforms (not left/top) so motion stays smooth at slow speeds.
+  const angleRef = useRef(0);
+  const rafRef = useRef<number>(0);
+  const lastTimeRef = useRef<number>(0);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const sizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
+  const nodeEls = useRef<(HTMLAnchorElement | null)[]>(communityNodes.map(() => null));
+  const lineBaseEls = useRef<(SVGLineElement | null)[]>(communityNodes.map(() => null));
+  const lineActiveEls = useRef<(SVGLineElement | null)[]>(communityNodes.map(() => null));
+
+  useEffect(() => {
+    const container = containerRef.current;
+
+    const measure = () => {
+      if (container) {
+        sizeRef.current = { w: container.offsetWidth, h: container.offsetHeight };
+      }
+    };
+    measure();
+
+    const ro = new ResizeObserver(measure);
+    if (container) ro.observe(container);
+
+    // The RAF loop is the single source of truth for node positions. We
+    // re-anchor left/top to the container center every frame because React
+    // re-renders restore the JSX `left: ix%` values; without this the pixel
+    // offset would stack on top of them and fling nodes off-screen.
+    const positionAll = (angle: number) => {
+      const { w, h } = sizeRef.current;
+      communityNodes.forEach((_, i) => {
+        const { x, y } = getNodeXY(i, angle);
+        const offX = ((x - 50) / 100) * w;
+        const offY = ((y - 50) / 100) * h;
+
+        const el = nodeEls.current[i];
+        if (el) {
+          el.style.left = "50%";
+          el.style.top = "50%";
+          el.style.transform = `translate(-50%, -50%) translate(${offX}px, ${offY}px)`;
+        }
+
+        // SVG coordinates are sub-pixel accurate, so percentages stay smooth here.
+        const lb = lineBaseEls.current[i];
+        if (lb) {
+          lb.setAttribute("x2", `${x}%`);
+          lb.setAttribute("y2", `${y}%`);
+        }
+
+        const la = lineActiveEls.current[i];
+        if (la) {
+          la.setAttribute("x2", `${x}%`);
+          la.setAttribute("y2", `${y}%`);
+        }
+      });
+    };
+
+    // Paint the starting positions immediately so there's no center-stack flash.
+    positionAll(angleRef.current);
+
+    const animate = (timestamp: number) => {
+      if (lastTimeRef.current > 0) {
+        const delta = timestamp - lastTimeRef.current;
+        angleRef.current = (angleRef.current + delta * DEG_PER_MS) % 360;
+      }
+      lastTimeRef.current = timestamp;
+
+      positionAll(angleRef.current);
+
+      rafRef.current = requestAnimationFrame(animate);
+    };
+
+    rafRef.current = requestAnimationFrame(animate);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      ro.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/stats")
+      .then((res) => res.json())
+      .then((data) => setStats(data))
+      .catch(() => {});
+  }, []);
+
+  // Animated stats
+  const businessCount = useCountUp(stats.businesses, 2000);
+  const shulCount = useCountUp(stats.shuls, 2000);
+
+  // Animate connections periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const numConnections = Math.floor(Math.random() * 2) + 2;
+      const newConnections: number[] = [];
+      for (let i = 0; i < numConnections; i++) {
+        newConnections.push(Math.floor(Math.random() * communityNodes.length));
+      }
+      setActiveConnections(newConnections);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const scrollToContent = () => {
+    window.scrollBy({ top: window.innerHeight * 0.8, behavior: "smooth" });
+  };
+
+  return (
+    <section
+      className="relative overflow-x-clip overflow-y-visible bg-gradient-to-b from-blue-950 via-blue-900 to-slate-900 text-white pt-8 pb-16 md:pt-6 md:pb-20 lg:pt-0 lg:pb-20 min-h-[80vh] flex flex-col"
+    >
+      {/* Star particles background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {starParticles.map((star) => (
+          <div
+            key={star.id}
+            className="absolute rounded-full bg-white star-twinkle"
+            style={{
+              left: `${star.left}%`,
+              top: `${star.top}%`,
+              width: `${star.size}px`,
+              height: `${star.size}px`,
+              animationDelay: `${star.delay}s`,
+              animationDuration: `${star.duration}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+            backgroundSize: "40px 40px",
+          }}
+        />
+      </div>
+
+      <div className="container mx-auto px-4 relative flex-1 flex flex-col xl:-mt-4 2xl:-mt-6">
+        {/* Main content area */}
+        <div className="flex flex-col xl:flex-row items-center gap-8 xl:gap-6 flex-1">
+
+          {/* Left side - Text content */}
+          <div className="flex-1 text-center xl:text-left max-w-xl">
+            <p className="text-blue-300 font-medium tracking-wider uppercase text-sm mb-3">
+              Toronto Jewish Community
+            </p>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight">
+              Welcome to{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-cyan-300 to-blue-300 bg-[length:200%_auto] animate-gradient-shift">
+                FrumToronto
+              </span>
+            </h1>
+            <p className="text-lg md:text-xl text-blue-100/80 mb-8">
+              Your gateway to connecting with the Orthodox Jewish community.
+              Discover businesses, shuls, events, and more.
+            </p>
+
+            {/* Search Bar */}
+            <div className="mb-8 max-w-md mx-auto xl:mx-0 z-[40] relative">
+              <UniversalSearch
+                searchType="all"
+                placeholder="Search businesses, events, and more..."
+                onSearch={(q) => {
+                  router.push(`/search?q=${encodeURIComponent(q)}`);
+                }}
+              />
+            </div>
+
+            {/* Animated stats */}
+            <div className="flex flex-wrap justify-center xl:justify-start gap-6 text-sm">
+              <div className="text-center" ref={businessCount.ref}>
+                <div className="text-2xl font-bold text-blue-300">
+                  {businessCount.count}+
+                </div>
+                <div className="text-blue-200/60">Businesses</div>
+              </div>
+              <div className="text-center" ref={shulCount.ref}>
+                <div className="text-2xl font-bold text-blue-300">
+                  {shulCount.count}+
+                </div>
+                <div className="text-blue-200/60">Shuls</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-300">Weekly</div>
+                <div className="text-blue-200/60">Events</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right side - Connected community network */}
+          <div className="flex-1 flex items-center justify-center">
+            <div
+              ref={containerRef}
+              className="relative w-[300px] h-[300px] md:w-[380px] md:h-[380px] lg:w-[450px] lg:h-[450px] xl:w-[520px] xl:h-[520px] 2xl:w-[580px] 2xl:h-[580px]"
+            >
+
+              {/* Subtle glow rings */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[35%] aspect-square rounded-full bg-blue-500/5 blur-sm animate-pulse-ring" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50%] aspect-square rounded-full bg-blue-400/5 blur-md animate-pulse-ring-delayed" />
+
+              {/* Center hub glow */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 md:w-40 md:h-40 lg:w-48 lg:h-48 xl:w-56 xl:h-56 bg-blue-500/40 rounded-full blur-2xl animate-pulse z-10" />
+              {/* Hub */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 xl:w-32 xl:h-32 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/50 flex items-center justify-center ring-2 ring-blue-400/40 z-20">
+                <div className="text-center">
+                  <div className="flex items-baseline justify-center">
+                    <span className="text-[10px] md:text-xs lg:text-sm xl:text-base font-bold text-white">Frum</span>
+                    <span className="text-[10px] md:text-xs lg:text-sm xl:text-base font-bold text-blue-200">Toronto</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Connection lines SVG — x2/y2 updated by RAF, not React */}
+              <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 5 }}>
+                <defs>
+                  <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#60a5fa" />
+                    <stop offset="100%" stopColor="#818cf8" />
+                  </linearGradient>
+                </defs>
+                {communityNodes.map((node, index) => {
+                  const { x: ix, y: iy } = getNodeXY(index, 0);
+                  const isActive = activeConnections.includes(index) || hoveredNode === node.id;
+
+                  return (
+                    <g key={`line-${node.id}`}>
+                      <line
+                        ref={(el) => { lineBaseEls.current[index] = el; }}
+                        x1="50%"
+                        y1="50%"
+                        x2={`${ix}%`}
+                        y2={`${iy}%`}
+                        stroke="rgba(147, 197, 253, 0.25)"
+                        strokeWidth="1.5"
+                        strokeDasharray="6 4"
+                      />
+                      <line
+                        ref={(el) => { lineActiveEls.current[index] = el; }}
+                        x1="50%"
+                        y1="50%"
+                        x2={`${ix}%`}
+                        y2={`${iy}%`}
+                        stroke="url(#lineGradient)"
+                        strokeWidth="2.5"
+                        className={`transition-opacity duration-500 ${isActive ? "opacity-100" : "opacity-0"}`}
+                      />
+                      {isActive && (
+                        <circle r="4" fill="#60a5fa" className="animate-pulse">
+                          <animateMotion
+                            dur="0.8s"
+                            repeatCount="1"
+                            path={`M${ix * 4},${iy * 4} L${50 * 4},${50 * 4}`}
+                          />
+                        </circle>
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {/* Floating nodes — left/top updated by RAF, initial positions at angle=0 */}
+              {communityNodes.map((node, index) => {
+                const { x: ix, y: iy } = getNodeXY(index, 0);
+                const Icon = node.icon;
+                const isHovered = hoveredNode === node.id;
+
+                return (
+                  <Link
+                    key={node.id}
+                    href={node.href}
+                    ref={(el) => { nodeEls.current[index] = el; }}
+                    className="absolute z-10 group"
+                    style={{
+                      left: `${ix}%`,
+                      top: `${iy}%`,
+                      transform: "translate(-50%, -50%)",
+                      willChange: "transform",
+                    }}
+                    onMouseEnter={() => setHoveredNode(node.id)}
+                    onMouseLeave={() => setHoveredNode(null)}
+                  >
+                    {/* Glow effect on hover */}
+                    <div
+                      className={`absolute inset-0 -m-3 rounded-xl blur-lg transition-opacity duration-300 bg-blue-400/50 ${
+                        isHovered ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
+
+                    {/* Node card */}
+                    <div
+                      className={`
+                        relative overflow-hidden
+                        rounded-xl
+                        bg-gradient-to-br ${node.color}
+                        shadow-lg shadow-black/30
+                        flex flex-col items-center justify-center
+                        transition-all duration-300
+                        ${isHovered
+                          ? "scale-125 shadow-xl shadow-blue-500/40 w-20 h-20 md:w-24 md:h-24 lg:w-28 lg:h-28"
+                          : "w-14 h-14 md:w-16 md:h-16 lg:w-[72px] lg:h-[72px] xl:w-20 xl:h-20"
+                        }
+                      `}
+                    >
+                      {/* Shimmer effect */}
+                      <div className="absolute inset-0 shimmer-effect" />
+
+                      <Icon className={`relative z-10 text-white transition-all duration-300 ${
+                        isHovered ? "w-7 h-7 md:w-8 md:h-8 lg:w-9 lg:h-9" : "w-5 h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 xl:w-8 xl:h-8"
+                      }`} />
+                      <span className={`relative z-10 text-white/90 font-medium mt-0.5 transition-all duration-300 ${
+                        isHovered ? "text-[10px] md:text-xs lg:text-sm" : "text-[8px] md:text-[9px] lg:text-[10px] xl:text-xs"
+                      }`}>
+                        {node.label}
+                      </span>
+
+                      {/* Description on hover */}
+                      {isHovered && (
+                        <span className="relative z-10 text-white/70 text-[7px] md:text-[8px] lg:text-[9px] mt-0.5 text-center px-1">
+                          {node.description}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom CTA buttons */}
+        <div className="flex flex-wrap justify-center gap-3 md:gap-4 mt-8">
+          <Button
+            asChild
+            size="lg"
+            className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all duration-300 text-sm md:text-base"
+          >
+            <Link href="/directory">Browse Directory</Link>
+          </Button>
+          <Button
+            asChild
+            size="lg"
+            className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all duration-300 text-sm md:text-base"
+          >
+            <Link href="/shuls">Find a Shul</Link>
+          </Button>
+          <Button
+            asChild
+            size="lg"
+            className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all duration-300 text-sm md:text-base"
+          >
+            <Link href="/community/calendar">View Events</Link>
+          </Button>
+          <Button
+            asChild
+            size="lg"
+            className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white hover:scale-105 transition-all duration-300 shadow-lg shadow-blue-500/25 text-sm md:text-base"
+          >
+            <Link href="/register-business">List Your Business</Link>
+          </Button>
+        </div>
+
+      </div>
+
+      {/* Scroll indicator */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30">
+        <button
+          onClick={scrollToContent}
+          className="flex flex-col items-center text-blue-300/60 hover:text-blue-300 transition-colors duration-300 group"
+          aria-label="Scroll down"
+        >
+          <span className="text-xs mb-1 opacity-0 group-hover:opacity-100 transition-opacity">Explore More</span>
+          <div className="animate-bounce-slow">
+            <ChevronDown className="w-6 h-6" />
+          </div>
+        </button>
+      </div>
+    </section>
+  );
+}
