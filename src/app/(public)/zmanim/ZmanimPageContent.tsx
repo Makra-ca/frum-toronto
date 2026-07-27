@@ -386,9 +386,17 @@ export function ZmanimPageContent() {
         <h3 className="font-medium text-gray-900 mb-2">About These Zmanim</h3>
         <ul className="text-sm text-gray-600 space-y-1">
           <li>• Times are calculated for {location.label} ({location.lat.toFixed(2)}°, {location.lon.toFixed(2)}°)</li>
-          <li>• Sof Zman Shma/Tefila use the GRA (Vilna Gaon) calculation method</li>
-          <li>• Candle lighting is 18 minutes before sunset</li>
-          <li>• Havdalah is calculated at 50 minutes after sunset</li>
+          <li>• Sof Zman Shma and Tefila are shown for both the GRA (Vilna Gaon) and the Magen Avraham, whose day is measured from 16.1°</li>
+          <li>• Misheyakir is when the sun is 10.2° below the horizon</li>
+          <li>• Nightfall is 8.5° below the horizon (&ldquo;three stars&rdquo;); the 72-minute custom is listed separately</li>
+          <li>• Candle lighting follows the local custom — 18 minutes before sunset in most places, 40 in Jerusalem, 30 in Haifa</li>
+          <li>• Havdalah uses the same 8.5° nightfall as above</li>
+          <li>
+            • Times are rounded to the stringent side: deadlines down, earliest
+            times up. Comparing with myzmanim.com you may see a one-minute
+            difference — that is deliberate, so a time is never shown as later
+            than it really is.
+          </li>
           <li>• Always verify times with your local Rabbi</li>
         </ul>
       </div>
