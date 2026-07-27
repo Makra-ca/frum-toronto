@@ -78,7 +78,7 @@ export function Header() {
               className="h-10 sm:h-12 w-auto"
               priority
             />
-            <div className="flex items-baseline xl:hidden 2xl:flex font-display">
+            <div className="flex items-baseline xl:hidden 2xl:flex">
               <span className="text-xl sm:text-2xl font-bold text-blue-900">Frum</span>
               <span className="text-xl sm:text-2xl font-bold text-blue-600">Toronto</span>
             </div>
