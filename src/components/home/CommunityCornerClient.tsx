@@ -95,7 +95,7 @@ function AskRabbiCard({ data }: { data: Record<string, any> }) {
           </h3>
         </div>
         {data.question && (
-          <p className="text-sm text-gray-600 mt-2 line-clamp-3">
+          <p className="text-sm text-gray-800 mt-2 line-clamp-3">
             {truncate(stripHtml(data.question as string), 150)}
           </p>
         )}
@@ -114,7 +114,7 @@ function SimchaCard({ data }: { data: Record<string, any> }) {
             {data.familyName as string} Family
           </h3>
           {data.announcement && (
-            <p className="text-sm text-gray-600 mt-1 line-clamp-3">
+            <p className="text-sm text-gray-800 mt-1 line-clamp-3">
               {data.announcement as string}
             </p>
           )}
@@ -126,7 +126,7 @@ function SimchaCard({ data }: { data: Record<string, any> }) {
         )}
       </div>
       {data.eventDate && (
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-gray-700 mt-2">
           {formatDate(data.eventDate as string)}
         </p>
       )}
@@ -156,15 +156,15 @@ function KosherAlertCard({ data }: { data: Record<string, any> }) {
         )}
       </div>
       {data.brand && (
-        <p className="text-sm text-gray-600 mt-1">{data.brand as string}</p>
+        <p className="text-sm text-gray-800 mt-1">{data.brand as string}</p>
       )}
       {data.certifyingAgency && (
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-gray-700 mt-1">
           Agency: {data.certifyingAgency as string}
         </p>
       )}
       {data.description && (
-        <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+        <p className="text-sm text-gray-800 mt-2 line-clamp-2">
           {truncate(data.description as string, 120)}
         </p>
       )}
@@ -189,12 +189,12 @@ function BulletinAlertCard({ data }: { data: Record<string, any> }) {
         </Badge>
       </div>
       {data.content && (
-        <p className="text-sm text-gray-600 mt-2 line-clamp-3">
+        <p className="text-sm text-gray-800 mt-2 line-clamp-3">
           {truncate(stripHtml(data.content as string), 150)}
         </p>
       )}
       {data.createdAt && (
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-gray-700 mt-2">
           {formatDate(data.createdAt as string)}
         </p>
       )}
@@ -209,12 +209,12 @@ function ShivaCard({ data }: { data: Record<string, any> }) {
   return (
     <div className="p-4 rounded-lg bg-gray-100">
       <h3 className="font-semibold text-gray-900">{data.niftarName as string}</h3>
-      {mourners && <p className="text-sm text-gray-600 mt-1">{mourners}</p>}
+      {mourners && <p className="text-sm text-gray-800 mt-1">{mourners}</p>}
       {data.shivaAddress && (
-        <p className="text-sm text-gray-500 mt-1">{data.shivaAddress as string}</p>
+        <p className="text-sm text-gray-700 mt-1">{data.shivaAddress as string}</p>
       )}
       {data.shivaEnd && (
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-gray-700 mt-1">
           Until {formatDate(data.shivaEnd as string)}
         </p>
       )}
@@ -234,18 +234,18 @@ function TehillimCard({ data }: { data: Record<string, any> }) {
         <p className="font-semibold text-gray-900" dir="rtl">
           {hebrewName}
           {motherHebrewName && (
-            <span className="text-gray-600"> בן/בת {motherHebrewName}</span>
+            <span className="text-gray-800"> בן/בת {motherHebrewName}</span>
           )}
         </p>
       ) : (
         <p className="font-semibold text-gray-900">
           {englishName}
           {motherHebrewName && (
-            <span className="text-gray-600"> ben/bat {motherHebrewName}</span>
+            <span className="text-gray-800"> ben/bat {motherHebrewName}</span>
           )}
         </p>
       )}
-      {reason && <p className="text-sm text-gray-500 mt-1">{reason}</p>}
+      {reason && <p className="text-sm text-gray-700 mt-1">{reason}</p>}
     </div>
   );
 }
@@ -327,7 +327,7 @@ export function CommunityCornerClient({ items }: CommunityCornerClientProps) {
   if (items.length === 0) {
     return (
       <Card className="border-0 shadow-md">
-        <CardContent className="py-8 text-center text-gray-500">
+        <CardContent className="py-8 text-center text-gray-700">
           <p>No community content to display.</p>
         </CardContent>
       </Card>
@@ -368,10 +368,10 @@ export function CommunityCornerClient({ items }: CommunityCornerClientProps) {
                 disabled={!hasItems}
                 className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-colors ${
                   !hasItems
-                    ? "text-gray-300 cursor-not-allowed"
+                    ? "text-gray-500 cursor-not-allowed"
                     : isActive
                       ? `${colors.active} cursor-pointer`
-                      : `text-gray-600 ${colors.hover} cursor-pointer`
+                      : `text-gray-800 ${colors.hover} cursor-pointer`
                 }`}
               >
                 <Icon className="h-4 w-4 shrink-0" />
@@ -393,14 +393,14 @@ export function CommunityCornerClient({ items }: CommunityCornerClientProps) {
                 className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 bg-white shadow-md rounded-full p-1.5 hover:bg-gray-50 transition-colors cursor-pointer"
                 aria-label="Previous item"
               >
-                <ChevronLeft className="h-4 w-4 text-gray-600" />
+                <ChevronLeft className="h-4 w-4 text-gray-800" />
               </button>
               <button
                 onClick={() => navigate("next")}
                 className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 bg-white shadow-md rounded-full p-1.5 hover:bg-gray-50 transition-colors cursor-pointer"
                 aria-label="Next item"
               >
-                <ChevronRight className="h-4 w-4 text-gray-600" />
+                <ChevronRight className="h-4 w-4 text-gray-800" />
               </button>
             </>
           )}
@@ -411,7 +411,7 @@ export function CommunityCornerClient({ items }: CommunityCornerClientProps) {
 
         {/* Position indicator */}
         {items.length > 1 && (
-          <p className="text-center text-xs text-gray-400 mt-3">
+          <p className="text-center text-xs text-gray-600 mt-3">
             {currentIndex + 1} of {items.length}
           </p>
         )}

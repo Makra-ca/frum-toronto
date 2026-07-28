@@ -43,7 +43,7 @@ export function HeroSection({ zmanim, eruv, counts }: HeroSectionProps) {
       <HeroLiveData zmanim={zmanim} eruv={eruv} counts={counts}>
         <LiveStrip />
 
-        <div className="container relative z-10 mx-auto px-4 py-10 md:py-14">
+        <div className="container relative z-10 mx-auto py-10 md:py-14">
           <div className="grid items-center gap-10 md:grid-cols-[1.05fr_0.95fr] md:gap-8">
             {/* Left column */}
             <div>
@@ -53,7 +53,7 @@ export function HeroSection({ zmanim, eruv, counts }: HeroSectionProps) {
                 <span className="text-sky-300">in one place.</span>
               </h1>
 
-              <p className="mt-4 max-w-[26rem] text-[15px] leading-relaxed text-slate-300">
+              <p className="mt-4 max-w-[26rem] text-[15px] leading-relaxed text-slate-100">
                 Shuls, kosher businesses, shiurim and this week&apos;s events — kept
                 current by the people who live here.
               </p>
@@ -68,7 +68,7 @@ export function HeroSection({ zmanim, eruv, counts }: HeroSectionProps) {
                   <Link
                     key={node.id}
                     href={node.href}
-                    className="rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-[12.5px] text-slate-200"
+                    className="rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-[12.5px] text-slate-100"
                   >
                     {node.label}
                   </Link>
@@ -79,14 +79,14 @@ export function HeroSection({ zmanim, eruv, counts }: HeroSectionProps) {
                   hook and made the numbers slower to read. */}
               {/* "0 events this week" is a weak thing to advertise, so that
                   segment is dropped when there are none. */}
-              <p className="mt-5 text-[13px] text-slate-400">
-                <span className="font-bold text-slate-200">{counts.businesses}</span>{" "}
+              <p className="mt-5 text-[13px] text-slate-300">
+                <span className="font-bold text-white">{counts.businesses}</span>{" "}
                 businesses ·{" "}
-                <span className="font-bold text-slate-200">{counts.shuls}</span> shuls
+                <span className="font-bold text-white">{counts.shuls}</span> shuls
                 {counts.events > 0 && (
                   <>
                     {" · "}
-                    <span className="font-bold text-slate-200">{counts.events}</span>{" "}
+                    <span className="font-bold text-white">{counts.events}</span>{" "}
                     {counts.events === 1 ? "event" : "events"} this week
                   </>
                 )}

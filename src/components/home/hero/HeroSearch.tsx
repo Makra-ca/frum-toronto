@@ -28,6 +28,7 @@ export function HeroSearch() {
     <div className="relative z-40 max-w-[460px]">
       <UniversalSearch
         searchType="all"
+        tone="onDark"
         placeholder="Search shuls, businesses, events…"
         onSearch={(q) => router.push(`/search?q=${encodeURIComponent(q)}`)}
       />

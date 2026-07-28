@@ -24,11 +24,14 @@ export function LiveStrip() {
   const showLocationName = !isTorontoLocation(location);
 
   return (
-    <div
-      aria-busy={!isTimesResolved}
-      className="relative z-10 border-b border-sky-300/15 bg-sky-300/[0.07]"
-    >
-      <div className="container mx-auto flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-[13px] text-slate-200/90">
+    // No background tint and no bottom border: the strip sits directly on the
+    // hero backdrop and reads as part of it. A tinted band plus a hairline rule
+    // made the top of the hero look like a separate, pasted-on element.
+    // `relative z-10` stays — it lifts the strip above HeroBackground.
+    // pt-[92px] clears the fixed pill nav (78px tall incl. its top offset) floating above it. Without this the
+    // zmanim line would sit behind the bar at the very top of the hero.
+    <div aria-busy={!isTimesResolved} className="relative z-10 pt-[92px]">
+      <div className="container mx-auto flex flex-wrap items-center gap-x-4 gap-y-1 py-2 text-[13px] text-slate-100">
         {primaryZman && (
           <Link
             href="/zmanim"
@@ -37,7 +40,7 @@ export function LiveStrip() {
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
             <span>
               {showLocationName && (
-                <span className="text-slate-300/70">{location.label} · </span>
+                <span className="text-slate-200">{location.label} · </span>
               )}
               {primaryZman.label}{" "}
               <span className="font-semibold tabular-nums text-white">
@@ -50,7 +53,7 @@ export function LiveStrip() {
         {/* Plain text, not a link: there is no public /eruv page. */}
         {eruv && (
           <>
-            <span aria-hidden="true" className="text-slate-500">
+            <span aria-hidden="true" className="text-slate-400">
               |
             </span>
             <span>
@@ -70,7 +73,7 @@ export function LiveStrip() {
             ("Vaetchanan"), so wrapping it in the RTL Hebrew-date span would mix
             scripts inside one direction context and render badly. */}
         <span className="ms-auto flex items-baseline gap-2">
-          {parsha && <span className="text-slate-300/70">Parshas {parsha}</span>}
+          {parsha && <span className="text-slate-200">Parshas {parsha}</span>}
           <span className="font-display text-[14px] text-sky-200/80" dir="rtl">
             {hebrewDateHebrew}
           </span>

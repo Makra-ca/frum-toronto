@@ -28,7 +28,7 @@ export default async function HomePage() {
       <HomepageBanner />
 
       {/* Main Content with Sidebar Ads on Both Sides */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto py-8">
         <div className="grid grid-cols-1 xl:grid-cols-[200px_1fr_200px] gap-6 xl:gap-8">
           {/* Left Sidebar Ad - Desktop only (xl screens) */}
           <aside className="hidden xl:block">

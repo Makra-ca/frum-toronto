@@ -14,7 +14,40 @@ interface UniversalSearchProps {
   minChars?: number;
   maxSuggestions?: number;
   initialQuery?: string;
+  /**
+   * Field styling. "light" — the solid white field, correct on the light page
+   * backgrounds the other nine call sites use. "onDark" — a translucent glass
+   * field for the hero, where a solid white slab is the brightest thing on a
+   * dark photograph and fights the headline for attention.
+   *
+   * Only the field changes. The suggestions dropdown stays light in both tones:
+   * it overlays page content rather than the hero backdrop, and its rows carry
+   * their own light-background type badges.
+   */
+  tone?: "light" | "onDark";
 }
+
+// Field styling per tone, kept together so the input, the leading icon and the
+// clear button can never drift apart.
+const TONE = {
+  light: {
+    input:
+      "bg-white text-gray-900 border-0 shadow-lg focus-visible:ring-2 focus-visible:ring-blue-400",
+    icon: "text-gray-400",
+    clearHover: "hover:bg-gray-100",
+    clearIcon: "text-gray-400",
+  },
+  onDark: {
+    // 12% white over the hero reads as glass rather than a panel. The border is
+    // what keeps the pill's edge legible once the fill is this quiet, and
+    // backdrop-blur stops the background gradient from muddying typed text.
+    input:
+      "bg-white/12 text-white border border-white/25 shadow-none backdrop-blur-md placeholder:text-white/70 focus-visible:ring-2 focus-visible:ring-sky-300/60 focus-visible:border-white/40 hover:bg-white/16 transition-colors",
+    icon: "text-white/70",
+    clearHover: "hover:bg-white/15",
+    clearIcon: "text-white/80",
+  },
+} as const;
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   businesses: { label: "Business", color: "bg-blue-100 text-blue-700" },
@@ -36,7 +69,9 @@ export function UniversalSearch({
   minChars,
   maxSuggestions = 8,
   initialQuery = "",
+  tone = "light",
 }: UniversalSearchProps) {
+  const toneStyles = TONE[tone];
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
@@ -203,7 +238,14 @@ export function UniversalSearch({
     <div ref={containerRef} className={`relative w-full ${className}`}>
       {/* Search Input */}
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+        {/* z-10 is load-bearing: `backdrop-blur` on the onDark input makes it a
+            stacking context, and this icon precedes the input in DOM order, so
+            without a z-index the glass paints over the icon and smears it to
+            near-invisible. The controls on the right come after the input and
+            never had the problem. */}
+        <Search
+          className={`absolute left-4 top-1/2 z-10 -translate-y-1/2 h-5 w-5 pointer-events-none ${toneStyles.icon}`}
+        />
         <Input
           ref={inputRef}
           type="text"
@@ -214,20 +256,20 @@ export function UniversalSearch({
             if (suggestions.length > 0) setIsOpen(true);
           }}
           placeholder={placeholder}
-          className="pl-12 pr-20 h-14 bg-white text-gray-900 border-0 text-base rounded-xl shadow-lg focus-visible:ring-2 focus-visible:ring-blue-400"
+          className={`pl-12 pr-20 h-14 text-base rounded-xl ${toneStyles.input}`}
           autoComplete="off"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
           {isLoading && (
-            <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
+            <Loader2 className={`h-5 w-5 animate-spin ${toneStyles.icon}`} />
           )}
           {query && !isLoading && (
             <button
               type="button"
               onClick={handleClear}
-              className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+              className={`p-1.5 rounded-full transition-colors ${toneStyles.clearHover}`}
             >
-              <X className="h-4 w-4 text-gray-400" />
+              <X className={`h-4 w-4 ${toneStyles.clearIcon}`} />
             </button>
           )}
         </div>

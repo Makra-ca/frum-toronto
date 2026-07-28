@@ -232,7 +232,7 @@ export function CommunityDial() {
               {hubPrimary}
             </div>
             {hubSecondary && (
-              <div className="mt-1 text-[11px] uppercase tracking-[0.09em] text-slate-400">
+              <div className="mt-1 text-[11px] uppercase tracking-[0.09em] text-slate-300">
                 {hubSecondary}
               </div>
             )}
@@ -271,7 +271,7 @@ export function CommunityDial() {
             <span className="flex h-11 w-11 items-center justify-center rounded-full border border-sky-300/40 bg-[#091830]/90 transition-colors duration-200 group-hover:border-sky-300 group-hover:bg-blue-700/40">
               <Icon className="h-[17px] w-[17px] text-sky-200 transition-colors duration-200 group-hover:text-white" />
             </span>
-            <span className="whitespace-nowrap text-[9.5px] font-bold uppercase tracking-[0.08em] text-slate-300 transition-colors duration-200 group-hover:text-white">
+            <span className="whitespace-nowrap text-[9.5px] font-bold uppercase tracking-[0.08em] text-slate-200 transition-colors duration-200 group-hover:text-white">
               {node.label}
             </span>
           </Link>
