@@ -10,8 +10,8 @@ import type { Metadata } from "next";
 import { getHeroData } from "@/lib/hero/heroData";
 import { HeroSection } from "@/components/home/hero/HeroSection";
 import { PhotoHero } from "@/components/home/hero/PhotoHero";
-import { OriginalHero } from "./OriginalHero";
-import "./original-hero.css";
+import { OriginalHero } from "@/components/home/hero/OriginalHero";
+import "@/components/home/hero/original-hero.css";
 
 export const dynamic = "force-dynamic";
 

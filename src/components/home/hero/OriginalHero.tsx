@@ -1,12 +1,15 @@
-// src/app/(public)/comparison-hero/OriginalHero.tsx
+// src/components/home/hero/OriginalHero.tsx
 //
 // The hero exactly as it was before the redesign, recovered verbatim from
-// 7554843^ so the comparison page shows an honest "before" rather than a
-// reconstruction. Only the export name changed, to avoid colliding with the
-// current HeroSection.
+// 7554843^. Only the export name changed, to avoid colliding with HeroSection.
 //
-// Its animations live in ./original-hero.css, which the comparison page imports.
-// Do not use this component anywhere else — it is a reference exhibit.
+// This is CURRENTLY THE LIVE HOMEPAGE HERO: the redesigns (HeroSection, the dial;
+// and PhotoHero) are parked while the client reviews them at /comparison-hero.
+// Whichever they pick, the swap is a one-line change in src/app/page.tsx.
+//
+// Its animations live in ./original-hero.css — they were removed from globals.css
+// when this component was first deleted, so they must be imported wherever it is
+// rendered.
 
 "use client";
 

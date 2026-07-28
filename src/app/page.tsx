@@ -1,5 +1,9 @@
-import { HeroSection } from "@/components/home/hero/HeroSection";
-import { getHeroData } from "@/lib/hero/heroData";
+// The original hero is live while the client reviews the redesigns at
+// /comparison-hero. To switch, change this import and the element below to
+// HeroSection (the dial) or PhotoHero — both take zmanim/eruv/counts from
+// getHeroData(), which is why that call is kept here.
+import { OriginalHero } from "@/components/home/hero/OriginalHero";
+import "@/components/home/hero/original-hero.css";
 import { CommunityCornerTabs } from "@/components/home/CommunityCornerTabs";
 import { QuickLinks } from "@/components/home/QuickLinks";
 import { FeaturedBusinesses } from "@/components/home/FeaturedBusinesses";
@@ -11,18 +15,16 @@ import { OmerWidget } from "@/components/widgets/OmerWidget";
 import { HomepageBanner } from "@/components/homepage/HomepageBanner";
 import { HomepageSidebarAds, HomepageSidebarAdsMobile } from "@/components/homepage/HomepageSidebarAds";
 
-// The hero renders live zmanim, eruv status and counts on the server. Without
-// this the page would be statically prerendered and those values frozen at build
-// time. /api/stats and /api/community/eruv both declare the same thing.
+// Kept even though the original hero fetches its own stats client-side: the ad
+// components below read admin-managed content that must not be frozen at build
+// time, and the redesigned heroes render live zmanim on the server.
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
-  const hero = await getHeroData();
-
+export default function HomePage() {
   return (
     <div>
       {/* Hero Section */}
-      <HeroSection zmanim={hero.zmanim} eruv={hero.eruv} counts={hero.counts} />
+      <OriginalHero />
 
       {/* Banner Ads - After Hero */}
       <HomepageBanner />
