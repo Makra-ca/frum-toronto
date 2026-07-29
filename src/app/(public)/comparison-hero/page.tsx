@@ -116,7 +116,12 @@ export default async function ComparisonHeroPage() {
         ]}
       />
       <div data-hero="2">
-        <HeroSection zmanim={hero.zmanim} eruv={hero.eruv} counts={hero.counts} />
+        <HeroSection
+          zmanim={hero.zmanim}
+          eruv={hero.eruv}
+          counts={hero.counts}
+          underFixedNav={false}
+        />
       </div>
 
       <Divider
@@ -133,7 +138,12 @@ export default async function ComparisonHeroPage() {
         ]}
       />
       <div data-hero="3">
-        <PhotoHero zmanim={hero.zmanim} eruv={hero.eruv} counts={hero.counts} />
+        <PhotoHero
+          zmanim={hero.zmanim}
+          eruv={hero.eruv}
+          counts={hero.counts}
+          underFixedNav={false}
+        />
       </div>
 
       <div className="border-t border-slate-200 bg-slate-50">

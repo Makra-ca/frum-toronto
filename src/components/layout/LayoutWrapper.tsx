@@ -10,21 +10,16 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith("/admin");
 
-  // The header is `fixed`, so it no longer occupies space in the flow. A hero
-  // designed for it runs to the top of the page and lets the nav float on top;
-  // every other route needs a spacer the height of the bar (py-2 + a 48px logo +
-  // the 12px top offset) so its first element does not slide underneath.
+  // The header is `fixed`, so it no longer occupies space in the flow. The
+  // homepage wants exactly that — its hero runs to the top and the nav floats on
+  // it, with the hero's own `underFixedNav` padding providing the clearance.
+  // Every other route has no such hero, so it gets a spacer the height of the bar
+  // (py-2 + a 48px logo + the 12px top offset) instead of its first element
+  // sliding underneath.
   //
-  // CURRENTLY NO ROUTE OPTS OUT. The homepage is temporarily rendering
-  // OriginalHero while the client reviews the redesigns at /comparison-hero, and
-  // that component predates the floating nav — it has no top padding, so without
-  // the spacer the nav covers its first 25px.
-  //
-  // When a redesigned hero goes live in src/app/page.tsx (HeroSection or
-  // PhotoHero, both of which carry their own top padding), change this back to:
-  //   const heroRunsUnderHeader = pathname === "/";
-  const heroRunsUnderHeader = false;
-  void pathname;
+  // These two must stay in step: if page.tsx ever renders a hero WITHOUT
+  // `underFixedNav`, this has to become `false` or the nav will cover it.
+  const heroRunsUnderHeader = pathname === "/";
 
   // Admin routes have their own layout - don't show Header/Footer or Preloader
   if (isAdminRoute) {
