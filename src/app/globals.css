@@ -3,11 +3,40 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* The page gutter, defined once.
+   Tailwind's stock `container` ships no padding, so every consumer wrote its own
+   `px-4` — seven of them on the homepage alone, which is why the hero copy sat
+   almost flush against the viewport edge on a wide screen. Setting it here keeps
+   the hero headline, the banner, the sidebar ads and the footer on one left edge
+   by construction, instead of by remembering to edit seven files together.
+   An explicit `px-*` on a .container element still wins, so Header.tsx keeps the
+   tighter gutter it asks for to fit the nav. */
+@utility container {
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+
+  @media (width >= 48rem) {
+    padding-inline: 2.5rem;
+  }
+
+  @media (width >= 64rem) {
+    padding-inline: 4rem;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-assistant);
-  --font-display: var(--font-frank);
+  /* Cormorant Garamond first, Assistant second: Assistant is not a nicety here,
+     it is what renders every Hebrew glyph on the site. Cormorant has no Hebrew. */
+  --font-sans: var(--font-cormorant), var(--font-assistant);
+  --font-display: var(--font-cormorant), var(--font-assistant);
+  /* Assistant on its own, for UI chrome that needs real weight. Cormorant is
+     loaded at 300/400 only, so font-semibold on it renders at 400 — the nav
+     would stay hairline no matter which weight class it asked for. Assistant
+     still ships its full 200–800 axis, so `font-ui font-semibold` gives an
+     actually-bold nav without lifting the cap on body and heading type. */
+  --font-ui: var(--font-assistant);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -122,6 +151,12 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Cormorant is loaded at 300/400 only (see layout.tsx). Without this, every
+       font-bold/semibold/medium would ask for a weight that isn't there and the
+       browser would synthesise one by smearing the 400 outlines — thicker and
+       cruder than a drawn bold. Assistant still ships its real weights, so
+       Hebrew is unaffected. */
+    font-synthesis-weight: none;
   }
 }
 

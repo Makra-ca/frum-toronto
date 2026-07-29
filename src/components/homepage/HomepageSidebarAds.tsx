@@ -71,7 +71,7 @@ export function HomepageSidebarAds({ position }: HomepageSidebarAdsProps) {
           href="/register-business"
           className="block relative h-64 rounded-lg overflow-hidden border-2 border-dashed border-slate-300 hover:border-blue-500 transition-colors group bg-slate-50"
         >
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 group-hover:text-blue-500 transition-colors p-4 text-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-600 group-hover:text-blue-500 transition-colors p-4 text-center">
             <p className="text-sm font-medium">Advertise Here</p>
             <p className="text-xs mt-1">Premium visibility</p>
           </div>
@@ -144,7 +144,7 @@ export function HomepageSidebarAds({ position }: HomepageSidebarAdsProps) {
               </h4>
 
               {business.tagline && (
-                <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                <p className="text-sm text-gray-800 mt-1 line-clamp-2">
                   {business.tagline}
                 </p>
               )}
@@ -203,7 +203,7 @@ export function HomepageSidebarAds({ position }: HomepageSidebarAdsProps) {
       )}
 
       {/* Sponsored label */}
-      <p className="text-center text-xs text-gray-400 mt-1">Sponsored</p>
+      <p className="text-center text-xs text-gray-600 mt-1">Sponsored</p>
     </div>
   );
 }
@@ -235,7 +235,7 @@ export function HomepageSidebarAdsMobile() {
 
   return (
     <section className="w-full py-6 bg-slate-50">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Featured Businesses</h3>
 
         <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory scrollbar-hide">
@@ -287,7 +287,7 @@ export function HomepageSidebarAdsMobile() {
                   </h4>
 
                   {business.tagline && (
-                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                    <p className="text-xs text-gray-800 mt-1 line-clamp-2">
                       {business.tagline}
                     </p>
                   )}
@@ -298,7 +298,7 @@ export function HomepageSidebarAdsMobile() {
           })}
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-2">Sponsored</p>
+        <p className="text-center text-xs text-gray-600 mt-2">Sponsored</p>
       </div>
     </section>
   );

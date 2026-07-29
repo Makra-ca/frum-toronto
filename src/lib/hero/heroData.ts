@@ -10,6 +10,7 @@
 
 import { and, count, desc, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { safeQuery } from "@/lib/db/safe-query";
 import { businesses, shuls, events, eruvStatus } from "@/lib/db/schema";
 import { getZmanimForDate, getUpcomingShabbat } from "@/lib/zmanim";
 import { TORONTO_LOCATION } from "@/lib/zmanim-location";
@@ -29,29 +30,44 @@ export async function getHeroData(): Promise<HeroData> {
 
   const weekFromNow = new Date(Date.now() + 7 * 86_400_000);
 
-  const [businessCount, shulCount, eventCount, eruvRow] = await Promise.all([
-    db
-      .select({ n: count() })
-      .from(businesses)
-      .where(and(eq(businesses.approvalStatus, "approved"), eq(businesses.isActive, true))),
-    db.select({ n: count() }).from(shuls).where(eq(shuls.isActive, true)),
-    db
-      .select({ n: count() })
-      .from(events)
-      .where(
-        and(
-          eq(events.approvalStatus, "approved"),
-          eq(events.isActive, true),
-          gte(events.startTime, new Date()),
-          lte(events.startTime, weekFromNow),
+  // The zmanim above are computed locally and never touch the database, so a
+  // failed query costs the hero only its counts and eruv segment — not the whole
+  // page. Every other homepage section already degrades this way; before this the
+  // hero was the one raw query that could take the render down with it.
+  const loadHeroRows = () =>
+    Promise.all([
+      db
+        .select({ n: count() })
+        .from(businesses)
+        .where(and(eq(businesses.approvalStatus, "approved"), eq(businesses.isActive, true))),
+      db.select({ n: count() }).from(shuls).where(eq(shuls.isActive, true)),
+      db
+        .select({ n: count() })
+        .from(events)
+        .where(
+          and(
+            eq(events.approvalStatus, "approved"),
+            eq(events.isActive, true),
+            gte(events.startTime, new Date()),
+            lte(events.startTime, weekFromNow),
+          ),
         ),
-      ),
-    // LATEST row by statusDate, with no staleness cutoff — deliberately the same
-    // query /api/community/eruv uses. Admins post a row per update rather than
-    // per day, so a `statusDate = today` filter would usually find nothing and the
-    // strip would contradict EruvWidget further down the same page.
-    db.select().from(eruvStatus).orderBy(desc(eruvStatus.statusDate)).limit(1),
-  ]);
+      // LATEST row by statusDate, with no staleness cutoff — deliberately the same
+      // query /api/community/eruv uses. Admins post a row per update rather than
+      // per day, so a `statusDate = today` filter would usually find nothing and the
+      // strip would contradict EruvWidget further down the same page.
+      db.select().from(eruvStatus).orderBy(desc(eruvStatus.statusDate)).limit(1),
+    ]);
+
+  type HeroRows = Awaited<ReturnType<typeof loadHeroRows>>;
+
+  const [businessCount, shulCount, eventCount, eruvRow] = await safeQuery<HeroRows>(
+    loadHeroRows,
+    // Counts of 0 and no eruv row: the strip drops the eruv segment rather than
+    // guessing a status, which is the same thing it does when the table is empty.
+    [[], [], [], []],
+    { label: "hero" },
+  );
 
   return {
     zmanim: {

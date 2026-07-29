@@ -1,29 +1,38 @@
 import type { Metadata } from "next";
-import { Frank_Ruhl_Libre, Assistant } from "next/font/google";
+import { Cormorant_Garamond, Assistant } from "next/font/google";
 import "./globals.css";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { Toaster } from "@/components/ui/sonner";
 
-// Display face: Frank Ruhl Libre, a revival of Frank-Rühl — the typeface Hebrew
-// books have been set in since 1908. Its Latin was cut alongside its Hebrew, so
-// the two never clash.
+// Primary face: Cormorant Garamond, a Garamond revival drawn for display sizes.
+//
+// It ships NO Hebrew glyphs, so it cannot stand alone here — this site sets
+// Hebrew dates and names inline with English. Both Tailwind tokens in
+// globals.css therefore list it *ahead of* Assistant rather than replacing it:
+// Latin renders as Garamond, and every Hebrew codepoint falls through to
+// Assistant per-character, which is exactly how a font stack is meant to work.
+// Dropping Assistant from those stacks would put Hebrew on an arbitrary OS font
+// — the Urbanist bug this file used to carry.
 //
 // The next/font variable names MUST differ from the Tailwind theme tokens they
 // feed in globals.css. Writing `--font-display: var(--font-display)` there would
 // be self-referential and silently resolve to nothing.
 //
-// No `weight` array: both families are variable fonts, and listing discrete
-// weights would load fixed instances and give up the axis.
-const frankRuhl = Frank_Ruhl_Libre({
-  variable: "--font-frank",
-  subsets: ["latin", "hebrew"],
+// Capped at 400. Cormorant's upper weights read heavy at display sizes, so only
+// the 300 and 400 instances are loaded — the variable axis above 400 is
+// deliberately given up rather than left available. The ~750 `font-medium` /
+// `font-semibold` / `font-bold` utilities across the app now resolve to the
+// nearest loaded instance, 400. globals.css sets `font-synthesis-weight: none`
+// so browsers render that as real 400 instead of faking a bold from it.
+const cormorant = Cormorant_Garamond({
+  variable: "--font-cormorant",
+  weight: ["300", "400"],
+  subsets: ["latin", "latin-ext"],
   display: "swap",
 });
 
-// UI and body face. Hebrew-first sans, so Hebrew names and dates render in the
-// same family as everything else instead of falling back to an arbitrary OS font
-// (Urbanist shipped no Hebrew glyphs, and was requested with subsets: ["latin"]).
+// Hebrew fallback, and still the face behind every Hebrew glyph on the page.
 const assistant = Assistant({
   variable: "--font-assistant",
   subsets: ["latin", "hebrew"],
@@ -58,7 +67,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${assistant.variable} ${frankRuhl.variable} font-sans antialiased`}
+        className={`${assistant.variable} ${cormorant.variable} font-sans antialiased`}
       >
         <SessionProvider>
           <LayoutWrapper>{children}</LayoutWrapper>

@@ -1,7 +1,12 @@
 // The original hero is live while the client reviews the redesigns at
 // /comparison-hero. To switch, change this import and the element below to
 // HeroSection (the dial) or PhotoHero — both take zmanim/eruv/counts from
-// getHeroData(), which is why that call is kept here.
+// getHeroData().
+//
+// ALSO flip `heroRunsUnderHeader` back to `pathname === "/"` in LayoutWrapper
+// when you do. The nav is fixed; the redesigned heroes carry their own top
+// padding and are meant to run underneath it, whereas OriginalHero predates the
+// floating nav and needs the spacer.
 import { OriginalHero } from "@/components/home/hero/OriginalHero";
 import "@/components/home/hero/original-hero.css";
 import { CommunityCornerTabs } from "@/components/home/CommunityCornerTabs";
@@ -30,7 +35,7 @@ export default function HomePage() {
       <HomepageBanner />
 
       {/* Main Content with Sidebar Ads on Both Sides */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto py-8">
         <div className="grid grid-cols-1 xl:grid-cols-[200px_1fr_200px] gap-6 xl:gap-8">
           {/* Left Sidebar Ad - Desktop only (xl screens) */}
           <aside className="hidden xl:block">

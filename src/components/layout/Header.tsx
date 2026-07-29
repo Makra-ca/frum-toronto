@@ -65,16 +65,32 @@ export function Header() {
   }, [mobileMenuOpen]);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
-      <div className="container mx-auto px-4 xl:px-3 py-2">
-        <div className="flex items-center justify-between">
+    // Floating pill nav. `fixed` (not sticky) so the hero runs to the top of the
+    // page underneath it; LayoutWrapper renders a spacer on every route that has
+    // no hero to sit behind it, and HeroSection carries its own top padding.
+    //
+    // The gutter here is deliberately tighter than the shared container gutter:
+    // the nav is nine items wide and every pixel spent on inset padding is a
+    // pixel it loses, so this is the most inset the bar can take before the
+    // links start colliding around 1280.
+    <header className="fixed inset-x-0 top-0 z-50">
+      <div className="container mx-auto px-4 pt-3 md:px-6 lg:px-8">
+        {/* rounded-3xl (24px), not rounded-full: on a 66px-tall bar a full pill
+            gives 33px end caps, which crowd the logo and the Sign up button.
+            A softened rectangle is the Wealthsimple proportion. */}
+        <div className="rounded-3xl border border-black/5 bg-white px-4 py-2 shadow-lg shadow-black/5 xl:px-5">
+          <div className="flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            {/* Transparent-background PNG, so the logo sits on the bar rather
+                than on its own white tile. width/height are the file's intrinsic
+                128x52 — the old 60x60 misdescribed a non-square image and made
+                Next.js reserve the wrong aspect box. */}
             <Image
-              src="/logo.png"
+              src="/Frum_Toronto_logo-removebg-preview.png"
               alt="FrumToronto"
-              width={60}
-              height={60}
+              width={128}
+              height={52}
               className="h-10 sm:h-12 w-auto"
               priority
             />
@@ -92,7 +108,7 @@ export function Header() {
                   {/* Special handling for Directory - use mega menu */}
                   {item.label === "Directory" ? (
                     <>
-                      <NavigationMenuTrigger className="text-[13px] px-2.5 2xl:text-sm 2xl:px-4">
+                      <NavigationMenuTrigger className="bg-transparent font-ui text-[15px] font-semibold text-gray-900 px-3 2xl:text-[15px] 2xl:px-4">
                         {item.label}
                       </NavigationMenuTrigger>
                       <NavigationMenuContent>
@@ -101,7 +117,7 @@ export function Header() {
                     </>
                   ) : item.label === "Classifieds" ? (
                     <>
-                      <NavigationMenuTrigger className="text-[13px] px-2.5 2xl:text-sm 2xl:px-4">
+                      <NavigationMenuTrigger className="bg-transparent font-ui text-[15px] font-semibold text-gray-900 px-3 2xl:text-[15px] 2xl:px-4">
                         {item.label}
                       </NavigationMenuTrigger>
                       <NavigationMenuContent>
@@ -110,7 +126,7 @@ export function Header() {
                     </>
                   ) : item.children ? (
                     <>
-                      <NavigationMenuTrigger className="text-[13px] px-2.5 2xl:text-sm 2xl:px-4">
+                      <NavigationMenuTrigger className="bg-transparent font-ui text-[15px] font-semibold text-gray-900 px-3 2xl:text-[15px] 2xl:px-4">
                         {item.label}
                       </NavigationMenuTrigger>
                       <NavigationMenuContent>
@@ -133,7 +149,7 @@ export function Header() {
                   ) : (
                     <Link
                       href={item.href}
-                      className="group inline-flex h-10 w-max items-center justify-center rounded-md bg-white px-2.5 py-2 text-[13px] font-medium transition-colors hover:bg-blue-50 hover:text-blue-900 2xl:px-4 2xl:text-sm"
+                      className="group inline-flex h-10 w-max items-center justify-center rounded-md bg-transparent px-3 py-2 font-ui text-[15px] font-semibold text-gray-900 transition-colors hover:bg-blue-50 hover:text-blue-900 2xl:px-4"
                     >
                       {item.label}
                     </Link>
@@ -199,13 +215,13 @@ export function Header() {
               <div className="hidden md:flex items-center gap-1 xl:gap-2">
                 <Link
                   href="/login"
-                  className="text-[13px] xl:text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors px-2 xl:px-3 py-2"
+                  className="font-ui text-[15px] font-semibold text-gray-900 hover:text-blue-600 transition-colors px-3 py-2"
                 >
                   Log in
                 </Link>
                 <Link
                   href="/register"
-                  className="text-[13px] xl:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors px-3 xl:px-4 py-2 rounded-lg whitespace-nowrap"
+                  className="font-ui text-[15px] font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors px-4 py-2 rounded-full whitespace-nowrap"
                 >
                   Sign up
                 </Link>
@@ -336,6 +352,7 @@ export function Header() {
                 )}
               </SheetContent>
             </Sheet>
+          </div>
           </div>
         </div>
       </div>
