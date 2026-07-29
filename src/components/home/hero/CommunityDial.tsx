@@ -9,7 +9,8 @@
 // this file only turns those numbers into DOM and manages motion.
 //
 // Motion rules, all deliberate:
-//   - 0.5 deg/sec, one lap in 12 minutes. The old hero ran at 3 deg/sec.
+//   - 1 deg/sec, one lap in 6 minutes. Still a third of the old hero's 3 deg/sec,
+//     which lapped every 2 minutes and read as restless.
 //   - Rotation PAUSES while a pointer is inside the dial or focus is within it.
 //     Chasing a moving link is a WCAG 2.2.2 failure and a motor-accessibility
 //     problem; this makes the target stationary exactly when someone reaches for
@@ -35,7 +36,7 @@ import { formatZman } from "@/lib/zmanim-format";
 import { HERO_NODES, nodeDetail } from "./heroNodes";
 import { useHeroLive } from "./HeroLiveData";
 
-const DEG_PER_MS = 0.5 / 1000; // one lap per 12 minutes
+const DEG_PER_MS = 1 / 1000; // one lap per 6 minutes
 const NODE_RADIUS_PCT = 38;
 const VIEWBOX = 400;
 const RING_RADIUS = 158;
