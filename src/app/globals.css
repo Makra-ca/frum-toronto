@@ -27,9 +27,13 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* Cormorant Garamond first, Assistant second: Assistant is not a nicety here,
-     it is what renders every Hebrew glyph on the site. Cormorant has no Hebrew. */
-  --font-sans: var(--font-cormorant), var(--font-assistant);
+  /* Body text everywhere: Assistant, which carries the site's Hebrew. Cormorant
+     is deliberately NOT here — see --font-display. */
+  --font-sans: var(--font-assistant);
+  /* The hero's face. `font-display` is applied only by the hero components, so
+     Cormorant is confined to the hero and never reaches the rest of the site.
+     Assistant follows it because Cormorant ships no Hebrew, so Hebrew glyphs in
+     the hero fall through per character. */
   --font-display: var(--font-cormorant), var(--font-assistant);
   /* Assistant on its own, for UI chrome that needs real weight. Cormorant is
      loaded at 300/400 only, so font-semibold on it renders at 400 — the nav
@@ -151,11 +155,14 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Cormorant is loaded at 300/400 only (see layout.tsx). Without this, every
-       font-bold/semibold/medium would ask for a weight that isn't there and the
-       browser would synthesise one by smearing the 400 outlines — thicker and
-       cruder than a drawn bold. Assistant still ships its real weights, so
-       Hebrew is unaffected. */
+  }
+  /* Cormorant is loaded at 300/400 only (see layout.tsx), so a bold inside the
+     hero would be faked by smearing the 400 outlines — thicker and cruder than a
+     drawn bold. Scoped to `.font-display` because that is the only place
+     Cormorant is used; the rest of the site runs on Assistant, which ships a real
+     200-800 axis and must keep its synthesis behaviour untouched. */
+  .font-display,
+  .font-display * {
     font-synthesis-weight: none;
   }
 }

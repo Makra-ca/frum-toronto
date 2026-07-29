@@ -66,12 +66,12 @@ export function HomepageBanner() {
   if (businesses.length === 0) {
     return (
       <section className="w-full bg-gradient-to-r from-slate-900 to-slate-800 py-4">
-        <div className="container mx-auto">
+        <div className="container mx-auto px-4">
           <Link
             href="/register-business"
             className="block relative h-32 md:h-40 rounded-lg overflow-hidden border-2 border-dashed border-slate-600 hover:border-blue-500 transition-colors group"
           >
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 group-hover:text-blue-400 transition-colors">
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 group-hover:text-blue-400 transition-colors">
               <p className="text-lg font-medium">Advertise Your Business Here</p>
               <p className="text-sm mt-1">Get premium visibility on the homepage</p>
             </div>
@@ -83,7 +83,7 @@ export function HomepageBanner() {
 
   return (
     <section className="w-full bg-gradient-to-r from-slate-900 to-slate-800 py-4">
-      <div className="container mx-auto">
+      <div className="container mx-auto px-4">
         <div
           className="relative"
           onMouseEnter={() => setIsPaused(true)}
@@ -216,7 +216,7 @@ export function HomepageBanner() {
         </div>
 
         {/* Sponsored label */}
-        <p className="text-center text-xs text-slate-400 mt-2">Sponsored</p>
+        <p className="text-center text-xs text-slate-500 mt-2">Sponsored</p>
       </div>
     </section>
   );

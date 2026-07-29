@@ -30,11 +30,13 @@ interface PhotoHeroProps {
   zmanim: HeroZmanimSnapshot;
   eruv: HeroEruv | null;
   counts: HeroCounts;
+  /** Passed through to LiveStrip; see its prop docs. */
+  underFixedNav?: boolean;
 }
 
-export function PhotoHero({ zmanim, eruv, counts }: PhotoHeroProps) {
+export function PhotoHero({ zmanim, eruv, counts, underFixedNav = true }: PhotoHeroProps) {
   return (
-    <section className="relative overflow-hidden text-white">
+    <section className="font-display relative overflow-hidden text-white">
       {/* Photograph. `priority` because this is the LCP element. */}
       <Image
         src="/hero-dusk.webp"
@@ -53,7 +55,7 @@ export function PhotoHero({ zmanim, eruv, counts }: PhotoHeroProps) {
       />
 
       <HeroLiveData zmanim={zmanim} eruv={eruv} counts={counts}>
-        <LiveStrip />
+        <LiveStrip underFixedNav={underFixedNav} />
 
         <div className="container relative z-10 mx-auto flex flex-col items-center px-4 py-14 text-center md:py-16">
           <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.2em] text-sky-300">

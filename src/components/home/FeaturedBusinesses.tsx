@@ -90,12 +90,12 @@ export async function FeaturedBusinesses() {
                     </div>
                     <p className="text-xs text-blue-600 mb-1">{business.categoryName || "Business"}</p>
                     {business.description && (
-                      <p className="text-xs text-gray-700 line-clamp-2 mb-2">
+                      <p className="text-xs text-gray-500 line-clamp-2 mb-2">
                         {business.description}
                       </p>
                     )}
                     {(business.address || business.city) && (
-                      <div className="flex items-center gap-3 text-xs text-gray-700">
+                      <div className="flex items-center gap-3 text-xs text-gray-500">
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
                           {business.address && `${business.address}, `}{business.city}
@@ -113,7 +113,7 @@ export async function FeaturedBusinesses() {
       {featuredBusinesses.length === 0 && (
         <Card className="border-0 shadow-sm">
           <CardContent className="py-8 text-center">
-            <p className="text-gray-700">No featured businesses yet.</p>
+            <p className="text-gray-500">No featured businesses yet.</p>
             <Button asChild variant="link" className="mt-2">
               <Link href="/directory">Browse Directory</Link>
             </Button>

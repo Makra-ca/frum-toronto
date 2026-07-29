@@ -17,7 +17,17 @@ import { formatZman } from "@/lib/zmanim-format";
 import { isTorontoLocation } from "@/lib/zmanim-location";
 import { useHeroLive } from "./HeroLiveData";
 
-export function LiveStrip() {
+interface LiveStripProps {
+  /**
+   * True when this hero sits at the top of a page beneath the fixed pill nav, so
+   * the strip must clear it. False when the hero is embedded elsewhere — on
+   * /comparison-hero it sits mid-document with nothing above it, and the padding
+   * would be a 92px gap.
+   */
+  underFixedNav?: boolean;
+}
+
+export function LiveStrip({ underFixedNav = true }: LiveStripProps) {
   const { location, primaryZman, hebrewDateHebrew, parsha, eruv, isTimesResolved } =
     useHeroLive();
 
@@ -28,9 +38,12 @@ export function LiveStrip() {
     // hero backdrop and reads as part of it. A tinted band plus a hairline rule
     // made the top of the hero look like a separate, pasted-on element.
     // `relative z-10` stays — it lifts the strip above HeroBackground.
-    // pt-[92px] clears the fixed pill nav (78px tall incl. its top offset) floating above it. Without this the
-    // zmanim line would sit behind the bar at the very top of the hero.
-    <div aria-busy={!isTimesResolved} className="relative z-10 pt-[92px]">
+    // The 92px clears the fixed pill nav (78px tall including its top offset).
+    // Applied only when this hero actually sits under it — see the prop above.
+    <div
+      aria-busy={!isTimesResolved}
+      className={`relative z-10 ${underFixedNav ? "pt-[92px]" : ""}`}
+    >
       <div className="container mx-auto flex flex-wrap items-center gap-x-4 gap-y-1 py-2 text-[13px] text-slate-100">
         {primaryZman && (
           <Link

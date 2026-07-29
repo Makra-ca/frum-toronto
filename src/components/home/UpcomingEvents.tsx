@@ -92,9 +92,9 @@ export async function UpcomingEvents() {
                         <h3 className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors line-clamp-2 text-sm leading-snug">
                           {event.title}
                         </h3>
-                        <p className="text-xs text-gray-700 mt-1">{time}</p>
+                        <p className="text-xs text-gray-500 mt-1">{time}</p>
                         {event.location && (
-                          <p className="text-xs text-gray-700 mt-0.5 flex items-center gap-1 line-clamp-1">
+                          <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1 line-clamp-1">
                             <MapPin className="h-3 w-3 flex-shrink-0" />
                             {event.location}
                           </p>
@@ -121,7 +121,7 @@ export async function UpcomingEvents() {
           {/* Full-width CTA row */}
           <div className="col-span-1 sm:col-span-2 lg:col-span-3">
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 py-4 border border-dashed border-gray-200 rounded-lg bg-gray-50">
-              <span className="text-sm text-gray-800">Looking for something to do?</span>
+              <span className="text-sm text-gray-600">Looking for something to do?</span>
               <Button asChild size="sm">
                 <Link href="/community/calendar">
                   View All Events <ArrowRight className="h-4 w-4 ml-1" />
@@ -136,7 +136,7 @@ export async function UpcomingEvents() {
       ) : (
         <Card className="border-0 shadow-sm">
           <CardContent className="py-8 text-center">
-            <p className="text-gray-700">No upcoming events scheduled.</p>
+            <p className="text-gray-500">No upcoming events scheduled.</p>
             <div className="flex justify-center gap-3 mt-3">
               <Button asChild variant="link">
                 <Link href="/community/calendar">View Calendar</Link>

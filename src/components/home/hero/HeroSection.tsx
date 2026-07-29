@@ -29,19 +29,21 @@ interface HeroSectionProps {
   zmanim: HeroZmanimSnapshot;
   eruv: HeroEruv | null;
   counts: HeroCounts;
+  /** Passed through to LiveStrip; see its prop docs. */
+  underFixedNav?: boolean;
 }
 
-export function HeroSection({ zmanim, eruv, counts }: HeroSectionProps) {
+export function HeroSection({ zmanim, eruv, counts, underFixedNav = true }: HeroSectionProps) {
   // Mobile destination chips are a slice of the single source of truth, not a
   // second hardcoded list.
   const mobileChips = HERO_NODES.slice(0, 3);
 
   return (
-    <section className="relative overflow-hidden text-white">
+    <section className="font-display relative overflow-hidden text-white">
       <HeroBackground />
 
       <HeroLiveData zmanim={zmanim} eruv={eruv} counts={counts}>
-        <LiveStrip />
+        <LiveStrip underFixedNav={underFixedNav} />
 
         <div className="container relative z-10 mx-auto py-10 md:py-14">
           <div className="grid items-center gap-10 md:grid-cols-[1.05fr_0.95fr] md:gap-8">

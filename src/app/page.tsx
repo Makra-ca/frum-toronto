@@ -1,14 +1,9 @@
-// The original hero is live while the client reviews the redesigns at
-// /comparison-hero. To switch, change this import and the element below to
-// HeroSection (the dial) or PhotoHero — both take zmanim/eruv/counts from
-// getHeroData().
-//
-// ALSO flip `heroRunsUnderHeader` back to `pathname === "/"` in LayoutWrapper
-// when you do. The nav is fixed; the redesigned heroes carry their own top
-// padding and are meant to run underneath it, whereas OriginalHero predates the
-// floating nav and needs the spacer.
-import { OriginalHero } from "@/components/home/hero/OriginalHero";
-import "@/components/home/hero/original-hero.css";
+// The dial hero runs to the top of the page with the fixed pill nav floating over
+// it — hence `underFixedNav` (the default) and no spacer from LayoutWrapper on
+// this route. The alternatives live at /comparison-hero: OriginalHero and
+// PhotoHero, both drop-in replacements taking the same props.
+import { HeroSection } from "@/components/home/hero/HeroSection";
+import { getHeroData } from "@/lib/hero/heroData";
 import { CommunityCornerTabs } from "@/components/home/CommunityCornerTabs";
 import { QuickLinks } from "@/components/home/QuickLinks";
 import { FeaturedBusinesses } from "@/components/home/FeaturedBusinesses";
@@ -20,22 +15,24 @@ import { OmerWidget } from "@/components/widgets/OmerWidget";
 import { HomepageBanner } from "@/components/homepage/HomepageBanner";
 import { HomepageSidebarAds, HomepageSidebarAdsMobile } from "@/components/homepage/HomepageSidebarAds";
 
-// Kept even though the original hero fetches its own stats client-side: the ad
-// components below read admin-managed content that must not be frozen at build
-// time, and the redesigned heroes render live zmanim on the server.
+// The hero renders live zmanim, eruv status and counts on the server, and the ad
+// components below read admin-managed content. Without this the page would be
+// statically prerendered and all of it frozen at build time.
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const hero = await getHeroData();
+
   return (
     <div>
       {/* Hero Section */}
-      <OriginalHero />
+      <HeroSection zmanim={hero.zmanim} eruv={hero.eruv} counts={hero.counts} />
 
       {/* Banner Ads - After Hero */}
       <HomepageBanner />
 
       {/* Main Content with Sidebar Ads on Both Sides */}
-      <div className="container mx-auto py-8">
+      <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 xl:grid-cols-[200px_1fr_200px] gap-6 xl:gap-8">
           {/* Left Sidebar Ad - Desktop only (xl screens) */}
           <aside className="hidden xl:block">

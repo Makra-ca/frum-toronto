@@ -19,12 +19,16 @@ import { Toaster } from "@/components/ui/sonner";
 // feed in globals.css. Writing `--font-display: var(--font-display)` there would
 // be self-referential and silently resolve to nothing.
 //
-// Capped at 400. Cormorant's upper weights read heavy at display sizes, so only
-// the 300 and 400 instances are loaded — the variable axis above 400 is
-// deliberately given up rather than left available. The ~750 `font-medium` /
-// `font-semibold` / `font-bold` utilities across the app now resolve to the
-// nearest loaded instance, 400. globals.css sets `font-synthesis-weight: none`
-// so browsers render that as real 400 instead of faking a bold from it.
+// SCOPED TO THE HERO. `--font-cormorant` feeds only the `--font-display` token,
+// and `font-display` is used by the hero components alone — so the serif never
+// reaches /directory, /shuls, the blog, the forms or the admin panel, none of
+// which were designed around it. Everything outside the hero stays on Assistant.
+//
+// Capped at 300/400 on purpose: Cormorant's upper weights read heavy at display
+// sizes. Because nothing above 400 is loaded, `font-bold` inside the hero would
+// otherwise be faked by the browser — globals.css switches synthesis off for the
+// hero so it renders a true 400 rather than a smeared one. Outside the hero,
+// Assistant keeps its real 200-800 axis and bold works normally.
 const cormorant = Cormorant_Garamond({
   variable: "--font-cormorant",
   weight: ["300", "400"],
