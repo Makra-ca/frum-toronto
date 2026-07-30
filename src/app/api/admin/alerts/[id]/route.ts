@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { alerts } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { APPROVAL_STATUSES } from "@/lib/submissions/statuses";
 
 const updateSchema = z.object({
   alertType: z.string().min(1).optional(),
@@ -13,6 +14,9 @@ const updateSchema = z.object({
   isPinned: z.boolean().optional(),
   expiresAt: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
+  // Absent until now, so a submitted alert could never be approved through any
+  // admin surface — and the public page only shows approved ones.
+  approvalStatus: z.enum(APPROVAL_STATUSES).optional(),
 });
 
 // GET - Get single alert

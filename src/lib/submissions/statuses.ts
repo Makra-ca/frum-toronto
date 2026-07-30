@@ -22,8 +22,23 @@
 
 export const PENDING_STATUSES = ["pending", "pending_edit"] as const;
 
+/**
+ * Every status, in the tuple shape `z.enum()` needs.
+ *
+ * Admin request schemas must build their enum from this rather than writing
+ * the list out again — an admin route whose enum omits `pending_edit` rejects
+ * any attempt to approve a corrected item with a 400, and zod strips unknown
+ * keys silently, so the field simply vanishes instead of erroring.
+ */
+export const APPROVAL_STATUSES = [
+  "pending",
+  "pending_edit",
+  "approved",
+  "rejected",
+] as const;
+
 export type PendingStatus = (typeof PENDING_STATUSES)[number];
-export type ApprovalStatus = PendingStatus | "approved" | "rejected";
+export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 
 /**
  * Is this item still awaiting an admin decision?
