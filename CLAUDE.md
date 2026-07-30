@@ -1919,3 +1919,22 @@ List filtering is server-side via the shared `buildSubstringCondition` across pr
 Deliberately **not** added to `searchAll`: a recall notice surfacing in the homepage hero alongside businesses and shuls is a judgement call about prominence, not a technical one. Say so and it is a one-line change.
 
 **Still outstanding from this round:** converting `/shuls`, `/shiurim` and `/community/calendar` from client-side `useMemo` filtering to server-side. They work correctly today at 14 / 10 / 91 rows — the concern is purely that they degrade as those tables fill. Also proposed but not approved: text search on `/blog` (3,051 posts, category filter only; `searchBlog` already exists so only a `search` param on `/api/blog` and a box in `BlogListing` are missing).
+
+### PARKED 2026-07-30 — legacy-import follow-ups to resume later
+
+Work was paused here by agreement to move onto something else. Everything below is recorded so it can be picked up cold.
+
+**Needs Daniel's decision (no code blocked on anything else):**
+1. **Blog authorship** — 416 legacy posts credit `admin@frumtoronto.com` as a placeholder. Real legacy authors: `aaron@frumtoronto.com`, `sara@frumtoronto.com`, `halachafortoday@yahoo.com` — none have accounts. Options offered: create accounts for those three, credit all to Rochel (user id 9), or leave as admin. Then one `UPDATE blog_posts SET author_id = … WHERE old_id IS NOT NULL`.
+2. **134 shiva names (3.8%)** need human review — titles that never named the niftar. `npx tsx scripts/legacy-import/shiva.ts` (dry run) lists them.
+
+**Approved but not built:**
+3. **Convert `/shuls`, `/shiurim`, `/community/calendar` to server-side filtering.** Currently client-side `useMemo`. Correct today at 14 / 10 / 91 rows; purely a future-degradation concern. Reuse the `/simchas` pattern: server `searchParams` → `buildSubstringCondition` → `PaginationLinks`.
+
+**Proposed, awaiting approval:**
+4. **Text search on `/blog`** — 3,051 posts, category filter only. Cheapest item: `searchBlog` already exists, so it needs only a `search` param on `/api/blog` and a box in `BlogListing`.
+5. Adding `kosher-alerts` to `searchAll`. Deliberately omitted — whether a recall belongs in the homepage hero beside businesses is a prominence judgement.
+
+**Accepted quirks, no action intended:** ~32 of 1,354 Message Board posts are simcha announcements, so the odd simcha appears tagged "Blog" in search (not duplicated — `old_id` overlap with `simchas` is 0; the old site filed them there). Legacy images are permanently 404, so 360 blog images and 13 image-only kosher alerts are thin.
+
+**Also still broken, unrelated to the import:** the Neon test-branch credentials in `.env.test` (`ep-long-band-ahaha6ks`) no longer authenticate, so `npm run test:integration` cannot run until that branch is recreated.
