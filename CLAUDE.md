@@ -1879,6 +1879,22 @@ Two systems that look finished in the codebase but cannot currently work. Record
 - `show_video` is **false on all four plans**, so no tier offers video.
 - All 1,633 businesses show `video_status = 'none'`, 0 asset ids, 0 playback ids. Never used.
 
+**`show_video` is doing double duty — it also grants shoutouts.** At `src/app/api/businesses/[id]/route.ts:95`:
+
+```ts
+const isElite = business.showVideo === true ||
+  (business.planName || "").toLowerCase().includes("elite") ||
+  (business.planSlug || "").toLowerCase().includes("elite");
+```
+
+So enabling `show_video` on, say, Premium silently makes every Premium business "Elite" for **shoutout** purposes as well. Almost certainly unintended coupling, and worth untangling before the flag is flipped — otherwise turning on video quietly grants a second paid feature.
+
+**Nothing user-facing can reach the upload today.** The only entry point is `MuxVideoUploader` in `(dashboard)/dashboard/business/[id]/page.tsx`, rendered behind `{business.showVideo && …}`, and `showVideo` is selected from `subscriptionPlans.showVideo` (`api/businesses/[id]/route.ts:56`) — there is **no per-business override column**, `show_video` exists only on `subscription_plans`. With it false on all four plans the component never mounts, so `/api/mux/create-upload` is never called. The public listing player needs a `muxPlaybackId` and there are none; the admin review queue works but is empty. The API routes are reachable by URL but nothing in the UI calls them.
+
+**Upload settings to be aware of** (`src/lib/mux/client.ts`): `playback_policy: ["public"]` — anyone with the playback ID can watch, no signed URLs — plus `max_resolution_tier: "1080p"`, `cors_origin: "*"` and a 3600s upload window.
+
+**Setup, from the code rather than Mux's generic docs:** an access token with **Mux Video read+write** (the client does `POST /video/v1/uploads`, `GET /video/v1/assets/{id}` and `DELETE /video/v1/assets/{id}`); a webhook at **`https://www.frumtoronto.com/api/webhooks/mux`** — use `www`, since the apex 308-redirects and a redirect mid-webhook can drop the POST body — for the four events the handler switches on (`video.upload.asset_created`, `video.asset.ready`, `video.asset.errored`, `video.asset.deleted`); then all three env vars in Vercel *and* `.env`, then a redeploy, then the plan flag.
+
 **The trap:** `getMuxAuthHeader()` **throws** when tokens are absent, so `/api/mux/create-upload` returns a 500 rather than a graceful "unavailable". Enabling `show_video` on a tier *before* adding credentials gives paying customers a hard error. **Credentials first, then the plan flag.**
 
 To enable: Mux account → two API tokens → webhook pointed at `https://www.frumtoronto.com/api/webhooks/mux` with its signing secret → all three vars in Vercel *and* `.env` → **redeploy** (env changes are inert until then) → then flip `show_video`.
