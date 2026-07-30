@@ -12,6 +12,7 @@ import {
   blogCategories,
   simchas,
   simchaTypes,
+  kosherAlerts,
 } from "@/lib/db/schema";
 import { eq, and, or, sql, desc } from "drizzle-orm";
 import type { SearchSuggestion, SearchType } from "./types";
@@ -520,6 +521,60 @@ export async function searchSimchas(
     subtitle: s.typeName || undefined,
     url: `/simchas/${s.id}`,
     type: "simchas" as SearchType,
+    relevanceScore: 1000 - index * 10,
+  }));
+}
+
+export async function searchKosherAlerts(
+  query: string,
+  limit: number
+): Promise<SearchSuggestion[]> {
+  const queryLower = query.toLowerCase();
+  const searchTerm = `%${query}%`;
+
+  // Ranked on product name, with brand as a secondary signal. The description
+  // is matched but not ranked: it runs to paragraphs, and similarity() over
+  // that much text scores nearly everything alike.
+  const results = await db
+    .select({
+      id: kosherAlerts.id,
+      productName: kosherAlerts.productName,
+      brand: kosherAlerts.brand,
+      agency: kosherAlerts.certifyingAgency,
+      createdAt: kosherAlerts.createdAt,
+    })
+    .from(kosherAlerts)
+    .where(
+      and(
+        eq(kosherAlerts.approvalStatus, "approved"),
+        eq(kosherAlerts.isActive, true),
+        or(
+          sql`LOWER(${kosherAlerts.productName}) LIKE LOWER(${searchTerm})`,
+          sql`LOWER(COALESCE(${kosherAlerts.brand}, '')) LIKE LOWER(${searchTerm})`,
+          sql`LOWER(COALESCE(${kosherAlerts.certifyingAgency}, '')) LIKE LOWER(${searchTerm})`,
+          sql`LOWER(${kosherAlerts.description}) LIKE LOWER(${searchTerm})`,
+          sql`similarity(LOWER(${kosherAlerts.productName}), ${queryLower}) > 0.2`,
+          sql`word_similarity(${queryLower}, LOWER(${kosherAlerts.productName})) > 0.3`
+        )
+      )
+    )
+    .orderBy(
+      sql`GREATEST(
+        similarity(LOWER(${kosherAlerts.productName}), ${queryLower}),
+        word_similarity(${queryLower}, LOWER(${kosherAlerts.productName})),
+        similarity(LOWER(COALESCE(${kosherAlerts.brand}, '')), ${queryLower}) * 0.8
+      ) DESC`,
+      desc(kosherAlerts.createdAt)
+    )
+    .limit(limit);
+
+  return results.map((k, index) => ({
+    id: String(k.id),
+    title: k.productName,
+    subtitle: [k.brand, k.agency].filter(Boolean).join(" · ") || undefined,
+    // No per-alert detail page, so a suggestion narrows the list to it.
+    url: `/kosher-alerts?search=${encodeURIComponent(k.productName)}`,
+    type: "kosher-alerts" as SearchType,
     relevanceScore: 1000 - index * 10,
   }));
 }

@@ -7,6 +7,8 @@ import { AlertTriangle, Info, Calendar, Package } from "lucide-react";
 import { KosherAlertSubmitModal } from "@/components/kosher-alerts/KosherAlertSubmitModal";
 import Link from "next/link";
 import { PaginationLinks } from "@/components/ui/PaginationLinks";
+import { KosherAlertsSearchBar } from "@/components/kosher-alerts/KosherAlertsSearchBar";
+import { buildSubstringCondition } from "@/lib/search/substring-search";
 
 export const metadata = {
   title: "Kosher Alerts - FrumToronto",
@@ -17,11 +19,26 @@ export const dynamic = "force-dynamic"; // Fresh data always
 
 const PAGE_SIZE = 25;
 
-async function getKosherAlerts(page: number) {
-  const whereClause = and(
+async function getKosherAlerts(page: number, search: string) {
+  const conditions = [
     eq(kosherAlerts.isActive, true),
-    eq(kosherAlerts.approvalStatus, "approved")
+    eq(kosherAlerts.approvalStatus, "approved"),
+  ];
+
+  // Every term must match one of these columns, so "folgers coffee" works even
+  // though no single column holds both words.
+  const searchCondition = buildSubstringCondition(
+    [
+      kosherAlerts.productName,
+      kosherAlerts.brand,
+      kosherAlerts.certifyingAgency,
+      kosherAlerts.description,
+    ],
+    search
   );
+  if (searchCondition) conditions.push(searchCondition);
+
+  const whereClause = and(...conditions);
 
   // The archive holds ~1,600 alerts imported from the legacy site. This page is
   // force-dynamic, so without a LIMIT every request fetched and rendered all of
@@ -82,11 +99,12 @@ function getAlertBorderColor(type: string | null) {
 export default async function KosherAlertsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; search?: string }>;
 }) {
-  const { page: pageParam } = await searchParams;
+  const { page: pageParam, search: searchParam } = await searchParams;
   const requestedPage = parsePage(pageParam);
-  const { items: alerts, totalCount } = await getKosherAlerts(requestedPage);
+  const search = (searchParam ?? "").trim();
+  const { items: alerts, totalCount } = await getKosherAlerts(requestedPage, search);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const currentPage = Math.min(requestedPage, totalPages);
@@ -113,6 +131,12 @@ export default async function KosherAlertsPage({
               <KosherAlertSubmitModal />
             </div>
           </div>
+
+          {/* ~1,590 alerts going back to 2006: "is this product still OK?" is the
+              main question this page answers, and that needs search. */}
+          <div className="mt-6">
+            <KosherAlertsSearchBar initialQuery={search} />
+          </div>
         </div>
       </div>
 
@@ -123,7 +147,11 @@ export default async function KosherAlertsPage({
             <CardContent className="py-12 text-center">
               <Info className="h-12 w-12 mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {totalCount > 0 ? "That page doesn't exist" : "No Active Alerts"}
+                {totalCount > 0
+                  ? "That page doesn't exist"
+                  : search
+                    ? `No alerts match \u201C${search}\u201D`
+                    : "No Active Alerts"}
               </h3>
               <p className="text-gray-500 mb-4">
                 {totalCount > 0 ? (
@@ -132,6 +160,14 @@ export default async function KosherAlertsPage({
                     <Link href="/kosher-alerts" className="text-red-700 hover:underline">
                       Back to the first page
                     </Link>
+                  </>
+                ) : search ? (
+                  <>
+                    Try a product name, brand or agency, or{" "}
+                    <Link href="/kosher-alerts" className="text-red-700 hover:underline">
+                      clear the search
+                    </Link>
+                    .
                   </>
                 ) : (
                   "There are currently no kosher alerts to display. Check back later for updates."
@@ -148,6 +184,15 @@ export default async function KosherAlertsPage({
             <p className="text-sm text-gray-500 mb-6">
               Showing {firstShown.toLocaleString()}&ndash;{lastShown.toLocaleString()} of{" "}
               {totalCount.toLocaleString()} alert{totalCount === 1 ? "" : "s"}
+              {search && (
+                <>
+                  {" "}
+                  matching &ldquo;{search}&rdquo; &middot;{" "}
+                  <Link href="/kosher-alerts" className="text-red-700 hover:underline">
+                    clear search
+                  </Link>
+                </>
+              )}
             </p>
             <div className="space-y-4">
             {alerts.map((alert) => (
@@ -197,6 +242,7 @@ export default async function KosherAlertsPage({
               basePath="/kosher-alerts"
               currentPage={currentPage}
               totalPages={totalPages}
+              preserveParams={{ search: search || undefined }}
             />
           </>
         )}

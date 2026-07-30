@@ -1903,3 +1903,19 @@ Also added: a **"Press Enter to search"** hint, shown only when `onSearch` exist
 **Finding while verifying, not a bug:** a simcha-looking result appeared labelled "Blog" — "Lechtman / Arje / Samuels son/grandson/great-grandson". It is *not* a duplicate: `old_id` overlap between `blog_posts` and `simchas` is **0**. That announcement genuinely lived in the old site's Message Board category (`old_id` 23228) rather than in Births. About **32 of 1,354** Message Board posts are simcha-shaped. Left as-is because it reflects where the old site actually put them; the cost is that the occasional simcha shows up as a "Blog" result.
 
 **Tests 285 → 293.**
+
+#### Follow-up — search on /kosher-alerts
+
+1,586 alerts going back to 2006 with no way to search them, when "is this product still OK?" is the main question the page answers. `kosher-alerts` is now a `SearchType` with `searchKosherAlerts()` (registered in the suggestions API, badge added to `TYPE_LABELS`) and `KosherAlertsSearchBar` in the hero.
+
+Ranking is on **product name**, with brand as a weaker secondary signal (×0.8). Agency and description are *matched* but not ranked — the description runs to paragraphs and `similarity()` over that much text scores nearly everything alike, which would flatten the order. Suggestion subtitles show `brand · agency`, which is what actually disambiguates two alerts about the same product.
+
+List filtering is server-side via the shared `buildSubstringCondition` across product name, brand, agency and description, so `"Passover Costco"` matches a row where the words live in different columns. Search is preserved across pagination and the empty state distinguishes a failed search from no alerts.
+
+`migrations/2026-07-30-kosher-alerts-search-indexes.sql` (applied) adds trigram GIN indexes on all four searched columns.
+
+**Verified live:** suggestions — `Folgers` → 3 with `[OU]`, `Costco` → 3, `COR` → 3, `zzznothing` → 0. List — all 1,586; `Folgers` → 1; `Passover Costco` → 2 (multi-word AND working); `zzznothing` → the "No alerts match" state.
+
+Deliberately **not** added to `searchAll`: a recall notice surfacing in the homepage hero alongside businesses and shuls is a judgement call about prominence, not a technical one. Say so and it is a one-line change.
+
+**Still outstanding from this round:** converting `/shuls`, `/shiurim` and `/community/calendar` from client-side `useMemo` filtering to server-side. They work correctly today at 14 / 10 / 91 rows — the concern is purely that they degrade as those tables fill. Also proposed but not approved: text search on `/blog` (3,051 posts, category filter only; `searchBlog` already exists so only a `search` param on `/api/blog` and a box in `BlogListing` are missing).

@@ -7,6 +7,7 @@ export type SearchType =
   | "ask-the-rabbi"
   | "blog"
   | "simchas"
+  | "kosher-alerts"
   | "all";
 
 export interface SearchSuggestion {
