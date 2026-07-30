@@ -1848,3 +1848,30 @@ Fixed in a new shared `src/lib/admin/user-search.ts` (`parseUserSearchTerms` + `
 Note that script needs `import "dotenv/config"` as its **first** import — `src/lib/db/index.ts` throws at module-evaluation time when `DATABASE_URL` is unset, and imports evaluate in order, so a later `dotenv.config()` runs too late.
 
 **Tests 259 → 272.** The SQL-shape assertions render the condition with `new PgDialect().sqlToQuery(...)` rather than inspecting the drizzle object, which is circular and cannot be JSON-stringified. One asserts the generated params contain `%danie%` and `%makal%` and *not* `%danie makal%` — i.e. the exact shape of the original bug.
+
+#### Follow-up — constant-width pagination, and search on /simchas
+
+**Pagination control was sparse and shifted width.** The old strip showed first + last + current±1, which produced only 4 items on page 1 (`‹ 1 2 … 690 ›` — the sole forward destinations being page 2 or page 690) and swung between 4 and 7 items as you moved. Because the row is centred, that changed its width and moved the Next button out from under the cursor mid-click.
+
+Extracted to pure `src/lib/pagination-items.ts` and rewritten to emit a **constant 7 items** at every position:
+
+```
+page   1 of 690 -> 1 2 3 4 5 … 690
+page  50 of 690 -> 1 … 49 50 51 … 690
+page 690 of 690 -> 1 … 686 687 688 689 690
+```
+
+7 rather than 9 so seven `min-w-9` buttons plus `gap-2` (~300px) still fit a 375px phone without wrapping. 13 tests, including the constant-count property asserted across *every* page of lists up to 5,000, plus no-duplicates, strictly-ascending, in-range, and "an ellipsis never hides just one page".
+
+**`/simchas` now has search**, which matters more than any pagination tweak for a 16,550-row archive — nobody finds the Guttman birth notice by clicking through 690 pages. `simchas` is now a `SearchType` in the universal search system (`types.ts`, `searchSimchas()` in `fuzzy-search.ts`, registered in `/api/search/suggestions`), with `SimchasSearchBar` wrapping `UniversalSearch` in the hero using `tone="onDark"`.
+
+- **Filtering is server-side.** `/shuls` and `/shiurim` filter client-side with `useMemo`, which is fine for a few dozen rows; doing that here would ship the whole archive to the browser.
+- **`searchSimchas` ranks on `family_name` only** but *matches* the announcement body too, so a grandparent named only in the prose is findable. Ranking on the body as well would flatten the ordering, since `similarity()` over several sentences scores almost everything alike.
+- **Suggestions link to `/simchas?search=<family name>`**, not a detail page — there is no `/simchas/[id]` route, so clicking a suggestion narrows the list to that announcement. Adding a detail page would make these deep-linkable and shareable; deliberately not done here.
+- `simchas` was **not** added to `searchAll`, so the homepage hero search results are unchanged. Worth considering separately: someone searching "Guttman" from the homepage would reasonably expect the simcha.
+- The multi-word matcher from the admin fix was generalised to `src/lib/search/substring-search.ts` (`parseSearchTerms` + `buildSubstringCondition(columns, search)`); `user-search.ts` is now a thin wrapper over it, so the two call sites cannot drift.
+- Type filter, pagination and the "clear filters" links all preserve the other parameter, and the empty state distinguishes a failed search from an empty category.
+
+`migrations/2026-07-30-simchas-search-indexes.sql` adds trigram GIN indexes on `family_name` and `announcement` (applied) — without them every keystroke's suggestion query scans all 16,550 rows. A trigram index also serves the `ILIKE '%term%'` the list page uses, which a btree cannot.
+
+**Verified live:** all → 16,550; `Guttman` → 26; `Guttman Jenah` → 2 (multi-word AND narrowing correctly); `Reichmann` → 69; `Reichmann` + `type=engagement` → 20 (filters compose); `zzznothing` → the "No simchas match" state; `?page=99` on a filtered set → "That page doesn't exist". Pagination strips confirmed at 7 items on pages 1, 3, 50 and 690. **Tests 272 → 285.**

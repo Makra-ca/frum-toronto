@@ -10,6 +10,8 @@ import {
   askTheRabbi,
   blogPosts,
   blogCategories,
+  simchas,
+  simchaTypes,
 } from "@/lib/db/schema";
 import { eq, and, or, sql, desc } from "drizzle-orm";
 import type { SearchSuggestion, SearchType } from "./types";
@@ -462,6 +464,64 @@ export async function searchBlog(
     subtitle: b.categoryName || undefined,
     url: `/blog/${b.slug}`,
     type: "blog" as SearchType,
+    relevanceScore: 1000 - index * 10,
+  }));
+}
+
+
+export async function searchSimchas(
+  query: string,
+  limit: number
+): Promise<SearchSuggestion[]> {
+  const queryLower = query.toLowerCase();
+  const searchTerm = `%${query}%`;
+
+  // Ranked on family_name only. The announcement body is searched so that a
+  // grandparent or sibling named solely in the text is still findable, but it
+  // runs to several sentences, and similarity() over that much prose scores
+  // almost everything alike — which would flatten the ordering.
+  const results = await db
+    .select({
+      id: simchas.id,
+      familyName: simchas.familyName,
+      typeName: simchaTypes.name,
+      createdAt: simchas.createdAt,
+      nameSimilarity: sql<number>`GREATEST(
+        similarity(LOWER(${simchas.familyName}), ${queryLower}),
+        word_similarity(${queryLower}, LOWER(${simchas.familyName}))
+      )`,
+    })
+    .from(simchas)
+    .leftJoin(simchaTypes, eq(simchas.typeId, simchaTypes.id))
+    .where(
+      and(
+        eq(simchas.approvalStatus, "approved"),
+        eq(simchas.isActive, true),
+        or(
+          sql`LOWER(${simchas.familyName}) LIKE LOWER(${searchTerm})`,
+          sql`LOWER(${simchas.announcement}) LIKE LOWER(${searchTerm})`,
+          sql`similarity(LOWER(${simchas.familyName}), ${queryLower}) > 0.2`,
+          sql`word_similarity(${queryLower}, LOWER(${simchas.familyName})) > 0.3`
+        )
+      )
+    )
+    .orderBy(
+      sql`GREATEST(
+        similarity(LOWER(${simchas.familyName}), ${queryLower}),
+        word_similarity(${queryLower}, LOWER(${simchas.familyName}))
+      ) DESC`,
+      desc(simchas.createdAt)
+    )
+    .limit(limit);
+
+  return results.map((s, index) => ({
+    id: String(s.id),
+    title: s.familyName,
+    subtitle: s.typeName || undefined,
+    // There is no /simchas/[id] detail page, so a suggestion narrows the list
+    // to that announcement instead of opening it.
+    url: `/simchas?search=${encodeURIComponent(s.familyName)}`,
+    type: "simchas" as SearchType,
     relevanceScore: 1000 - index * 10,
   }));
 }

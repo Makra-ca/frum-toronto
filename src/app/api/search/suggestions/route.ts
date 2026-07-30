@@ -7,6 +7,7 @@ import {
   searchEvents,
   searchAskTheRabbi,
   searchBlog,
+  searchSimchas,
   searchAll,
 } from "@/lib/search/fuzzy-search";
 import type { SearchType, SearchSuggestion, SuggestionsResponse } from "@/lib/search/types";
@@ -25,6 +26,7 @@ const searchFunctions: Record<
   events: searchEvents,
   "ask-the-rabbi": searchAskTheRabbi,
   blog: searchBlog,
+  simchas: searchSimchas,
 };
 
 export async function GET(request: NextRequest) {

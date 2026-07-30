@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { paginationItems } from "@/lib/pagination-items";
 
 interface PaginationLinksProps {
   /** Path without query string, e.g. "/simchas". */
@@ -41,16 +42,7 @@ export function PaginationLinks({
     return qs ? `${basePath}?${qs}` : basePath;
   };
 
-  // First, last, and the pages adjacent to the current one, with gaps elided.
-  const shown = Array.from({ length: totalPages }, (_, i) => i + 1).filter(
-    (p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1
-  );
-
-  const items = shown.reduce<(number | "ellipsis")[]>((acc, p, idx, arr) => {
-    if (idx > 0 && p - arr[idx - 1] > 1) acc.push("ellipsis");
-    acc.push(p);
-    return acc;
-  }, []);
+  const items = paginationItems(currentPage, totalPages);
 
   const hasPrev = currentPage > 1;
   const hasNext = currentPage < totalPages;

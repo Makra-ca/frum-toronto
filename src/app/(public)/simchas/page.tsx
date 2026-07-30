@@ -8,6 +8,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { SimchaSubmitModal } from "@/components/simchas/SimchaSubmitModal";
 import { PaginationLinks } from "@/components/ui/PaginationLinks";
+import { SimchasSearchBar } from "@/components/simchas/SimchasSearchBar";
+import { buildSubstringCondition } from "@/lib/search/substring-search";
 
 export const metadata = {
   title: "Simchas - FrumToronto",
@@ -19,7 +21,7 @@ export const revalidate = 300; // Cache for 5 minutes
 // Divisible by both 2 and 3 so the last row of the responsive grid is never ragged.
 const PAGE_SIZE = 24;
 
-async function getSimchas(typeSlug: string | undefined, page: number) {
+async function getSimchas(typeSlug: string | undefined, page: number, search: string) {
   const conditions = [
     eq(simchas.isActive, true),
     eq(simchas.approvalStatus, "approved"),
@@ -27,6 +29,15 @@ async function getSimchas(typeSlug: string | undefined, page: number) {
   if (typeSlug) {
     conditions.push(eq(simchaTypes.slug, typeSlug));
   }
+
+  // Every term must match the family name or the announcement body, so a query
+  // naming two families ("Guttman Jenah") still finds the notice.
+  const searchCondition = buildSubstringCondition(
+    [simchas.familyName, simchas.announcement],
+    search
+  );
+  if (searchCondition) conditions.push(searchCondition);
+
   const whereClause = and(...conditions);
 
   // The archive holds ~16.5k announcements imported from the legacy site, so
@@ -82,13 +93,14 @@ function parsePage(raw: string | undefined): number {
 export default async function SimchasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; page?: string }>;
+  searchParams: Promise<{ type?: string; page?: string; search?: string }>;
 }) {
-  const { type: activeType, page: pageParam } = await searchParams;
+  const { type: activeType, page: pageParam, search: searchParam } = await searchParams;
   const requestedPage = parsePage(pageParam);
+  const search = (searchParam ?? "").trim();
 
   const [{ items: simchasList, totalCount }, types] = await Promise.all([
-    getSimchas(activeType, requestedPage),
+    getSimchas(activeType, requestedPage, search),
     getSimchaTypes(),
   ]);
 
@@ -98,6 +110,16 @@ export default async function SimchasPage({
   const currentPage = Math.min(requestedPage, totalPages);
   const firstShown = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const lastShown = Math.min(currentPage * PAGE_SIZE, totalCount);
+  const isFiltered = search !== "" || Boolean(activeType);
+
+  /** Builds a /simchas URL keeping whichever of type/search still applies. */
+  const hrefFor = (opts: { type?: string; search?: string }) => {
+    const params = new URLSearchParams();
+    if (opts.type) params.set("type", opts.type);
+    if (opts.search) params.set("search", opts.search);
+    const qs = params.toString();
+    return qs ? `/simchas?${qs}` : "/simchas";
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -117,6 +139,13 @@ export default async function SimchasPage({
             </div>
             <SimchaSubmitModal />
           </div>
+
+          {/* Search matters more than paging here: the archive runs to ~16,550
+              announcements going back to 2005, so nobody finds a family by
+              clicking through hundreds of pages. */}
+          <div className="mt-6">
+            <SimchasSearchBar initialQuery={search} />
+          </div>
         </div>
       </div>
 
@@ -124,7 +153,7 @@ export default async function SimchasPage({
       {types.length > 0 && (
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-wrap gap-2">
-            <Link href="/simchas">
+            <Link href={hrefFor({ search })}>
               <Badge
                 variant={!activeType ? "default" : "outline"}
                 className={`cursor-pointer ${!activeType ? "bg-purple-600 hover:bg-purple-700" : "hover:bg-purple-50"}`}
@@ -135,7 +164,7 @@ export default async function SimchasPage({
             {types.map((type) => {
               const isActive = activeType === type.slug;
               return (
-                <Link key={type.id} href={`/simchas?type=${type.slug}`}>
+                <Link key={type.id} href={hrefFor({ type: type.slug, search })}>
                   <Badge
                     variant={isActive ? "default" : "outline"}
                     className={`cursor-pointer ${isActive ? "bg-purple-600 hover:bg-purple-700" : "hover:bg-purple-50"}`}
@@ -158,21 +187,34 @@ export default async function SimchasPage({
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 {totalCount > 0
                   ? "That page doesn't exist"
-                  : activeType
-                    ? "No simchas of this type yet"
-                    : "No Simchas Posted"}
+                  : search
+                    ? `No simchas match \u201C${search}\u201D`
+                    : activeType
+                      ? "No simchas of this type yet"
+                      : "No Simchas Posted"}
               </h3>
               <p className="text-gray-500">
                 {totalCount > 0 ? (
                   <>
                     There {totalCount === 1 ? "is" : "are"} only {totalPages}{" "}
-                    {totalPages === 1 ? "page" : "pages"} of simchas.{" "}
+                    {totalPages === 1 ? "page" : "pages"} of results.{" "}
                     <Link
-                      href={activeType ? `/simchas?type=${activeType}` : "/simchas"}
+                      href={hrefFor({ type: activeType, search })}
                       className="text-purple-600 hover:underline"
                     >
                       Back to the first page
                     </Link>
+                  </>
+                ) : search ? (
+                  <>
+                    Try part of a family name, or{" "}
+                    <Link
+                      href={hrefFor({ type: activeType })}
+                      className="text-purple-600 hover:underline"
+                    >
+                      clear the search
+                    </Link>
+                    {activeType ? " — this type filter is still applied." : "."}
                   </>
                 ) : activeType ? (
                   <>
@@ -192,6 +234,16 @@ export default async function SimchasPage({
             <p className="text-sm text-gray-500 mb-6">
               Showing {firstShown.toLocaleString()}&ndash;{lastShown.toLocaleString()} of{" "}
               {totalCount.toLocaleString()} simcha{totalCount === 1 ? "" : "s"}
+              {search && <> matching &ldquo;{search}&rdquo;</>}
+              {isFiltered && (
+                <>
+                  {" "}
+                  &middot;{" "}
+                  <Link href="/simchas" className="text-purple-600 hover:underline">
+                    clear filters
+                  </Link>
+                </>
+              )}
             </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {simchasList.map((simcha) => (
@@ -245,7 +297,7 @@ export default async function SimchasPage({
               basePath="/simchas"
               currentPage={currentPage}
               totalPages={totalPages}
-              preserveParams={{ type: activeType }}
+              preserveParams={{ type: activeType, search: search || undefined }}
             />
           </>
         )}
