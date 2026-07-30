@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatInstant } from "@/lib/datetime";
+import { isPending } from "@/lib/submissions/statuses";
 
 interface ShivaEntry {
   id: number;
@@ -507,7 +508,7 @@ export default function ShivaManagementPage() {
                       </div>
 
                       <div className="flex gap-2">
-                        {entry.approvalStatus === "pending" && (
+                        {isPending(entry.approvalStatus) && (
                           <Button
                             size="sm"
                             onClick={() => handleQuickApprove(entry)}

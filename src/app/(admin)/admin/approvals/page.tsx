@@ -1,7 +1,8 @@
 import { Metadata } from "next";
 import { db } from "@/lib/db";
 import { simchas, classifieds, tehillimList, simchaTypes, classifiedCategories } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
+import { PENDING_STATUSES } from "@/lib/submissions/statuses";
 import { ApprovalsClient } from "./approvals-client";
 
 export const metadata: Metadata = {
@@ -23,7 +24,7 @@ export default async function ApprovalsPage() {
       })
       .from(simchas)
       .leftJoin(simchaTypes, eq(simchas.typeId, simchaTypes.id))
-      .where(eq(simchas.approvalStatus, "pending"))
+      .where(inArray(simchas.approvalStatus, PENDING_STATUSES))
       .orderBy(desc(simchas.createdAt)),
 
     db
@@ -38,7 +39,7 @@ export default async function ApprovalsPage() {
       })
       .from(classifieds)
       .leftJoin(classifiedCategories, eq(classifieds.categoryId, classifiedCategories.id))
-      .where(eq(classifieds.approvalStatus, "pending"))
+      .where(inArray(classifieds.approvalStatus, PENDING_STATUSES))
       .orderBy(desc(classifieds.createdAt)),
 
     db
@@ -53,7 +54,7 @@ export default async function ApprovalsPage() {
         createdAt: tehillimList.createdAt,
       })
       .from(tehillimList)
-      .where(eq(tehillimList.approvalStatus, "pending"))
+      .where(inArray(tehillimList.approvalStatus, PENDING_STATUSES))
       .orderBy(desc(tehillimList.createdAt)),
   ]);
 

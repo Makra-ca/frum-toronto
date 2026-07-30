@@ -3,7 +3,8 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/lib/db";
 import { businesses, users, simchas, tehillimList, events, classifieds } from "@/lib/db/schema";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, inArray } from "drizzle-orm";
+import { PENDING_STATUSES } from "@/lib/submissions/statuses";
 import { Building2, Users, FileText, Calendar, ShoppingBag, AlertCircle } from "lucide-react";
 import { formatInstant } from "@/lib/datetime";
 
@@ -26,11 +27,11 @@ async function getStats() {
     db
       .select({ count: sql<number>`count(*)` })
       .from(simchas)
-      .where(eq(simchas.approvalStatus, "pending")),
+      .where(inArray(simchas.approvalStatus, PENDING_STATUSES)),
     db
       .select({ count: sql<number>`count(*)` })
       .from(classifieds)
-      .where(eq(classifieds.approvalStatus, "pending")),
+      .where(inArray(classifieds.approvalStatus, PENDING_STATUSES)),
     db.select({ count: sql<number>`count(*)` }).from(users),
     db
       .select({

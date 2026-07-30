@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { isPending } from "@/lib/submissions/statuses";
 
 interface BlogPost {
   id: number;
@@ -138,7 +139,7 @@ export default function MyBlogPostsPage() {
   };
 
   const isEditable = (status: string) => {
-    return status === "pending" || status === "rejected";
+    return isPending(status) || status === "rejected";
   };
 
   if (status === "loading" || isLoading) {

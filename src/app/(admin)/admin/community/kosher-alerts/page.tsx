@@ -53,6 +53,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatInstant } from "@/lib/datetime";
+import { isPending } from "@/lib/submissions/statuses";
 
 interface KosherAlert {
   id: number;
@@ -345,7 +346,7 @@ export default function KosherAlertsManagementPage() {
     return <Badge className={opt.color}>{opt.label}</Badge>;
   };
 
-  const pendingCount = entries.filter(e => e.approvalStatus === "pending").length;
+  const pendingCount = entries.filter(e => isPending(e.approvalStatus)).length;
 
   return (
     <div className="space-y-6">
@@ -466,7 +467,7 @@ export default function KosherAlertsManagementPage() {
           <div className="space-y-3">
             {entries.map((alert) => (
               <Card key={alert.id} className={`hover:shadow-md transition-shadow ${
-                alert.approvalStatus === "pending" ? "border-yellow-300 bg-yellow-50/30" : ""
+                isPending(alert.approvalStatus) ? "border-yellow-300 bg-yellow-50/30" : ""
               }`}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-4">
@@ -523,7 +524,7 @@ export default function KosherAlertsManagementPage() {
                     </div>
 
                     <div className="flex gap-2">
-                      {alert.approvalStatus === "pending" && (
+                      {isPending(alert.approvalStatus) && (
                         <>
                           <Button
                             size="sm"

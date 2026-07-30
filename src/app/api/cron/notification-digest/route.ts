@@ -14,7 +14,8 @@ import {
   businesses,
   formEmailRecipients,
 } from "@/lib/db/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, sql, inArray } from "drizzle-orm";
+import { PENDING_STATUSES } from "@/lib/submissions/statuses";
 import { resend, EMAIL_FROM } from "@/lib/email/resend";
 import { getDailyDigestEmailHtml } from "@/lib/email/templates";
 
@@ -50,15 +51,15 @@ export async function GET(request: NextRequest) {
       [adsCount],
     ] = await Promise.all([
       db.select({ count }).from(events)
-        .where(and(eq(events.approvalStatus, "pending"), eq(events.isActive, true))),
+        .where(and(inArray(events.approvalStatus, PENDING_STATUSES), eq(events.isActive, true))),
       db.select({ count }).from(simchas)
-        .where(and(eq(simchas.approvalStatus, "pending"), eq(simchas.isActive, true))),
+        .where(and(inArray(simchas.approvalStatus, PENDING_STATUSES), eq(simchas.isActive, true))),
       db.select({ count }).from(classifieds)
-        .where(and(eq(classifieds.approvalStatus, "pending"), eq(classifieds.isActive, true))),
+        .where(and(inArray(classifieds.approvalStatus, PENDING_STATUSES), eq(classifieds.isActive, true))),
       db.select({ count }).from(tehillimList)
-        .where(and(eq(tehillimList.approvalStatus, "pending"), eq(tehillimList.isActive, true))),
+        .where(and(inArray(tehillimList.approvalStatus, PENDING_STATUSES), eq(tehillimList.isActive, true))),
       db.select({ count }).from(blogPosts)
-        .where(and(eq(blogPosts.approvalStatus, "pending"), eq(blogPosts.isActive, true))),
+        .where(and(inArray(blogPosts.approvalStatus, PENDING_STATUSES), eq(blogPosts.isActive, true))),
       db.select({ count }).from(blogComments)
         .where(and(eq(blogComments.approvalStatus, "pending"), eq(blogComments.isActive, true))),
       db.select({ count }).from(askTheRabbiComments)
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
       db.select({ count }).from(specials)
         .where(and(eq(specials.approvalStatus, "pending"), eq(specials.isActive, true))),
       db.select({ count }).from(alerts)
-        .where(and(eq(alerts.approvalStatus, "pending"), eq(alerts.isActive, true))),
+        .where(and(inArray(alerts.approvalStatus, PENDING_STATUSES), eq(alerts.isActive, true))),
       db.select({ count }).from(businesses)
         .where(and(eq(businesses.videoStatus, "ready"), eq(businesses.videoApprovalStatus, "pending"))),
       // Homepage ads have no isActive gate on the pending count: an ad can be

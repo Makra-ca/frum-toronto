@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, X, Loader2, Infinity, Trash2 } from "lucide-react";
 import { formatInstant, formatDateOnly } from "@/lib/datetime";
+import { isPending } from "@/lib/submissions/statuses";
 
 interface Simcha {
   id: number;
@@ -124,13 +125,13 @@ export function ContentApprovalTabs({
     <Tabs defaultValue="simchas" className="w-full">
       <TabsList className="grid w-full grid-cols-3 mb-6">
         <TabsTrigger value="simchas">
-          Simchas ({simchas.filter((s) => s.approvalStatus === "pending").length})
+          Simchas ({simchas.filter((s) => isPending(s.approvalStatus)).length})
         </TabsTrigger>
         <TabsTrigger value="classifieds">
-          Classifieds ({classifieds.filter((c) => c.approvalStatus === "pending").length})
+          Classifieds ({classifieds.filter((c) => isPending(c.approvalStatus)).length})
         </TabsTrigger>
         <TabsTrigger value="tehillim">
-          Tehillim ({tehillimList.filter((t) => t.approvalStatus === "pending").length} pending / {tehillimList.length} total)
+          Tehillim ({tehillimList.filter((t) => isPending(t.approvalStatus)).length} pending / {tehillimList.length} total)
         </TabsTrigger>
       </TabsList>
 
@@ -172,7 +173,7 @@ export function ContentApprovalTabs({
                     <span className="text-xs text-gray-400">
                       {simcha.createdAt ? formatInstant(simcha.createdAt, { month: "numeric", day: "numeric", year: "numeric" }) : "N/A"}
                     </span>
-                    {simcha.approvalStatus === "pending" && (
+                    {isPending(simcha.approvalStatus) && (
                       <div className="flex gap-2">
                         <Button
                           size="sm"
@@ -262,7 +263,7 @@ export function ContentApprovalTabs({
                         ? formatInstant(classified.createdAt, { month: "numeric", day: "numeric", year: "numeric" })
                         : "N/A"}
                     </span>
-                    {classified.approvalStatus === "pending" && (
+                    {isPending(classified.approvalStatus) && (
                       <div className="flex gap-2">
                         <Button
                           size="sm"
@@ -358,7 +359,7 @@ export function ContentApprovalTabs({
                       {item.createdAt ? formatInstant(item.createdAt, { month: "numeric", day: "numeric", year: "numeric" }) : "N/A"}
                     </span>
                     <div className="flex flex-col items-end gap-2">
-                      {item.approvalStatus === "pending" && (
+                      {isPending(item.approvalStatus) && (
                         <>
                           <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
                             <input

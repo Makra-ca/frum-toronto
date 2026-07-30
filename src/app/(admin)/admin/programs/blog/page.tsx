@@ -56,6 +56,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatInstant } from "@/lib/datetime";
+import { isPending } from "@/lib/submissions/statuses";
 
 interface BlogPost {
   id: number;
@@ -477,7 +478,7 @@ export default function AdminBlogPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
-                        {post.approvalStatus === "pending" && (
+                        {isPending(post.approvalStatus) && (
                           <>
                             <Button
                               size="sm"
