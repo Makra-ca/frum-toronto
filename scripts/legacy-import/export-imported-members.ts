@@ -15,12 +15,29 @@
 import "dotenv/config";
 import * as fs from "fs";
 import * as path from "path";
+import { connectLegacy, loadLegacyEnv } from "./lib";
 import { db } from "../../src/lib/db";
 import { users, emailSubscribers } from "../../src/lib/db/schema";
 import { eq, isNotNull, asc } from "drizzle-orm";
 
 const outArg = process.argv.find((a) => a.startsWith("--out="));
 const outPath = path.resolve(outArg ? outArg.split("=")[1] : "imported-members.txt");
+
+/**
+ * --with-passwords additionally writes imported-members-passwords.txt containing
+ * each member's original legacy password.
+ *
+ * A separate file on purpose: the roster above is useful for tracking who came
+ * across and can be handled fairly freely, whereas a list of ~2,900 live
+ * plaintext passwords should not be casually opened, shared or copied. Keeping
+ * them apart means the useful file does not carry the dangerous payload.
+ *
+ * The plaintext already exists in the legacy MSSQL database, so this creates no
+ * new secret — but a flat file is far easier to leak by accident than a database
+ * behind credentials. Both files are gitignored.
+ */
+const withPasswords = process.argv.includes("--with-passwords");
+const pwPath = path.resolve("imported-members-passwords.txt");
 
 async function main() {
   const rows = await db
@@ -149,6 +166,75 @@ async function main() {
   }
 
   fs.writeFileSync(outPath, lines.join("\n") + "\n", "utf8");
+
+  if (withPasswords) {
+    loadLegacyEnv();
+    const pool = await connectLegacy("FrumToronto");
+    const legacyRows = (
+      await pool.request().query(`SELECT MemberID, Email, Password FROM MemberList`)
+    ).recordset as { MemberID: number; Email: string | null; Password: string | null }[];
+    await pool.close();
+
+    const pwByLegacyId = new Map(legacyRows.map((r) => [r.MemberID, r.Password]));
+    const pwByEmail = new Map(
+      legacyRows
+        .filter((r) => r.Email)
+        .map((r) => [r.Email!.trim().toLowerCase(), r.Password])
+    );
+
+    const pwLines: string[] = [];
+    pwLines.push("FrumToronto — imported members: ORIGINAL LEGACY PASSWORDS");
+    pwLines.push(`Generated: ${new Date().toISOString()}`);
+    pwLines.push("");
+    pwLines.push("*** SENSITIVE — live credentials in plaintext. ***");
+    pwLines.push("These are the passwords members are able to log in with right now.");
+    pwLines.push("They came from the old site, which stored them unhashed. Many people");
+    pwLines.push("reuse passwords, so treat this as a list of working credentials for");
+    pwLines.push("other services too, not just this one. Do not email or copy it, and");
+    pwLines.push("delete it once you are done. Gitignored.");
+    pwLines.push("");
+    pwLines.push("legacy".padStart(7) + " " + "userId".padStart(7) + " " + "email".padEnd(38) + " password");
+    pwLines.push("-".repeat(110));
+
+    let withPw = 0;
+    let withoutPw = 0;
+    for (const r of rows) {
+      const pw =
+        (r.legacyId != null ? pwByLegacyId.get(r.legacyId) : null) ??
+        pwByEmail.get(r.email.toLowerCase()) ??
+        null;
+      if (pw) withPw++;
+      else withoutPw++;
+      pwLines.push(
+        String(r.legacyId ?? "").padStart(7) +
+          " " +
+          String(r.userId).padStart(7) +
+          " " +
+          r.email.padEnd(38) +
+          " " +
+          (pw ?? "(none — must use forgot-password)")
+      );
+    }
+
+    pwLines.push("");
+    pwLines.push("OPT-OUTS (account exists, no subscriber row)");
+    pwLines.push("-".repeat(110));
+    for (const u of probableOptOuts) {
+      const pw = pwByEmail.get(u.email.toLowerCase()) ?? null;
+      pwLines.push(
+        String(u.userId).padStart(15) +
+          " " +
+          u.email.padEnd(38) +
+          " " +
+          (pw ?? "(none — must use forgot-password)")
+      );
+    }
+
+    fs.writeFileSync(pwPath, pwLines.join("\n") + "\n", "utf8");
+    console.log(`Wrote ${pwPath}`);
+    console.log(`  with a password      : ${withPw}`);
+    console.log(`  no password on file  : ${withoutPw}`);
+  }
 
   console.log(`Wrote ${outPath}`);
   console.log(`  linked members       : ${rows.length}`);

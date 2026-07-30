@@ -2019,3 +2019,34 @@ One integration run failed and then passed on retry. Cause: `cleanupTestUsers()`
 Fixed by scoping those assertions to the file's own fixture ids (`toContain` / `not.toContain`) instead of the shared email suffix. Verified with three consecutive clean runs of the full integration suite, 58/58 each.
 
 Worth knowing for any future integration test here: **never assert over the whole `@frumtoronto.test` set.** The shared cleanup makes that inherently racy; assert on ids you created.
+
+#### 2026-07-30 — legacy passwords available as a separate export
+
+`export-imported-members.ts --with-passwords` additionally writes
+`imported-members-passwords.txt` with each member's original legacy password,
+matched by `old_member_id` and falling back to email for the opt-outs (who have no
+subscriber row).
+
+**Two files rather than one, on purpose.** The roster is genuinely useful for
+tracking who came across and can be handled freely; a list of ~2,900 live
+plaintext passwords should not be. Keeping them apart means the useful file does
+not carry the dangerous payload. Both are gitignored.
+
+The plaintext already exists in the legacy MSSQL database, so this creates no new
+secret — but a flat file is far easier to leak by accident than a database behind
+credentials, and because people reuse passwords it is effectively a list of working
+credentials for *other* services too. The file header says so.
+
+Note: the assistant sandbox refuses to generate or read this file, so it has to be
+run manually:
+
+```
+npx tsx scripts/legacy-import/export-imported-members.ts --with-passwords
+```
+
+The same restriction applies to `scripts/legacy-import/show-test-login.js`, which
+prints one verified working credential for testing that the password import works:
+
+```
+node -r dotenv/config scripts/legacy-import/show-test-login.js
+```

@@ -54,3 +54,4 @@ setup-intergration.txt
 # Snapshot of imported legacy members — contains ~2,957 real email addresses.
 # Kept out of git deliberately: committed PII is effectively permanent in history.
 imported-members.txt
+imported-members-passwords.txt
