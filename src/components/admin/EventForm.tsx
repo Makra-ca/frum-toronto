@@ -30,6 +30,11 @@ import {
   type ConflictingEvent,
 } from "@/components/events/EventConflictModal";
 import { usePathname } from "next/navigation";
+import {
+  toDateInputValue,
+  toTimeInputValue,
+  fromDateTimeInputs,
+} from "@/lib/datetime";
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
@@ -106,17 +111,10 @@ interface EventFormProps {
   skipConflictCheck?: boolean;
 }
 
-function formatDateForInput(date: Date | string | null): string {
-  if (!date) return "";
-  const d = new Date(date);
-  return d.toISOString().split("T")[0];
-}
-
-function formatTimeForInput(date: Date | string | null): string {
-  if (!date) return "";
-  const d = new Date(date);
-  return d.toTimeString().slice(0, 5);
-}
+// Both halves must come from the same timezone or every save shifts the event
+// by a day. See src/lib/datetime.ts and tests/unit/datetime-inputs.test.ts.
+const formatDateForInput = toDateInputValue;
+const formatTimeForInput = toTimeInputValue;
 
 export function EventForm({
   initialData,
@@ -270,43 +268,18 @@ export function EventForm({
     data: FormData,
     forceSchedule = false
   ): EventFormSubmitData {
-    const [startYear, startMonth, startDay] = data.startDate
-      .split("-")
-      .map(Number);
-
-    let startDateTime: string;
-    if (!data.isAllDay && data.startTime) {
-      const [startHour, startMinute] = data.startTime.split(":").map(Number);
-      const startDate = new Date(
-        startYear,
-        startMonth - 1,
-        startDay,
-        startHour,
-        startMinute
-      );
-      startDateTime = startDate.toISOString();
-    } else {
-      const startDate = new Date(startYear, startMonth - 1, startDay, 12, 0, 0);
-      startDateTime = startDate.toISOString();
-    }
+    // Typed times are Toronto wall-clock, regardless of where the admin is.
+    const startDateTime =
+      !data.isAllDay && data.startTime
+        ? fromDateTimeInputs(data.startDate, data.startTime)
+        : fromDateTimeInputs(data.startDate, "12:00");
 
     let endDateTime: string | null = null;
     if (data.endDate) {
-      const [endYear, endMonth, endDay] = data.endDate.split("-").map(Number);
-      if (!data.isAllDay && data.endTime) {
-        const [endHour, endMinute] = data.endTime.split(":").map(Number);
-        const endDate = new Date(
-          endYear,
-          endMonth - 1,
-          endDay,
-          endHour,
-          endMinute
-        );
-        endDateTime = endDate.toISOString();
-      } else {
-        const endDate = new Date(endYear, endMonth - 1, endDay, 23, 59, 59);
-        endDateTime = endDate.toISOString();
-      }
+      endDateTime =
+        !data.isAllDay && data.endTime
+          ? fromDateTimeInputs(data.endDate, data.endTime)
+          : fromDateTimeInputs(data.endDate, "23:59");
     }
 
     return {

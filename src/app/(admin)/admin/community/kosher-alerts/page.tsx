@@ -52,6 +52,7 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatInstant } from "@/lib/datetime";
 
 interface KosherAlert {
   id: number;
@@ -510,7 +511,7 @@ export default function KosherAlertsManagementPage() {
                         </p>
 
                         <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-gray-500">
-                          <span>Created: {new Date(alert.createdAt).toLocaleDateString()}</span>
+                          <span>Created: {formatInstant(alert.createdAt, { month: "numeric", day: "numeric", year: "numeric" })}</span>
                           {alert.submittedByName && (
                             <span className="flex items-center gap-1">
                               <User className="h-3 w-3" />

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, AlertCircle, Clock } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { formatInstant, formatDateOnly } from "@/lib/datetime";
 
 interface EruvStatusRow {
   id: number;
@@ -98,7 +99,7 @@ export function EruvWidget() {
   const statusBg = data.isUp ? "bg-green-50" : "bg-red-50";
   const statusText = data.isUp ? "UP" : "DOWN";
 
-  const formattedDate = new Date(data.statusDate + "T12:00:00").toLocaleDateString("en-US", {
+  const formattedDate = formatDateOnly(data.statusDate, {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -106,7 +107,7 @@ export function EruvWidget() {
   });
 
   const formattedUpdatedAt = data.updatedAt
-    ? new Date(data.updatedAt).toLocaleString("en-US", {
+    ? formatInstant(data.updatedAt, {
         month: "short",
         day: "numeric",
         year: "numeric",

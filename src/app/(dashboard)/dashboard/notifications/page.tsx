@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { formatInstant } from "@/lib/datetime";
 
 interface Notification {
   id: number;
@@ -73,7 +74,7 @@ function getRelativeTime(dateStr: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays === 1) return "yesterday";
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString("en-CA", {
+  return formatInstant(date, {
     month: "short",
     day: "numeric",
     year: "numeric",

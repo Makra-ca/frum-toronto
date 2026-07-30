@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2, MapPin, Check, X, Loader2 } from "lucide-react";
 import { ReorderButtons } from "./ReorderButtons";
+import { formatInstant } from "@/lib/datetime";
 
 interface BusinessHours {
   sunday?: { open: string; close: string } | null;
@@ -66,7 +67,7 @@ interface BusinessTableProps {
 function formatDate(date: Date | string | null): string {
   if (!date) return "-";
   const d = new Date(date);
-  return d.toLocaleDateString("en-US", {
+  return formatInstant(d, {
     month: "short",
     day: "numeric",
     year: "numeric",

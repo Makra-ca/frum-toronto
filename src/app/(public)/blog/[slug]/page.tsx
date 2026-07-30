@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BlogComments } from "@/components/blog/BlogComments";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
+import { formatInstant } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +82,7 @@ export async function generateMetadata({ params }: PageProps) {
 
 function formatDate(dateStr: string | Date | null): string {
   if (!dateStr) return "";
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  return formatInstant(dateStr, {
     year: "numeric",
     month: "long",
     day: "numeric",

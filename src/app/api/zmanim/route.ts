@@ -7,6 +7,7 @@ import {
   getUpcomingShabbat,
 } from "@/lib/zmanim";
 import { TORONTO_LOCATION, type ZmanimLocation } from "@/lib/zmanim-location";
+import { formatInstant } from "@/lib/datetime";
 
 // revalidate hint; handler is dynamic because it reads query params —
 // each location is computed fresh (no cross-location cache poisoning)
@@ -123,7 +124,7 @@ export async function GET(request: Request) {
 
       return NextResponse.json({
         parsha: shabbatData.parsha,
-        date: shabbatData.date.toLocaleDateString("en-US", {
+        date: formatInstant(shabbatData.date, {
           weekday: "long",
           month: "long",
           day: "numeric",

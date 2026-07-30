@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Bell, AlertTriangle, Info, Pin } from "lucide-react";
 import { AlertSubmitModal } from "@/components/alerts/AlertSubmitModal";
+import { formatInstant } from "@/lib/datetime";
 
 export const metadata = {
   title: "Alerts & Bulletins - FrumToronto",
@@ -135,7 +136,7 @@ export default async function AlertsPage() {
                     dangerouslySetInnerHTML={{ __html: alert.content }}
                   />
                   <div className="mt-4 text-sm text-gray-500">
-                    Posted: {alert.createdAt ? new Date(alert.createdAt).toLocaleDateString() : "Unknown"}
+                    Posted: {alert.createdAt ? formatInstant(alert.createdAt, { month: "numeric", day: "numeric", year: "numeric" }) : "Unknown"}
                   </div>
                 </CardContent>
               </Card>

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ExternalLink, FileText, CheckCircle, XCircle, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { formatInstant } from "@/lib/datetime";
 
 interface NonProfitApplication {
   id: number;
@@ -71,7 +72,7 @@ function ApplicationCard({
   }
 
   const isPending = application.nonProfitStatus === "pending";
-  const submittedDate = new Date(application.createdAt).toLocaleDateString("en-CA", {
+  const submittedDate = formatInstant(application.createdAt, {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -280,7 +281,7 @@ export default function NonProfitApplicationsPage() {
                 <div className="min-w-0">
                   <p className="font-medium text-gray-900 truncate">{app.name}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {new Date(app.createdAt).toLocaleDateString("en-CA")}
+                    {formatInstant(app.createdAt, { month: "numeric", day: "numeric", year: "numeric" })}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

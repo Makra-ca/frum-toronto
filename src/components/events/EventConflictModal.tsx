@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
+import { formatInstant } from "@/lib/datetime";
 
 export interface ConflictingEvent {
   id: number;
@@ -26,7 +27,7 @@ interface EventConflictModalProps {
 
 function formatConflictTime(isoString: string): string {
   try {
-    return new Date(isoString).toLocaleDateString("en-US", {
+    return formatInstant(isoString, {
       weekday: "short",
       month: "short",
       day: "numeric",

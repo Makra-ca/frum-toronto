@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { businesses, users, simchas, tehillimList, events, classifieds } from "@/lib/db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import { Building2, Users, FileText, Calendar, ShoppingBag, AlertCircle } from "lucide-react";
+import { formatInstant } from "@/lib/datetime";
 
 export const metadata: Metadata = {
   title: "Admin Dashboard",
@@ -165,7 +166,7 @@ export default async function AdminDashboardPage() {
                     </span>
                     <span className="text-xs text-gray-500">
                       {user.createdAt
-                        ? new Date(user.createdAt).toLocaleDateString()
+                        ? formatInstant(user.createdAt, { month: "numeric", day: "numeric", year: "numeric" })
                         : "N/A"}
                     </span>
                   </div>

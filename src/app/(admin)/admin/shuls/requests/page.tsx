@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShulRequestsTable } from "@/components/admin/ShulRequestsTable";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
+import { formatInstant } from "@/lib/datetime";
 
 interface ShulRequest {
   id: number;
@@ -123,7 +124,7 @@ export default function ShulRequestsPage() {
                       <td className="px-6 py-4">{request.shulName}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {request.reviewedAt
-                          ? new Date(request.reviewedAt).toLocaleDateString()
+                          ? formatInstant(request.reviewedAt, { month: "numeric", day: "numeric", year: "numeric" })
                           : "-"}
                       </td>
                     </tr>
@@ -175,7 +176,7 @@ export default function ShulRequestsPage() {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {request.reviewedAt
-                          ? new Date(request.reviewedAt).toLocaleDateString()
+                          ? formatInstant(request.reviewedAt, { month: "numeric", day: "numeric", year: "numeric" })
                           : "-"}
                       </td>
                     </tr>

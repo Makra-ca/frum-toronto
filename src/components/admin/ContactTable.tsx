@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, Mail, Eye } from "lucide-react";
+import { formatInstant } from "@/lib/datetime";
 
 interface ContactSubmission {
   id: number;
@@ -118,7 +119,7 @@ export function ContactTable({ submissions: initialSubmissions }: ContactTablePr
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {submission.createdAt
-                        ? new Date(submission.createdAt).toLocaleDateString("en-US", {
+                        ? formatInstant(submission.createdAt, {
                             month: "short",
                             day: "numeric",
                             year: "numeric",
@@ -223,7 +224,7 @@ export function ContactTable({ submissions: initialSubmissions }: ContactTablePr
 
               <div className="text-xs text-gray-500 mb-3">
                 {submission.createdAt
-                  ? new Date(submission.createdAt).toLocaleDateString("en-US", {
+                  ? formatInstant(submission.createdAt, {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
@@ -305,7 +306,7 @@ export function ContactTable({ submissions: initialSubmissions }: ContactTablePr
                   <span className="font-medium text-gray-500">Date:</span>
                   <p className="text-gray-900">
                     {selectedMessage.createdAt
-                      ? new Date(selectedMessage.createdAt).toLocaleString()
+                      ? formatInstant(selectedMessage.createdAt, { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" })
                       : "N/A"}
                   </p>
                 </div>

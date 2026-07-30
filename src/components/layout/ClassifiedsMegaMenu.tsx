@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ChevronRight, Plus, Clock, Tag } from "lucide-react";
+import { formatInstant } from "@/lib/datetime";
 
 export interface ClassifiedCategory {
   id: number;
@@ -65,7 +66,7 @@ function formatTimeAgo(dateString: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays === 1) return "Yesterday";
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+  return formatInstant(date, { month: "numeric", day: "numeric", year: "numeric" });
 }
 
 interface ClassifiedsMegaMenuProps {

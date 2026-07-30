@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatInstant } from "@/lib/datetime";
 
 interface Notification {
   id: number;
@@ -71,7 +72,7 @@ function getRelativeTime(dateStr: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays === 1) return "yesterday";
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+  return formatInstant(date, { month: "numeric", day: "numeric", year: "numeric" });
 }
 
 function groupNotifications(notifications: Notification[]) {

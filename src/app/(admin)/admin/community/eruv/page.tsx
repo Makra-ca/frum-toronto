@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Loader2, Save, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { formatInstant } from "@/lib/datetime";
 
 interface EruvEntry {
   id: number;
@@ -47,14 +48,14 @@ function formatRelativeDate(dateStr: string): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+  return formatInstant(date, { month: "numeric", day: "numeric", year: "numeric" });
 }
 
 function formatStatusDate(dateStr: string): string {
   // statusDate is a date string like "2026-03-18" - parse as local date
   const [year, month, day] = dateStr.split("-").map(Number);
   const date = new Date(year, month - 1, day);
-  return date.toLocaleDateString("en-US", {
+  return formatInstant(date, {
     weekday: "short",
     month: "short",
     day: "numeric",

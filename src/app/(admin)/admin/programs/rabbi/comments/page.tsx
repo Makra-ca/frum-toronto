@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { formatInstant } from "@/lib/datetime";
 
 interface AtrComment {
   id: number;
@@ -275,7 +276,7 @@ export default function AtrCommentsPage() {
                       {comment.authorName}
                     </TableCell>
                     <TableCell className="text-sm text-gray-500 whitespace-nowrap">
-                      {new Date(comment.createdAt).toLocaleDateString()}
+                      {formatInstant(comment.createdAt, { month: "numeric", day: "numeric", year: "numeric" })}
                     </TableCell>
                     <TableCell>{getStatusBadge(comment.approvalStatus)}</TableCell>
                     <TableCell>

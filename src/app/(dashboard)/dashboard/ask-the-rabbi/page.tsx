@@ -38,6 +38,7 @@ import {
 import { toast } from "sonner";
 import { UniversalSearch } from "@/components/search/UniversalSearch";
 import { AtrQuickPost } from "@/components/ask-the-rabbi/AtrQuickPost";
+import { formatInstant } from "@/lib/datetime";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -396,7 +397,7 @@ function QuestionsTab() {
                     </td>
                     <td className="py-3 pr-4 text-gray-500">
                       {q.publishedAt
-                        ? new Date(q.publishedAt).toLocaleDateString("en-CA")
+                        ? formatInstant(q.publishedAt, { month: "numeric", day: "numeric", year: "numeric" })
                         : "—"}
                     </td>
                     <td className="py-3 pr-4 text-center text-gray-600">
@@ -601,7 +602,7 @@ function PendingCommentsTab() {
                       {comment.authorName}
                     </span>
                     <span className="text-gray-400 text-xs">
-                      {new Date(comment.createdAt).toLocaleDateString("en-CA")}
+                      {formatInstant(comment.createdAt, { month: "numeric", day: "numeric", year: "numeric" })}
                     </span>
                     {comment.questionTitle && (
                       <span className="text-xs text-gray-500">

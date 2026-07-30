@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, ArrowRight } from "lucide-react";
+import { formatInstant } from "@/lib/datetime";
 
 const eventTypeColors: Record<string, string> = {
   community: "bg-green-100 text-green-800",
@@ -70,10 +71,10 @@ export async function UpcomingEvents() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {upcomingEvents.map((event) => {
             const eventDate = event.startTime ? new Date(event.startTime) : new Date();
-            const month = eventDate.toLocaleDateString("en-US", { month: "short" });
+            const month = formatInstant(eventDate, { month: "short" });
             const day = eventDate.getDate();
-            const weekday = eventDate.toLocaleDateString("en-US", { weekday: "short" });
-            const time = eventDate.toLocaleTimeString("en-US", {
+            const weekday = formatInstant(eventDate, { weekday: "short" });
+            const time = formatInstant(eventDate, {
               hour: "numeric",
               minute: "2-digit",
             });

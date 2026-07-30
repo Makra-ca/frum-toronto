@@ -38,6 +38,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { UserPicker, type PickableUser } from "@/components/admin/UserPicker";
+import { formatInstant } from "@/lib/datetime";
 
 interface Assignment {
   id: number;
@@ -195,7 +196,7 @@ export function UserShulAssignment({ assignments, onRefresh }: UserShulAssignmen
                   <TableCell>{assignment.shulName || "Unknown Shul"}</TableCell>
                   <TableCell>
                     {assignment.assignedAt
-                      ? new Date(assignment.assignedAt).toLocaleDateString()
+                      ? formatInstant(assignment.assignedAt, { month: "numeric", day: "numeric", year: "numeric" })
                       : "-"}
                   </TableCell>
                   <TableCell className="text-right">

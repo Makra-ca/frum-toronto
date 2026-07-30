@@ -17,6 +17,7 @@ import {
   ChevronRight,
   PenLine,
 } from "lucide-react";
+import { formatInstant } from "@/lib/datetime";
 
 interface BlogPost {
   id: number;
@@ -51,7 +52,7 @@ interface Pagination {
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  return formatInstant(dateStr, {
     year: "numeric",
     month: "long",
     day: "numeric",

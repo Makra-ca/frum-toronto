@@ -22,6 +22,7 @@ import { EVENT_TYPES } from "@/lib/validations/content";
 import { HDate, gematriya } from "@hebcal/core";
 import { anchorCivilDate, civilDateInTimeZone } from "@/lib/zmanim-day";
 import { TORONTO_LOCATION } from "@/lib/zmanim-location";
+import { formatInstant } from "@/lib/datetime";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -56,7 +57,7 @@ async function getEvent(id: number) {
 }
 
 function formatTime(date: Date): string {
-  return date.toLocaleTimeString("en-US", {
+  return formatInstant(date, {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
@@ -148,7 +149,7 @@ export default async function EventDetailPage({ params }: PageProps) {
                   <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 flex flex-col items-center justify-center text-white shadow-lg">
                     <span className="text-3xl font-bold leading-none">{startDate.getDate()}</span>
                     <span className="text-sm uppercase tracking-wide opacity-90">
-                      {startDate.toLocaleDateString("en-US", { month: "short" })}
+                      {formatInstant(startDate, { month: "short" })}
                     </span>
                   </div>
                 </div>
@@ -170,7 +171,7 @@ export default async function EventDetailPage({ params }: PageProps) {
                     <div className="flex items-center gap-1.5">
                       <Calendar className="h-4 w-4 text-gray-400" />
                       <span>
-                        {startDate.toLocaleDateString("en-US", {
+                        {formatInstant(startDate, {
                           weekday: "long",
                           month: "long",
                           day: "numeric",
@@ -352,13 +353,13 @@ export default async function EventDetailPage({ params }: PageProps) {
                       <div className="flex justify-between">
                         <span className="text-gray-500">Date</span>
                         <span className="text-gray-900 font-medium">
-                          {startDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          {formatInstant(startDate, { month: "short", day: "numeric", year: "numeric" })}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Day</span>
                         <span className="text-gray-900 font-medium">
-                          {startDate.toLocaleDateString("en-US", { weekday: "long" })}
+                          {formatInstant(startDate, { weekday: "long" })}
                         </span>
                       </div>
                       <div className="flex justify-between">

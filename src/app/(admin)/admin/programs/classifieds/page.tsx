@@ -47,6 +47,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatInstant } from "@/lib/datetime";
 
 interface ClassifiedEntry {
   id: number;
@@ -397,7 +398,7 @@ export default function ClassifiedsManagementPage() {
                             {entry.viewCount} views
                           </span>
                         )}
-                        <span>Created: {new Date(entry.createdAt).toLocaleDateString()}</span>
+                        <span>Created: {formatInstant(entry.createdAt, { month: "numeric", day: "numeric", year: "numeric" })}</span>
                       </div>
                     </div>
 
@@ -639,7 +640,7 @@ export default function ClassifiedsManagementPage() {
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium">{log.senderName}</span>
                         <span className="text-xs text-gray-400">
-                          {new Date(log.sentAt).toLocaleDateString()}
+                          {formatInstant(log.sentAt, { month: "numeric", day: "numeric", year: "numeric" })}
                         </span>
                       </div>
                       <p className="text-gray-500 text-xs mb-1">{log.senderEmail}</p>

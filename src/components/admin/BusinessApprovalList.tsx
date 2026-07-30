@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, X, Loader2, MapPin, Phone, Mail, Tag } from "lucide-react";
+import { formatInstant } from "@/lib/datetime";
 
 interface Business {
   id: number;
@@ -118,7 +119,7 @@ export function BusinessApprovalList({ businesses: initialBusinesses }: Business
 
             <div className="flex items-center justify-between pt-4 border-t">
               <span className="text-xs text-gray-400">
-                Submitted: {business.createdAt ? new Date(business.createdAt).toLocaleDateString() : "N/A"}
+                Submitted: {business.createdAt ? formatInstant(business.createdAt, { month: "numeric", day: "numeric", year: "numeric" }) : "N/A"}
               </span>
 
               {business.approvalStatus === "pending" && (

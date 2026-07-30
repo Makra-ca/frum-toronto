@@ -25,6 +25,7 @@ import {
 import { FileText, Upload, Trash2, Loader2, Newspaper, BookOpen, Download, Calendar, Pencil, X, Check } from "lucide-react";
 import { toast } from "sonner";
 import { uploadFile } from "@/lib/upload-client";
+import { formatInstant } from "@/lib/datetime";
 
 interface ShulDocument {
   id: number;
@@ -51,7 +52,7 @@ function formatFileSize(bytes: number | null): string {
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  return formatInstant(dateStr, {
     month: "short",
     day: "numeric",
     year: "numeric",

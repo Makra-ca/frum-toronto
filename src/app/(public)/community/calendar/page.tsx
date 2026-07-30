@@ -17,6 +17,7 @@ import {
 import { EVENT_TYPES } from "@/lib/validations/content";
 import { UniversalSearch } from "@/components/search/UniversalSearch";
 import { HDate, gematriya } from "@hebcal/core";
+import { formatInstant } from "@/lib/datetime";
 
 interface CalendarEvent {
   id: number;
@@ -91,7 +92,7 @@ function getHebrewMonthsForGregorianMonth(year: number, month: number): string {
 
 function formatDate(date: string): string {
   const d = new Date(date);
-  return d.toLocaleDateString("en-US", {
+  return formatInstant(d, {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -100,7 +101,7 @@ function formatDate(date: string): string {
 
 function formatTime(date: string): string {
   const d = new Date(date);
-  return d.toLocaleTimeString("en-US", {
+  return formatInstant(d, {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
@@ -516,7 +517,7 @@ export default function EventsPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>
-                Events on {selectedDate?.toLocaleDateString("en-US", {
+                Events on {formatInstant(selectedDate, {
                   weekday: "long",
                   month: "long",
                   day: "numeric",

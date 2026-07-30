@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, Calendar, Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatInstant } from "@/lib/datetime";
 
 interface Event {
   id: number;
@@ -115,7 +116,7 @@ export function ShulEventsCalendar({ events }: ShulEventsCalendarProps) {
     return map;
   }, [events]);
 
-  const monthName = currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const monthName = formatInstant(currentDate, { month: "long", year: "numeric" });
   const hebrewMonth = getHebrewMonthName(new Date(currentYear, currentMonth, 15));
 
   const goToPreviousMonth = () => {
@@ -136,7 +137,7 @@ export function ShulEventsCalendar({ events }: ShulEventsCalendarProps) {
   const formatEventTime = (date: Date | string, isAllDay: boolean | null) => {
     if (isAllDay) return "All Day";
     const d = new Date(date);
-    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return formatInstant(d, { hour: "numeric", minute: "2-digit" });
   };
 
   return (
@@ -257,7 +258,7 @@ export function ShulEventsCalendar({ events }: ShulEventsCalendarProps) {
                     {startDate.getDate()}
                   </div>
                   <div className="text-xs text-gray-500 uppercase">
-                    {startDate.toLocaleDateString("en-US", { month: "short" })}
+                    {formatInstant(startDate, { month: "short" })}
                   </div>
                   <div className="text-xs text-gray-400 font-hebrew">
                     {getHebrewDateStr(startDate)} {getHebrewMonthName(startDate)}
@@ -292,7 +293,7 @@ export function ShulEventsCalendar({ events }: ShulEventsCalendarProps) {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              Events on {selectedDate?.toLocaleDateString("en-US", {
+              Events on {formatInstant(selectedDate, {
                 weekday: "long",
                 month: "long",
                 day: "numeric",

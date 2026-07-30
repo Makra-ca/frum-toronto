@@ -21,6 +21,7 @@ import {
   KosherAlertActions,
   BulletinAlertActions,
 } from "@/components/home/CommunityCornerActions";
+import { formatInstant } from "@/lib/datetime";
 
 // --- Types ---
 
@@ -75,7 +76,7 @@ function truncate(text: string, maxLength: number): string {
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  return formatInstant(dateStr, {
     month: "short",
     day: "numeric",
     year: "numeric",

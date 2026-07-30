@@ -30,6 +30,7 @@ import {
   EventConflictModal,
   type ConflictingEvent,
 } from "@/components/events/EventConflictModal";
+import { fromDateTimeInputs } from "@/lib/datetime";
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
@@ -175,40 +176,19 @@ export function PublicEventForm() {
   }
 
   function buildPayload(data: FormData, forceSchedule: boolean): object {
-    const [startYear, startMonth, startDay] = data.startDate
-      .split("-")
-      .map(Number);
-
-    let startDateTime: string;
-    if (!data.isAllDay && data.startTime) {
-      const [h, m] = data.startTime.split(":").map(Number);
-      startDateTime = new Date(
-        startYear,
-        startMonth - 1,
-        startDay,
-        h,
-        m
-      ).toISOString();
-    } else {
-      startDateTime = new Date(
-        startYear,
-        startMonth - 1,
-        startDay,
-        12,
-        0,
-        0
-      ).toISOString();
-    }
+    // Typed times are Toronto wall-clock, regardless of the submitter's own
+    // timezone — this is a Toronto community calendar.
+    const startDateTime =
+      !data.isAllDay && data.startTime
+        ? fromDateTimeInputs(data.startDate, data.startTime)
+        : fromDateTimeInputs(data.startDate, "12:00");
 
     let endDateTime: string | null = null;
     if (data.endDate) {
-      const [ey, em, ed] = data.endDate.split("-").map(Number);
-      if (!data.isAllDay && data.endTime) {
-        const [h, m] = data.endTime.split(":").map(Number);
-        endDateTime = new Date(ey, em - 1, ed, h, m).toISOString();
-      } else {
-        endDateTime = new Date(ey, em - 1, ed, 23, 59, 59).toISOString();
-      }
+      endDateTime =
+        !data.isAllDay && data.endTime
+          ? fromDateTimeInputs(data.endDate, data.endTime)
+          : fromDateTimeInputs(data.endDate, "23:59");
     }
 
     return {

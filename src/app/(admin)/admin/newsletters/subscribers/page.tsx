@@ -35,6 +35,7 @@ import { ArrowLeft, Plus, Search, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import type { EmailSubscriber } from "@/types/newsletter";
 import Link from "next/link";
+import { formatInstant } from "@/lib/datetime";
 
 export default function SubscribersPage() {
   const [subscribers, setSubscribers] = useState<EmailSubscriber[]>([]);
@@ -174,7 +175,7 @@ export default function SubscribersPage() {
 
   const formatDate = (date: string | Date | null) => {
     if (!date) return "-";
-    return new Date(date).toLocaleDateString("en-US", {
+    return formatInstant(date, {
       month: "short",
       day: "numeric",
       year: "numeric",

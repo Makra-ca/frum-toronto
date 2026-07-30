@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, X, Loader2, Infinity } from "lucide-react";
+import { formatInstant, formatDateOnly } from "@/lib/datetime";
 
 interface ApprovalCardProps {
   id: number;
@@ -89,13 +90,13 @@ export function ApprovalCard({
         {/* Show expiration info for tehillim */}
         {type === "tehillim" && expiresAt && (
           <p className="text-xs text-gray-500 mb-3">
-            Expires: {new Date(expiresAt).toLocaleDateString()}
+            Expires: {formatDateOnly(expiresAt, { month: "numeric", day: "numeric", year: "numeric" })}
           </p>
         )}
 
         <div className="flex items-center justify-between">
           <span className="text-xs text-gray-400">
-            {createdAt ? new Date(createdAt).toLocaleDateString() : "N/A"}
+            {createdAt ? formatInstant(createdAt, { month: "numeric", day: "numeric", year: "numeric" }) : "N/A"}
           </span>
 
           {currentStatus === "pending" && (

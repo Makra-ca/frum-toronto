@@ -47,6 +47,7 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatInstant, formatDateOnly } from "@/lib/datetime";
 
 interface TehillimEntry {
   id: number;
@@ -400,11 +401,11 @@ export default function TehillimManagementPage() {
                       </div>
 
                       <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
-                        <span>Created: {new Date(entry.createdAt).toLocaleDateString()}</span>
+                        <span>Created: {formatInstant(entry.createdAt, { month: "numeric", day: "numeric", year: "numeric" })}</span>
                         {entry.expiresAt && !entry.isPermanent && (
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            {viewTab === "archived" ? "Expired" : "Expires"}: {new Date(entry.expiresAt).toLocaleDateString()}
+                            {viewTab === "archived" ? "Expired" : "Expires"}: {formatDateOnly(entry.expiresAt, { month: "numeric", day: "numeric", year: "numeric" })}
                           </span>
                         )}
                       </div>

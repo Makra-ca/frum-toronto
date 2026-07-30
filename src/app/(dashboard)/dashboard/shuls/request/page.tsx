@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Send, Loader2, CheckCircle, Clock, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { formatInstant } from "@/lib/datetime";
 
 interface Shul {
   id: number;
@@ -239,7 +240,7 @@ export default function RequestShulPage() {
                           </p>
                           <p className="text-sm text-gray-500">
                             Requested on{" "}
-                            {new Date(request.createdAt).toLocaleDateString()}
+                            {formatInstant(request.createdAt, { month: "numeric", day: "numeric", year: "numeric" })}
                           </p>
                           {request.reviewNotes && request.status !== "pending" && (
                             <p className="text-sm text-gray-600 mt-1">

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle, XCircle, Play, ExternalLink, Loader2, Video } from "lucide-react";
 import { toast } from "sonner";
+import { formatInstant } from "@/lib/datetime";
 
 interface VideoReviewBusiness {
   id: number;
@@ -53,7 +54,7 @@ function VideoCard({
     }
   }
 
-  const submittedDate = new Date(business.updatedAt).toLocaleDateString("en-CA", {
+  const submittedDate = formatInstant(business.updatedAt, {
     year: "numeric",
     month: "long",
     day: "numeric",

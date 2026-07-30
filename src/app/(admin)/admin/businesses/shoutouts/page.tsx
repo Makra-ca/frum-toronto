@@ -15,6 +15,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateOnly } from "@/lib/datetime";
 
 interface Shoutout {
   id: number;
@@ -99,10 +100,7 @@ function PendingShoutoutCard({
     }
   }
 
-  const scheduledFormatted = new Date(shoutout.scheduledDate + "T00:00:00").toLocaleDateString(
-    "en-CA",
-    { year: "numeric", month: "long", day: "numeric" }
-  );
+  const scheduledFormatted = formatDateOnly(shoutout.scheduledDate, { year: "numeric", month: "long", day: "numeric" });
 
   return (
     <div className="bg-white border rounded-lg overflow-hidden">
@@ -351,9 +349,7 @@ export default function ShoutoutsPage() {
               </thead>
               <tbody>
                 {scheduled.map((shoutout, idx) => {
-                  const dateFormatted = new Date(
-                    shoutout.scheduledDate + "T00:00:00"
-                  ).toLocaleDateString("en-CA", {
+                  const dateFormatted = formatDateOnly(shoutout.scheduledDate, {
                     year: "numeric",
                     month: "short",
                     day: "numeric",

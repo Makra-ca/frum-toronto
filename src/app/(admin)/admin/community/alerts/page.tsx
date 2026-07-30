@@ -50,6 +50,7 @@ import {
   Info,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatInstant } from "@/lib/datetime";
 
 interface Alert {
   id: number;
@@ -383,9 +384,9 @@ export default function AlertsManagementPage() {
                         <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-gray-500">
                           <span>Type: {alert.alertType}</span>
                           {alert.expiresAt && (
-                            <span>Expires: {new Date(alert.expiresAt).toLocaleDateString()}</span>
+                            <span>Expires: {formatInstant(alert.expiresAt, { month: "numeric", day: "numeric", year: "numeric" })}</span>
                           )}
-                          <span>Created: {new Date(alert.createdAt).toLocaleDateString()}</span>
+                          <span>Created: {formatInstant(alert.createdAt, { month: "numeric", day: "numeric", year: "numeric" })}</span>
                           {alert.createdByName && (
                             <span>By: {alert.createdByName}</span>
                           )}

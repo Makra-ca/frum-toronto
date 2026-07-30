@@ -18,6 +18,7 @@ import {
   AlertCircle,
   ImageIcon,
 } from "lucide-react";
+import { formatInstant } from "@/lib/datetime";
 
 interface Shoutout {
   id: number;
@@ -336,7 +337,7 @@ export function ShoutoutSection({ businessId, initialShoutouts }: ShoutoutSectio
   }
 
   function formatDate(dateStr: string) {
-    return new Date(dateStr + "T00:00:00").toLocaleDateString("en-CA", {
+    return formatInstant(dateStr, {
       weekday: "long",
       year: "numeric",
       month: "long",

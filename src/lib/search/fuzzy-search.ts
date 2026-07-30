@@ -16,6 +16,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, or, sql, desc } from "drizzle-orm";
 import type { SearchSuggestion, SearchType } from "./types";
+import { formatInstant } from "@/lib/datetime";
 
 // ─── Helpers ──────────────────────────────────────────────
 
@@ -331,7 +332,7 @@ export async function searchEvents(
     const subtitleParts: string[] = [];
     if (e.startTime) {
       subtitleParts.push(
-        new Date(e.startTime).toLocaleDateString("en-US", {
+        formatInstant(e.startTime, {
           month: "short",
           day: "numeric",
           year: "numeric",

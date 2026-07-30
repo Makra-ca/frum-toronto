@@ -9,6 +9,7 @@ import Link from "next/link";
 import { PaginationLinks } from "@/components/ui/PaginationLinks";
 import { KosherAlertsSearchBar } from "@/components/kosher-alerts/KosherAlertsSearchBar";
 import { buildSubstringCondition } from "@/lib/search/substring-search";
+import { formatInstant, formatDateOnly } from "@/lib/datetime";
 
 export const metadata = {
   title: "Kosher Alerts - FrumToronto",
@@ -224,12 +225,12 @@ export default async function KosherAlertsPage({
                     {alert.effectiveDate && (
                       <span className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
-                        Effective: {new Date(alert.effectiveDate).toLocaleDateString()}
+                        Effective: {formatDateOnly(alert.effectiveDate, { month: "numeric", day: "numeric", year: "numeric" })}
                       </span>
                     )}
                     {alert.createdAt && (
                       <span>
-                        Posted: {new Date(alert.createdAt).toLocaleDateString()}
+                        Posted: {formatInstant(alert.createdAt, { month: "numeric", day: "numeric", year: "numeric" })}
                       </span>
                     )}
                   </div>

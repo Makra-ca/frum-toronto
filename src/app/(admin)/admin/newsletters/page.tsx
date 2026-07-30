@@ -32,6 +32,7 @@ import { Plus, MoreHorizontal, Pencil, Trash2, Send, Copy, Users, BarChart3 } fr
 import { toast } from "sonner";
 import type { Newsletter } from "@/types/newsletter";
 import Link from "next/link";
+import { formatInstant } from "@/lib/datetime";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-800",
@@ -115,7 +116,7 @@ export default function NewslettersPage() {
 
   const formatDate = (date: string | Date | null) => {
     if (!date) return "-";
-    return new Date(date).toLocaleDateString("en-US", {
+    return formatInstant(date, {
       month: "short",
       day: "numeric",
       year: "numeric",

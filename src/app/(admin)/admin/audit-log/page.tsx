@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { formatInstant } from "@/lib/datetime";
 
 interface AuditEntry {
   id: number;
@@ -90,7 +91,7 @@ function actionBadgeVariant(action: string): string {
 
 function formatDateTime(dateStr: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleString("en-CA", {
+  return formatInstant(d, {
     month: "short",
     day: "numeric",
     year: "numeric",

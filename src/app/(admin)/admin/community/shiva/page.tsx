@@ -49,6 +49,7 @@ import {
   FileText,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatInstant } from "@/lib/datetime";
 
 interface ShivaEntry {
   id: number;
@@ -360,7 +361,7 @@ export default function ShivaManagementPage() {
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString("en-US", {
+    return formatInstant(date, {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -501,7 +502,7 @@ export default function ShivaManagementPage() {
                         </div>
 
                         <div className="text-xs text-gray-400 mt-2">
-                          Created: {new Date(entry.createdAt).toLocaleDateString()}
+                          Created: {formatInstant(entry.createdAt, { month: "numeric", day: "numeric", year: "numeric" })}
                         </div>
                       </div>
 

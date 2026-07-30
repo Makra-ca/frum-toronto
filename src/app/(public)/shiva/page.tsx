@@ -19,6 +19,7 @@ import {
   FileText,
 } from "lucide-react";
 import { ShivaSubmitModal } from "@/components/shiva/ShivaSubmitModal";
+import { formatInstant } from "@/lib/datetime";
 
 export const metadata = {
   title: "Shiva Notices - FrumToronto",
@@ -47,7 +48,7 @@ async function getShivaNotices() {
 
 function formatDate(date: string | Date): string {
   const d = new Date(date);
-  return d.toLocaleDateString("en-US", {
+  return formatInstant(d, {
     weekday: "short",
     month: "short",
     day: "numeric",

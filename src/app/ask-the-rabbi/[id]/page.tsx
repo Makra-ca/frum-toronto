@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ChevronLeft, ChevronRight, MessageSquare, User } from "lucide-react";
 import { CommentThread } from "@/components/shared/CommentThread";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
+import { formatInstant } from "@/lib/datetime";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -167,7 +168,7 @@ export default async function QuestionDetailPage({ params }: PageProps) {
                   </p>
                   {question.publishedAt && (
                     <p className="text-sm text-gray-500 mt-1">
-                      Published: {new Date(question.publishedAt).toLocaleDateString("en-US", {
+                      Published: {formatInstant(question.publishedAt, {
                         year: "numeric",
                         month: "long",
                         day: "numeric",

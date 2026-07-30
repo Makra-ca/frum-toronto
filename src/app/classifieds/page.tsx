@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingBag, ChevronRight, Clock, Tag } from "lucide-react";
 import { ClassifiedsBrowser } from "@/components/classifieds/ClassifiedsBrowser";
+import { formatInstant } from "@/lib/datetime";
 
 export const metadata = {
   title: "Classifieds - FrumToronto",
@@ -158,7 +159,7 @@ export default async function ClassifiedsPage({
 
   const formatDate = (date: Date | null) => {
     if (!date) return "";
-    return new Date(date).toLocaleDateString("en-US", {
+    return formatInstant(date, {
       month: "short",
       day: "numeric",
     });

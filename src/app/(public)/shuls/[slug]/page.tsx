@@ -9,6 +9,7 @@ import { MapPin, Phone, Mail, Globe, ChevronLeft, Clock, Users, Calendar, FileTe
 import { DAYS_OF_WEEK } from "@/lib/validations/content";
 import { ShulEventsCalendar } from "@/components/shuls/ShulEventsCalendar";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
+import { formatInstant } from "@/lib/datetime";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -67,7 +68,7 @@ export default async function ShulPage({ params }: PageProps) {
 
   function formatDocDate(dateStr: Date | null): string {
     if (!dateStr) return "";
-    return new Date(dateStr).toLocaleDateString("en-US", {
+    return formatInstant(dateStr, {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -398,7 +399,7 @@ function ShulDocumentCard({
         <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
           {doc.publishedAt && (
             <span>
-              {new Date(doc.publishedAt).toLocaleDateString("en-US", {
+              {formatInstant(doc.publishedAt, {
                 month: "short",
                 day: "numeric",
                 year: "numeric",

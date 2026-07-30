@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2, MapPin, Clock } from "lucide-react";
 import { EVENT_TYPES } from "@/lib/validations/content";
 import type { CalendarEvent } from "@/types/content";
+import { formatInstant } from "@/lib/datetime";
 
 interface EventTableProps {
   events: CalendarEvent[];
@@ -22,7 +23,7 @@ interface EventTableProps {
 
 function formatDate(date: Date | string): string {
   const d = new Date(date);
-  return d.toLocaleDateString("en-US", {
+  return formatInstant(d, {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -32,7 +33,7 @@ function formatDate(date: Date | string): string {
 
 function formatTime(date: Date | string): string {
   const d = new Date(date);
-  return d.toLocaleTimeString("en-US", {
+  return formatInstant(d, {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,

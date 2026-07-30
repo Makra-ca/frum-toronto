@@ -40,6 +40,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, X, Pencil, Trash2, Eye, FileText, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { SpecialForm } from "@/components/admin/SpecialForm";
+import { formatInstant } from "@/lib/datetime";
 
 interface Special {
   id: number;
@@ -61,7 +62,7 @@ interface Special {
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString + "T00:00:00");
-  return date.toLocaleDateString("en-US", {
+  return formatInstant(date, {
     month: "short",
     day: "numeric",
     year: "numeric",

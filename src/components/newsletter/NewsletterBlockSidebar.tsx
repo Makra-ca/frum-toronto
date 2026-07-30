@@ -16,6 +16,7 @@ import {
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatInstant } from "@/lib/datetime";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -195,7 +196,7 @@ function renderPreviewSummary(blockType: BlockType, previewData: BlockPreviewDat
         </span>
         {items.slice(0, 2).map((e, i) => {
           const date = e.startTime
-            ? new Date(e.startTime).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" })
+            ? formatInstant(e.startTime, { weekday: "short", month: "short", day: "numeric" })
             : "";
           return (
             <p key={i} className="text-xs text-gray-500 truncate pl-1">

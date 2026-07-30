@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, X, Loader2, Infinity, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { formatInstant, formatDateOnly } from "@/lib/datetime";
 
 interface Simcha {
   id: number;
@@ -155,7 +156,7 @@ export function ApprovalsClient({
                       <p className="text-sm text-gray-600 mb-4">{simcha.announcement}</p>
                       <div className="flex items-center justify-between pt-4 border-t">
                         <span className="text-xs text-gray-400">
-                          {simcha.createdAt ? new Date(simcha.createdAt).toLocaleDateString() : "N/A"}
+                          {simcha.createdAt ? formatInstant(simcha.createdAt, { month: "numeric", day: "numeric", year: "numeric" }) : "N/A"}
                         </span>
                         <ActionButtons
                           type="simchas"
@@ -203,7 +204,7 @@ export function ApprovalsClient({
                       </p>
                       <div className="flex items-center justify-between pt-4 border-t">
                         <span className="text-xs text-gray-400">
-                          {classified.createdAt ? new Date(classified.createdAt).toLocaleDateString() : "N/A"}
+                          {classified.createdAt ? formatInstant(classified.createdAt, { month: "numeric", day: "numeric", year: "numeric" }) : "N/A"}
                         </span>
                         <ActionButtons
                           type="classifieds"
@@ -254,12 +255,12 @@ export function ApprovalsClient({
                       {item.expiresAt && (
                         <p className="text-xs text-gray-500 flex items-center gap-1 mb-4">
                           <Clock className="h-3 w-3" />
-                          Expires: {new Date(item.expiresAt).toLocaleDateString()}
+                          Expires: {formatDateOnly(item.expiresAt, { month: "numeric", day: "numeric", year: "numeric" })}
                         </p>
                       )}
                       <div className="flex items-center justify-between pt-4 border-t">
                         <span className="text-xs text-gray-400">
-                          {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "N/A"}
+                          {item.createdAt ? formatInstant(item.createdAt, { month: "numeric", day: "numeric", year: "numeric" }) : "N/A"}
                         </span>
                         <div className="flex flex-col items-end gap-2">
                           <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">

@@ -10,6 +10,7 @@ import { SimchaSubmitModal } from "@/components/simchas/SimchaSubmitModal";
 import { PaginationLinks } from "@/components/ui/PaginationLinks";
 import { SimchasSearchBar } from "@/components/simchas/SimchasSearchBar";
 import { buildSubstringCondition } from "@/lib/search/substring-search";
+import { formatDateOnly } from "@/lib/datetime";
 
 export const metadata = {
   title: "Simchas - FrumToronto",
@@ -335,7 +336,7 @@ export default async function SimchasPage({
                     {simcha.eventDate && (
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
-                        {new Date(simcha.eventDate).toLocaleDateString()}
+                        {formatDateOnly(simcha.eventDate, { month: "numeric", day: "numeric", year: "numeric" })}
                       </div>
                     )}
                     {simcha.location && (

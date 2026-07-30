@@ -32,6 +32,7 @@ import {
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
+import { formatInstant } from "@/lib/datetime";
 
 interface Submission {
   id: number;
@@ -386,7 +387,7 @@ export default function RabbiSubmissionsPage() {
                   </span>
                   <span className="flex items-center gap-1">
                     <Calendar className="h-4 w-4 text-gray-500" />
-                    {new Date(selectedSubmission.createdAt).toLocaleDateString()}
+                    {formatInstant(selectedSubmission.createdAt, { month: "numeric", day: "numeric", year: "numeric" })}
                   </span>
                 </div>
               </div>

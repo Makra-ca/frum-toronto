@@ -8,6 +8,7 @@ import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PartyPopper, Calendar, MapPin, ArrowLeft } from "lucide-react";
+import { formatInstant, formatDateOnly } from "@/lib/datetime";
 
 export const revalidate = 300;
 
@@ -111,7 +112,7 @@ export default async function SimchaDetailPage({
   const related = await getRelated(simcha.typeSlug, simcha.id);
 
   const posted = simcha.createdAt
-    ? new Date(simcha.createdAt).toLocaleDateString("en-CA", {
+    ? formatInstant(simcha.createdAt, {
         year: "numeric",
         month: "long",
         day: "numeric",
@@ -167,7 +168,7 @@ export default async function SimchaDetailPage({
                 {simcha.eventDate && (
                   <span className="inline-flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
-                    {new Date(simcha.eventDate).toLocaleDateString()}
+                    {formatDateOnly(simcha.eventDate, { month: "numeric", day: "numeric", year: "numeric" })}
                   </span>
                 )}
                 {simcha.location && (
@@ -198,7 +199,7 @@ export default async function SimchaDetailPage({
                       </span>
                       {r.createdAt && (
                         <span className="shrink-0 text-xs text-gray-500">
-                          {new Date(r.createdAt).toLocaleDateString()}
+                          {formatInstant(r.createdAt, { month: "numeric", day: "numeric", year: "numeric" })}
                         </span>
                       )}
                     </Link>

@@ -6,6 +6,7 @@ import { Tag, Calendar, Store, X, ChevronLeft, ChevronRight, ExternalLink, List,
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { SpecialSubmitModal } from "@/components/specials/SpecialSubmitModal";
+import { formatInstant } from "@/lib/datetime";
 
 interface Special {
   id: number;
@@ -24,7 +25,7 @@ interface Special {
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString + "T00:00:00");
-  return date.toLocaleDateString("en-US", {
+  return formatInstant(date, {
     month: "short",
     day: "numeric",
   });
@@ -32,7 +33,7 @@ function formatDate(dateString: string): string {
 
 function formatFullDate(dateString: string): string {
   const date = new Date(dateString + "T00:00:00");
-  return date.toLocaleDateString("en-US", {
+  return formatInstant(date, {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -42,7 +43,7 @@ function formatFullDate(dateString: string): string {
 
 function formatShortDate(dateString: string): string {
   const date = new Date(dateString + "T00:00:00");
-  return date.toLocaleDateString("en-US", {
+  return formatInstant(date, {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -100,7 +101,7 @@ export default function SpecialsPage() {
   const firstDayOfMonth = getFirstDayOfMonth(currentYear, currentMonth);
   const today = new Date().toISOString().split("T")[0];
 
-  const monthName = currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const monthName = formatInstant(currentDate, { month: "long", year: "numeric" });
 
   useEffect(() => {
     async function fetchSpecials() {

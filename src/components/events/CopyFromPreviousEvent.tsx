@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { formatInstant } from "@/lib/datetime";
 
 export interface EventPrefillData {
   description: string | null;
@@ -39,7 +40,7 @@ interface CopyFromPreviousEventProps {
 
 function formatEventDate(isoString: string): string {
   try {
-    return new Date(isoString).toLocaleDateString("en-US", {
+    return formatInstant(isoString, {
       month: "short",
       day: "numeric",
       year: "numeric",

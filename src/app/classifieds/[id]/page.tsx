@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ShoppingBag, ChevronRight, Clock, Tag, MapPin, DollarSign } from "lucide-react";
 import { ContactSellerModal } from "@/components/classifieds/ContactSellerModal";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
+import { formatInstant } from "@/lib/datetime";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -94,7 +95,7 @@ export default async function ClassifiedDetailPage({ params }: PageProps) {
 
   const formatDate = (date: Date | null) => {
     if (!date) return "";
-    return new Date(date).toLocaleDateString("en-US", {
+    return formatInstant(date, {
       year: "numeric",
       month: "long",
       day: "numeric",

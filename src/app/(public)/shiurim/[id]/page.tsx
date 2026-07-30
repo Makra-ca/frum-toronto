@@ -30,6 +30,7 @@ import {
   SHIUR_CLASS_TYPES,
   LOCATION_AREAS,
 } from "@/lib/validations/content";
+import { formatInstant } from "@/lib/datetime";
 
 interface ScheduleEntry {
   start?: string;
@@ -78,7 +79,7 @@ function formatTime(time: string): string {
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
-  return date.toLocaleDateString("en-US", {
+  return formatInstant(date, {
     month: "long",
     day: "numeric",
     year: "numeric",

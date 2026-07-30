@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Check, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { formatInstant } from "@/lib/datetime";
 
 interface ShulRequest {
   id: number;
@@ -129,7 +130,7 @@ export function ShulRequestsTable({ requests, onRefresh }: ShulRequestsTableProp
                 </TableCell>
                 <TableCell>
                   {request.createdAt
-                    ? new Date(request.createdAt).toLocaleDateString()
+                    ? formatInstant(request.createdAt, { month: "numeric", day: "numeric", year: "numeric" })
                     : "-"}
                 </TableCell>
                 <TableCell className="text-right">
@@ -188,7 +189,7 @@ export function ShulRequestsTable({ requests, onRefresh }: ShulRequestsTableProp
                 <span className="text-gray-500">Requested:</span>
                 <span>
                   {request.createdAt
-                    ? new Date(request.createdAt).toLocaleDateString()
+                    ? formatInstant(request.createdAt, { month: "numeric", day: "numeric", year: "numeric" })
                     : "-"}
                 </span>
               </div>

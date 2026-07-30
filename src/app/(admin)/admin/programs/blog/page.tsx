@@ -55,6 +55,7 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatInstant } from "@/lib/datetime";
 
 interface BlogPost {
   id: number;
@@ -464,7 +465,7 @@ export default function AdminBlogPage() {
                     </TableCell>
                     <TableCell className="text-sm text-gray-500">
                       {post.publishedAt
-                        ? new Date(post.publishedAt).toLocaleDateString()
+                        ? formatInstant(post.publishedAt, { month: "numeric", day: "numeric", year: "numeric" })
                         : "-"}
                     </TableCell>
                     <TableCell className="text-center">

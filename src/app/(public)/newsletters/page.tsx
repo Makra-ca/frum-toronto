@@ -4,6 +4,7 @@ import { and, eq, desc } from "drizzle-orm";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Newspaper, FileText, Download, Building2, Info } from "lucide-react";
+import { formatInstant } from "@/lib/datetime";
 
 export const metadata = {
   title: "Newsletters - FrumToronto",
@@ -21,7 +22,7 @@ function formatFileSize(bytes: number | null): string {
 
 function formatDate(date: Date | string | null): string {
   if (!date) return "";
-  return new Date(date).toLocaleDateString("en-US", {
+  return formatInstant(date, {
     month: "short",
     day: "numeric",
     year: "numeric",

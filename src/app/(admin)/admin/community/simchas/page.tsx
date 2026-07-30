@@ -46,6 +46,7 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatInstant, formatDateOnly } from "@/lib/datetime";
 
 interface SimchaEntry {
   id: number;
@@ -370,7 +371,7 @@ export default function SimchasManagementPage() {
                         {entry.eventDate && (
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            {new Date(entry.eventDate).toLocaleDateString()}
+                            {formatDateOnly(entry.eventDate, { month: "numeric", day: "numeric", year: "numeric" })}
                           </span>
                         )}
                         {entry.location && (
@@ -379,7 +380,7 @@ export default function SimchasManagementPage() {
                             {entry.location}
                           </span>
                         )}
-                        <span>Created: {new Date(entry.createdAt).toLocaleDateString()}</span>
+                        <span>Created: {formatInstant(entry.createdAt, { month: "numeric", day: "numeric", year: "numeric" })}</span>
                       </div>
                     </div>
 
