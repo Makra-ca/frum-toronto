@@ -299,7 +299,12 @@ export default async function SimchasPage({
             </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {simchasList.map((simcha) => (
-              <Card key={simcha.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+              <Link
+                key={simcha.id}
+                href={`/simchas/${simcha.id}`}
+                className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 rounded-xl"
+              >
+              <Card className="h-full overflow-hidden hover:shadow-lg transition-shadow">
                 {simcha.photoUrl && (
                   <div className="relative h-48 bg-gray-100">
                     <Image
@@ -342,6 +347,7 @@ export default async function SimchasPage({
                   </div>
                 </CardContent>
               </Card>
+              </Link>
             ))}
             </div>
 

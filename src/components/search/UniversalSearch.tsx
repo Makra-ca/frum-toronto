@@ -59,6 +59,8 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
     label: "Ask the Rabbi",
     color: "bg-purple-100 text-purple-700",
   },
+  blog: { label: "Blog", color: "bg-indigo-100 text-indigo-700" },
+  simchas: { label: "Simcha", color: "bg-fuchsia-100 text-fuchsia-700" },
 };
 
 export function UniversalSearch({
@@ -82,6 +84,32 @@ export function UniversalSearch({
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  /**
+   * The query currently reflected in the URL, as far as this component knows.
+   *
+   * Needed because the input used to seed from `initialQuery` on mount only, so
+   * after navigating it could keep displaying a query that was no longer applied
+   * — e.g. clicking a type filter that drops `?search=` left the box reading the
+   * old text while the list showed everything.
+   *
+   * The ref (rather than comparing against `initialQuery` directly) is what stops
+   * the sync from eating keystrokes: it distinguishes a navigation this component
+   * caused from an external one. Every current caller derives `initialQuery` from
+   * the URL and only navigates on submit, so this is belt-and-braces — but a
+   * future caller that pushes on a debounce would otherwise hit exactly the bug
+   * that UserFilters had.
+   */
+  const appliedQueryRef = useRef(initialQuery);
+
+  useEffect(() => {
+    if (initialQuery === appliedQueryRef.current) return;
+    appliedQueryRef.current = initialQuery;
+    setQuery(initialQuery);
+    setSuggestions([]);
+    setIsOpen(false);
+    setSelectedIndex(-1);
+  }, [initialQuery]);
 
   const effectiveMinChars = minChars ?? (searchType === "all" ? 3 : 2);
 
@@ -136,8 +164,10 @@ export function UniversalSearch({
   };
 
   const handleSearch = () => {
-    if (query.trim()) {
-      onSearch?.(query.trim());
+    const trimmed = query.trim();
+    if (trimmed) {
+      appliedQueryRef.current = trimmed;
+      onSearch?.(trimmed);
     }
     setIsOpen(false);
   };
@@ -180,6 +210,7 @@ export function UniversalSearch({
     setQuery("");
     setSuggestions([]);
     setIsOpen(false);
+    appliedQueryRef.current = "";
     onSearch?.("");
     inputRef.current?.focus();
   };
@@ -274,6 +305,18 @@ export function UniversalSearch({
           )}
         </div>
       </div>
+
+      {/* Typing alone does not filter anything — the parent only reacts to
+          onSearch — so say so when the box no longer matches what is applied. */}
+      {onSearch && query.trim() !== "" && query.trim() !== initialQuery.trim() && !isOpen && (
+        <p
+          className={`mt-2 text-xs ${
+            tone === "onDark" ? "text-white/70" : "text-gray-500"
+          }`}
+        >
+          Press Enter to search
+        </p>
+      )}
 
       {/* Suggestions Dropdown */}
       {isOpen && suggestions.length > 0 && (

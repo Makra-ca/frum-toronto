@@ -518,9 +518,7 @@ export async function searchSimchas(
     id: String(s.id),
     title: s.familyName,
     subtitle: s.typeName || undefined,
-    // There is no /simchas/[id] detail page, so a suggestion narrows the list
-    // to that announcement instead of opening it.
-    url: `/simchas?search=${encodeURIComponent(s.familyName)}`,
+    url: `/simchas/${s.id}`,
     type: "simchas" as SearchType,
     relevanceScore: 1000 - index * 10,
   }));
@@ -534,7 +532,7 @@ export async function searchAll(
 ): Promise<SearchSuggestion[]> {
   const perTypeLimit = 3;
 
-  const [biz, cls, shl, shr, evt, atr, blg] = await Promise.all([
+  const [biz, cls, shl, shr, evt, atr, blg, sim] = await Promise.all([
     searchBusinesses(query, perTypeLimit),
     searchClassifieds(query, perTypeLimit),
     searchShuls(query, perTypeLimit),
@@ -542,9 +540,10 @@ export async function searchAll(
     searchEvents(query, perTypeLimit),
     searchAskTheRabbi(query, perTypeLimit),
     searchBlog(query, perTypeLimit),
+    searchSimchas(query, perTypeLimit),
   ]);
 
-  const all = [...biz, ...cls, ...shl, ...shr, ...evt, ...atr, ...blg];
+  const all = [...biz, ...cls, ...shl, ...shr, ...evt, ...atr, ...blg, ...sim];
   all.sort((a, b) => b.relevanceScore - a.relevanceScore);
   return all.slice(0, limit);
 }

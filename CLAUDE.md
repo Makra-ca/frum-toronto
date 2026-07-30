@@ -1885,3 +1885,21 @@ The type filters were small `<Badge>` chips. Rebuilt as proper pills (`rounded-f
 Types with zero results stay visible but render muted rather than being removed, so the row of categories does not reshuffle as the search changes.
 
 **Known issue, not yet fixed (needs a decision):** `UniversalSearch` seeds its input from `initialQuery` only on mount (`useState(initialQuery)`, no sync effect), so after navigating the box can display a query that is no longer applied — e.g. URL `?type=engagement` with no `search=`, count showing all 2,902 engagements, but the box still reading "Buksbaum - Bloom engagement". Also, typing alone does nothing until Enter or a suggestion click, which is unsignposted. The component has ten call sites, so any change there needs care.
+
+#### Follow-up — UniversalSearch fixes, simcha detail pages, simchas in unified search
+
+**`UniversalSearch` no longer shows a query that isn't applied.** It seeded its input from `initialQuery` on mount only, so navigating (e.g. clicking a type filter that drops `?search=`) left the box displaying the old text while the list showed everything. It now syncs when the applied query changes, guarded by an `appliedQueryRef` that records what this component itself submitted — so the sync can tell its own navigation from an external one. All four callers that pass `initialQuery` derive it from the URL and only navigate on submit, so the guard is belt-and-braces; without it, a future caller pushing on a debounce would hit exactly the character-eating bug `UserFilters` had.
+
+Also added: a **"Press Enter to search"** hint, shown only when `onSearch` exists and the box has diverged from what's applied (typing alone never filtered anything, and nothing said so). And `TYPE_LABELS` gained `blog` and `simchas` — **`blog` was already in `searchAll` but had no badge entry**, so blog rows in "all" mode had been rendering unlabelled.
+
+8 component tests; the stale-text one was verified to fail with the sync removed. All 10 call sites checked live for a 200.
+
+**`/simchas/[id]` detail pages exist.** Each announcement now has its own URL, so a family can share theirs. Search suggestions point at the record instead of re-filtering the list, and the list cards link through. The page uses `whitespace-pre-line` so the announcement's paragraph breaks survive (the cards deliberately collapse them), shows up to 4 more of the same type so it isn't a dead end, and sets `generateMetadata` with an OpenGraph description built from the announcement text.
+
+`parseId` rejects anything non-numeric with a regex rather than `Number.parseInt`, which would read `"12abc"` as 12. Detail pages apply the same `isActive` + `approved` filter as the list, so an unapproved announcement can't be reached by guessing an id. Verified: real ids 200; `abc`, `0`, `12abc`, `99999999` all 404.
+
+**Simchas now appear in the homepage/unified search** (`searchAll`).
+
+**Finding while verifying, not a bug:** a simcha-looking result appeared labelled "Blog" — "Lechtman / Arje / Samuels son/grandson/great-grandson". It is *not* a duplicate: `old_id` overlap between `blog_posts` and `simchas` is **0**. That announcement genuinely lived in the old site's Message Board category (`old_id` 23228) rather than in Births. About **32 of 1,354** Message Board posts are simcha-shaped. Left as-is because it reflects where the old site actually put them; the cost is that the occasional simcha shows up as a "Blog" result.
+
+**Tests 285 → 293.**
