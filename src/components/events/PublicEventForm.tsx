@@ -54,7 +54,20 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export function PublicEventForm() {
+interface PublicEventFormProps {
+  /** When set, the form edits this event instead of creating a new one. */
+  eventId?: number;
+  initialData?: Partial<FormData>;
+  /** True when the event is currently live, so editing will unpublish it. */
+  isLive?: boolean;
+}
+
+export function PublicEventForm({
+  eventId,
+  initialData,
+  isLive = false,
+}: PublicEventFormProps = {}) {
+  const isEditing = eventId !== undefined;
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -91,6 +104,7 @@ export function PublicEventForm() {
       websiteUrl: "",
       flyerUrl: "",
       imageUrl: "",
+      ...initialData,
     },
   });
 
@@ -214,11 +228,14 @@ export function PublicEventForm() {
   async function submitPayload(payload: object) {
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/community/events", {
-        method: "POST",
+      const res = await fetch(
+        isEditing ? `/api/community/events/${eventId}` : "/api/community/events",
+        {
+        method: isEditing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
+      }
+      );
 
       const responseData = await res.json();
 
@@ -234,7 +251,7 @@ export function PublicEventForm() {
       }
 
       toast.success(responseData.message || "Event submitted successfully");
-      router.push("/community/calendar");
+      router.push(isEditing ? "/dashboard/submissions" : "/community/calendar");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to submit event"
@@ -273,7 +290,20 @@ export function PublicEventForm() {
       )}
 
       <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-        <CopyFromPreviousEvent onCopy={handleCopyFromPrevious} />
+        {isEditing && isLive && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-4">
+            <p className="text-sm font-medium text-amber-900">
+              This event is currently on the calendar.
+            </p>
+            <p className="text-sm text-amber-800 mt-1">
+              Saving changes takes it off the calendar until an admin approves
+              the update. If it&apos;s happening soon, let us know so we can
+              review it quickly.
+            </p>
+          </div>
+        )}
+
+        {!isEditing && <CopyFromPreviousEvent onCopy={handleCopyFromPrevious} />}
 
         <div className="space-y-2">
           <Label htmlFor="title">Event Title *</Label>
@@ -538,7 +568,11 @@ export function PublicEventForm() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push("/community/calendar")}
+            onClick={() =>
+              router.push(
+                isEditing ? "/dashboard/submissions" : "/community/calendar"
+              )
+            }
             disabled={isSubmitting}
           >
             Cancel
@@ -550,8 +584,10 @@ export function PublicEventForm() {
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Submitting...
+                {isEditing ? "Saving..." : "Submitting..."}
               </>
+            ) : isEditing ? (
+              "Save Changes"
             ) : (
               "Submit Event"
             )}
