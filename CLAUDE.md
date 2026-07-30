@@ -1875,3 +1875,13 @@ page 690 of 690 -> 1 … 686 687 688 689 690
 `migrations/2026-07-30-simchas-search-indexes.sql` adds trigram GIN indexes on `family_name` and `announcement` (applied) — without them every keystroke's suggestion query scans all 16,550 rows. A trigram index also serves the `ILIKE '%term%'` the list page uses, which a btree cannot.
 
 **Verified live:** all → 16,550; `Guttman` → 26; `Guttman Jenah` → 2 (multi-word AND narrowing correctly); `Reichmann` → 69; `Reichmann` + `type=engagement` → 20 (filters compose); `zzznothing` → the "No simchas match" state; `?page=99` on a filtered set → "That page doesn't exist". Pagination strips confirmed at 7 items on pages 1, 3, 50 and 690. **Tests 272 → 285.**
+
+#### Follow-up — simcha filter pills redesigned with counts
+
+The type filters were small `<Badge>` chips. Rebuilt as proper pills (`rounded-full`, `px-4 py-2`, `text-sm font-medium`, real border and hover states) each carrying a **result count**, which on a 16,550-row archive turns them from blind guesses into information.
+
+`getTypeCounts(search)` is one extra grouped query. It honours the active **search** but not the active **type** — so each pill shows how many results that type *would* give, which is the only version worth reading. Counts verified against the database: no search → birth 8,683 / engagement 2,902 / wedding 2,686 / bar-mitzvah 2,254 / other 21 / bat-mitzvah 3 / anniversary 1 = 16,550; `Guttman` → 16+5+3+2 = 26; `Guttman Jenah` → 2.
+
+Types with zero results stay visible but render muted rather than being removed, so the row of categories does not reshuffle as the search changes.
+
+**Known issue, not yet fixed (needs a decision):** `UniversalSearch` seeds its input from `initialQuery` only on mount (`useState(initialQuery)`, no sync effect), so after navigating the box can display a query that is no longer applied — e.g. URL `?type=engagement` with no `search=`, count showing all 2,902 engagements, but the box still reading "Buksbaum - Bloom engagement". Also, typing alone does nothing until Enter or a suggestion click, which is unsignposted. The component has ten call sites, so any change there needs care.

@@ -75,6 +75,39 @@ async function getSimchas(typeSlug: string | undefined, page: number, search: st
   };
 }
 
+/**
+ * Count per simcha type, honouring the active search but NOT the active type —
+ * so the pills show how many results each type *would* give, which is what makes
+ * them worth reading rather than just clicking blindly.
+ */
+async function getTypeCounts(search: string) {
+  const conditions = [
+    eq(simchas.isActive, true),
+    eq(simchas.approvalStatus, "approved"),
+  ];
+  const searchCondition = buildSubstringCondition(
+    [simchas.familyName, simchas.announcement],
+    search
+  );
+  if (searchCondition) conditions.push(searchCondition);
+
+  const rows = await db
+    .select({ slug: simchaTypes.slug, count: sql<number>`count(*)` })
+    .from(simchas)
+    .leftJoin(simchaTypes, eq(simchas.typeId, simchaTypes.id))
+    .where(and(...conditions))
+    .groupBy(simchaTypes.slug);
+
+  const bySlug = new Map<string, number>();
+  let total = 0;
+  for (const r of rows) {
+    const n = Number(r.count);
+    total += n;
+    if (r.slug) bySlug.set(r.slug, n);
+  }
+  return { bySlug, total };
+}
+
 async function getSimchaTypes() {
   const types = await db
     .select()
@@ -99,9 +132,10 @@ export default async function SimchasPage({
   const requestedPage = parsePage(pageParam);
   const search = (searchParam ?? "").trim();
 
-  const [{ items: simchasList, totalCount }, types] = await Promise.all([
+  const [{ items: simchasList, totalCount }, types, typeCounts] = await Promise.all([
     getSimchas(activeType, requestedPage, search),
     getSimchaTypes(),
+    getTypeCounts(search),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -152,25 +186,43 @@ export default async function SimchasPage({
       {/* Quick filters */}
       {types.length > 0 && (
         <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-wrap gap-2">
-            <Link href={hrefFor({ search })}>
-              <Badge
-                variant={!activeType ? "default" : "outline"}
-                className={`cursor-pointer ${!activeType ? "bg-purple-600 hover:bg-purple-700" : "hover:bg-purple-50"}`}
-              >
-                All
-              </Badge>
-            </Link>
-            {types.map((type) => {
-              const isActive = activeType === type.slug;
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { slug: undefined, name: "All", count: typeCounts.total },
+              ...types.map((t) => ({
+                slug: t.slug,
+                name: t.name,
+                count: typeCounts.bySlug.get(t.slug) ?? 0,
+              })),
+            ].map((chip) => {
+              const isActive = chip.slug
+                ? activeType === chip.slug
+                : !activeType;
+              // Empty types stay visible but are visibly inert, so the set of
+              // categories does not shift around as the search changes.
+              const isEmpty = chip.count === 0 && !isActive;
+
               return (
-                <Link key={type.id} href={hrefFor({ type: type.slug, search })}>
-                  <Badge
-                    variant={isActive ? "default" : "outline"}
-                    className={`cursor-pointer ${isActive ? "bg-purple-600 hover:bg-purple-700" : "hover:bg-purple-50"}`}
+                <Link
+                  key={chip.slug ?? "all"}
+                  href={hrefFor({ type: chip.slug, search })}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+                    isActive
+                      ? "border-purple-600 bg-purple-600 text-white shadow-sm hover:bg-purple-700"
+                      : isEmpty
+                        ? "border-gray-200 bg-white text-gray-400 hover:bg-gray-50"
+                        : "border-gray-300 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50 hover:text-purple-900"
+                  }`}
+                >
+                  {chip.name}
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${
+                      isActive ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
+                    }`}
                   >
-                    {type.name}
-                  </Badge>
+                    {chip.count.toLocaleString()}
+                  </span>
                 </Link>
               );
             })}
