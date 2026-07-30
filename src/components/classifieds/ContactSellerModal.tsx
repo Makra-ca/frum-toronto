@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,14 +71,6 @@ export function ContactSellerModal({
       newErrors.name = "Name must be 100 characters or less";
     }
 
-    if (!form.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      newErrors.email = "Please enter a valid email address";
-    } else if (form.email.trim().length > 255) {
-      newErrors.email = "Email must be 255 characters or less";
-    }
-
     if (!form.message.trim()) {
       newErrors.message = "Message is required";
     } else if (form.message.trim().length > MAX_MESSAGE_LENGTH) {
@@ -107,7 +100,6 @@ export function ContactSellerModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           senderName: form.name.trim(),
-          senderEmail: form.email.trim(),
           message: form.message.trim(),
         }),
       });
@@ -148,11 +140,39 @@ export function ContactSellerModal({
 
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-md">
+          {!session ? (
+            /* The endpoint now requires a signed-in, verified account. Without
+               this branch a visitor would fill the whole form and only then get
+               a 401. */
+            <>
+              <DialogHeader>
+                <DialogTitle>Sign In Required</DialogTitle>
+                <DialogDescription>
+                  Please sign in to contact the seller.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-6 text-center">
+                <p className="text-gray-600 mb-4">
+                  Messages are sent from your account email so the seller can reply
+                  to you directly.
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <Button asChild variant="outline">
+                    <Link href="/register">Create Account</Link>
+                  </Button>
+                  <Button asChild>
+                    <Link href="/login">Sign In</Link>
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+          <>
           <DialogHeader>
             <DialogTitle>Contact Seller</DialogTitle>
             <DialogDescription>
-              Send a message to the seller. Your contact information will be
-              included so they can reply to you directly.
+              Send a message to the seller. Your account email is included so they
+              can reply to you directly.
             </DialogDescription>
           </DialogHeader>
 
@@ -178,25 +198,22 @@ export function ContactSellerModal({
                 )}
               </div>
 
-              {/* Email */}
+              {/* Email — shown, not editable. The server takes the sender address
+                  from the session, so an editable field here would be a lie:
+                  whatever was typed would be ignored. */}
               <div className="space-y-1.5">
-                <Label htmlFor="contact-email">
-                  Your Email <span className="text-red-500">*</span>
-                </Label>
+                <Label htmlFor="contact-email">Your Email</Label>
                 <Input
                   id="contact-email"
                   type="email"
-                  value={form.email}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, email: e.target.value }))
-                  }
-                  placeholder="your@email.com"
-                  maxLength={255}
-                  disabled={isSending}
+                  value={session?.user?.email ?? ""}
+                  readOnly
+                  disabled
+                  className="bg-gray-50 text-gray-600"
                 />
-                {errors.email && (
-                  <p className="text-xs text-red-600">{errors.email}</p>
-                )}
+                <p className="text-xs text-gray-500">
+                  The seller will reply to your account email address.
+                </p>
               </div>
 
               {/* Message */}
@@ -245,6 +262,8 @@ export function ContactSellerModal({
               </Button>
             </DialogFooter>
           </form>
+          </>
+          )}
         </DialogContent>
       </Dialog>
     </>

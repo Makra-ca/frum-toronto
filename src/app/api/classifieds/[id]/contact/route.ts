@@ -5,10 +5,13 @@ import { classifieds, classifiedContactLog } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { resend, EMAIL_FROM } from "@/lib/email/resend";
 import { getClassifiedContactEmailHtml } from "@/lib/email/templates";
+import { auth } from "@/lib/auth/auth";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 const contactSchema = z.object({
   senderName: z.string().min(1, "Name is required").max(100),
-  senderEmail: z.string().email("Invalid email address").max(255),
+  // senderEmail is deliberately absent: it comes from the session, so a client
+  // cannot claim to be someone else. Any value posted here is ignored.
   message: z.string().min(1, "Message is required").max(1000, "Message must be 1,000 characters or less"),
 });
 
@@ -17,6 +20,31 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // This endpoint was previously unauthenticated: anyone on the internet could
+    // mail a seller, with no account and no audit trail. It now requires a
+    // signed-in, email-verified user like every other submission path.
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "Please log in to contact the seller." },
+        { status: 401 }
+      );
+    }
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
+
+    // The sender address is taken from the session, never from the request body.
+    // A logged-in user could otherwise put anyone's address in senderEmail, and
+    // the seller would see a forged reply-to. Same reasoning as the pricing rules
+    // in CLAUDE.md: don't trust the client for anything that matters.
+    const authedEmail = session.user.email;
+    if (!authedEmail) {
+      return NextResponse.json(
+        { error: "Your account has no email address on file." },
+        { status: 400 }
+      );
+    }
+
     const { id } = await params;
     const classifiedId = parseInt(id);
 
@@ -31,7 +59,8 @@ export async function POST(
       return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
     }
 
-    const { senderName, senderEmail, message } = result.data;
+    const { senderName, message } = result.data;
+    const senderEmail = authedEmail;
 
     // Fetch the listing — only the fields we need
     const [listing] = await db

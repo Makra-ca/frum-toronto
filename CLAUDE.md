@@ -2000,3 +2000,11 @@ Three deliberate design points:
 **Tests: 293 unit + 58 integration = 351.** `tsc` 0 errors.
 
 **Still open:** the 283 unattributed blog posts await the client conversation; `/shuls`, `/shiurim`, `/community/calendar` still need the server-side conversion (approved, with search + pagination); and `classifieds/[id]/contact` has **no authentication at all**, which the verification gate does not address.
+
+#### 2026-07-30 — classifieds contact endpoint locked down
+
+`POST /api/classifieds/[id]/contact` had **no authentication at all**: anyone on the internet could mail a seller, with no account and no audit trail. It now requires a signed-in, email-verified user like every other submission path.
+
+More importantly, the sender's address is now taken from **the session, not the request body**. The old handler accepted `senderEmail` from the client and used it as the email's `replyTo`, so a caller could put anyone's address there and the seller would see a forged reply-to. `senderEmail` was removed from the Zod schema entirely — zod strips unknown keys, so any client still posting it is ignored rather than erroring. Same reasoning as the pricing rules in this file: never trust the client for anything that matters.
+
+`ContactSellerModal` follows: the email field is now read-only (showing the account address, since an editable field would be a lie once the server ignores it), the client-side email validation is gone, and a signed-out visitor gets a "Sign In Required" branch matching `KosherAlertSubmitModal` — previously they would have filled the whole form and only then hit a 401.
