@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createAdSchema, updateAdSchema, moderateAdSchema } from "@/lib/validations/ads";
+import { createAdSchema, updateAdSchema, moderateAdSchema, adRulesSchema } from "@/lib/validations/ads";
 
 const VALID = {
   title: "TorahMasters Semicha",
@@ -118,11 +118,21 @@ describe("updateAdSchema", () => {
     expect(updateAdSchema.safeParse({}).success).toBe(true);
   });
 
-  it("still enforces the link rules on an edit", () => {
+  it("still refuses an unsafe URL on an edit", () => {
+    // Safety is judgeable on a fragment, so it stays on this schema.
     expect(
       updateAdSchema.safeParse({ linkType: "external", linkUrl: "javascript:alert(1)" }).success
     ).toBe(false);
-    expect(updateAdSchema.safeParse({ linkType: "business" }).success).toBe(false);
+    expect(updateAdSchema.safeParse({ linkUrl: "data:text/html,x" }).success).toBe(false);
+  });
+
+  it("does NOT judge completeness on a fragment", () => {
+    // `{linkType:'business'}` alone is unjudgeable: the businessId may already be
+    // on the stored row. Completeness moved to adRulesSchema, which the PATCH
+    // route applies to the merged result. Asserting `false` here would force the
+    // route to reject a legitimate "just change the link type" edit.
+    expect(updateAdSchema.safeParse({ linkType: "business" }).success).toBe(true);
+    expect(adRulesSchema.safeParse({ linkType: "business", businessId: null }).success).toBe(false);
   });
 });
 

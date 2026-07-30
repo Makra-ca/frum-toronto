@@ -13,6 +13,7 @@ import {
   index,
   uniqueIndex,
   type AnyPgColumn,
+  check,
 } from "drizzle-orm/pg-core";
 import { relations, desc, sql } from "drizzle-orm";
 
@@ -815,6 +816,32 @@ export const homepageAds = pgTable("homepage_ads", {
   // created_at DESC in the database — the review queue reads newest first.
   index("idx_homepage_ads_approval").on(table.approvalStatus, desc(table.createdAt)),
   index("idx_homepage_ads_business").on(table.businessId),
+
+  /*
+    These MUST be declared here, not only in the migrations.
+    `npm run db:push` reconciles the database against this file, so a constraint
+    that exists in Postgres but not here reads as drift to be removed — and with
+    no TTY, drizzle-kit applies the drop without prompting. Verified: a push
+    against a copy of this schema emitted five `DROP CONSTRAINT` statements and
+    reported "Changes applied".
+
+    Keep them byte-identical to migrations/2026-07-30-homepage-ads*.sql.
+  */
+  check("homepage_ads_placement_check", sql`placement IN ('banner', 'sidebar-left', 'sidebar-right')`),
+  check("homepage_ads_link_type_check", sql`link_type IN ('business', 'external', 'none')`),
+  check("homepage_ads_approval_check", sql`approval_status IN ('pending', 'approved', 'rejected')`),
+  // 'business' deliberately carries no business_id requirement: ON DELETE SET
+  // NULL performs an UPDATE, and Postgres re-validates CHECKs on it, so
+  // requiring one here made the parent business undeletable. Requiring a
+  // business at write time lives in src/lib/validations/ads.ts.
+  check(
+    "homepage_ads_link_target_check",
+    sql`(link_type = 'external' AND link_url IS NOT NULL AND btrim(link_url) <> '') OR link_type = 'business' OR link_type = 'none'`
+  ),
+  check("homepage_ads_date_order_check", sql`starts_at IS NULL OR ends_at IS NULL OR ends_at > starts_at`),
+  check("homepage_ads_image_present_check", sql`btrim(image_url) <> ''`),
+  check("homepage_ads_title_present_check", sql`btrim(title) <> ''`),
+  check("homepage_ads_click_count_check", sql`click_count >= 0`),
 ]);
 
 // ============================================
