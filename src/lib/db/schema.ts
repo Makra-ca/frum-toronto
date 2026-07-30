@@ -141,6 +141,10 @@ export const subscriptionPlans = pgTable("subscription_plans", {
   showInHomepageSidebar: boolean("show_in_homepage_sidebar").default(false),
   // Video feature
   showVideo: boolean("show_video").default(false).notNull(),
+  // Newsletter shoutouts. A real capability rather than the old approach of
+  // treating show_video as a proxy for "is Elite", which coupled two unrelated
+  // features and broke if a plan was renamed.
+  showShoutouts: boolean("show_shoutouts").default(false).notNull(),
   // Non-profit pricing
   priceMonthlyNonProfit: decimal("price_monthly_non_profit", { precision: 10, scale: 2 }),
   priceYearlyNonProfit: decimal("price_yearly_non_profit", { precision: 10, scale: 2 }),

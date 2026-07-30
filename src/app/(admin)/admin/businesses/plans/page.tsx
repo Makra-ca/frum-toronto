@@ -50,6 +50,8 @@ interface SubscriptionPlan {
   priorityInSearch: boolean;
   showInHomepageBanner: boolean;
   showInHomepageSidebar: boolean;
+  showVideo: boolean;
+  showShoutouts: boolean;
   paypalPlanIdMonthly: string | null;
   paypalPlanIdYearly: string | null;
   paypalPlanIdMonthlySandbox: string | null;
@@ -80,6 +82,11 @@ const FEATURE_LABELS: Record<string, string> = {
   priorityInSearch: "Priority in Search",
   showInHomepageBanner: "Homepage Banner Ad",
   showInHomepageSidebar: "Homepage Sidebar Ad",
+  // Previously settable only by raw SQL. showShoutouts used to be inferred from
+  // showVideo, so enabling video silently granted shoutouts too — they are now
+  // independent and both need a control.
+  showVideo: "Video Upload (Mux)",
+  showShoutouts: "Newsletter Shoutouts",
 };
 
 const DEFAULT_PLAN: Omit<SubscriptionPlan, "id"> = {
@@ -102,6 +109,8 @@ const DEFAULT_PLAN: Omit<SubscriptionPlan, "id"> = {
   priorityInSearch: false,
   showInHomepageBanner: false,
   showInHomepageSidebar: false,
+  showVideo: false,
+  showShoutouts: false,
   paypalPlanIdMonthly: null,
   paypalPlanIdYearly: null,
   paypalPlanIdMonthlySandbox: null,

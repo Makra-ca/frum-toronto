@@ -1928,3 +1928,32 @@ The tell: `ORDER BY random()` gated purely on subscription tier is a **perk** de
 **Also note the shape mismatch:** community flyers are typically full-page portrait, and both slots are short and wide. A portrait flyer is either cropped to an illegible strip or letterboxed.
 
 **Agreed direction (planned, NOT built):** a proper `ads` table — image, placement, link type (business page / external / none), link value, optional business, start/end dates, active flag, sort order, approval status — plus an admin page listing everything running with add/toggle/reorder, **businesses uploading with admin approval** (mirroring the video review queue), and a **thumbnail → full-flyer overlay → button to the destination** display so portrait artwork stays readable.
+
+#### 2026-07-30 — shoutouts decoupled from the video flag
+
+Shoutout eligibility was computed in **two** places (`api/businesses/[id]/route.ts` and `.../shoutouts/route.ts`) as:
+
+```ts
+const isElite = business.showVideo === true
+  || (business.planName || "").toLowerCase().includes("elite")
+  || (business.planSlug || "").toLowerCase().includes("elite");
+```
+
+The shoutouts route's own select even labelled it `// proxy for Elite tier`. Two faults: enabling `show_video` on a tier would have silently granted that tier **newsletter shoutouts** as well, and matching on the plan *name* meant renaming a plan silently removed them.
+
+`migrations/2026-07-30-plan-shoutouts-capability.sql` adds a real `show_shoutouts` capability, matching the existing `show_video` / `show_in_homepage_*` pattern. The backfill preserves behaviour exactly — the plans that satisfied the old name test get the flag, so only **Elite** has it. `show_video` is false everywhere, so that arm of the OR granted nothing and was not replicated.
+
+`isElite` in the business route is now `canPostShoutouts`, still returned as `isElite` too so any older client keeps working.
+
+**Both flags are now editable in the admin UI.** Neither `showVideo` nor `showShoutouts` was in the admin plans API schema, so both could previously only be changed by raw SQL — which is why `show_video` sits false on every plan. Added to the POST and PATCH schemas and to `FEATURE_LABELS` on Businesses → Plans, as "Video Upload (Mux)" and "Newsletter Shoutouts". The GET uses `.select()` so it already returned them.
+
+5 integration tests pin the decoupling, including that a plan *named* "elite" without the capability gets nothing — the exact case the old logic would have granted.
+
+**Ops lesson worth remembering:** a migration must be applied to **both** the primary DB and the Neon test branch. This one was applied to primary only and every plan-capability test failed with `column "show_shoutouts" does not exist`. Earlier migrations were unaffected only because the test branch happened to be copied from prod *after* they ran:
+
+```
+npx tsx scripts/apply-sql-file.ts migrations/<file>.sql
+npx tsx scripts/apply-sql-file.ts migrations/<file>.sql --test
+```
+
+**Also:** the Neon test branch is short-lived and can drop connections mid-run. A burst of `NeonDbError: Error connecting to database: TypeError: fetch failed` across *unrelated* test files, with the suite taking ~114s instead of ~19s, is the branch suspending — not a code failure. Re-run before investigating; it passed 63/63 twice immediately afterwards.

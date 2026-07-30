@@ -54,6 +54,7 @@ export async function GET(
         planName: subscriptionPlans.name,
         planSlug: subscriptionPlans.slug,
         showVideo: subscriptionPlans.showVideo,
+        showShoutouts: subscriptionPlans.showShoutouts,
         // Category info
         categoryId: businesses.categoryId,
         categoryName: businessCategories.name,
@@ -90,16 +91,18 @@ export async function GET(
       )
       .limit(1);
 
-    // Determine if eligible for shoutouts (Elite plan + active subscription)
-    const isElite =
-      business.showVideo === true ||
-      (business.planName || "").toLowerCase().includes("elite") ||
-      (business.planSlug || "").toLowerCase().includes("elite");
+    // Shoutout eligibility now comes from a real plan capability. It used to be
+    // `showVideo === true || planName/planSlug includes "elite"`, which meant
+    // enabling video on a tier silently granted that tier shoutouts, and renaming
+    // a plan silently removed them.
+    const canPostShoutouts = business.showShoutouts === true;
 
     return NextResponse.json({
       ...business,
       activeSub: activeSub || null,
-      isElite,
+      canPostShoutouts,
+      // Kept so any older client reading `isElite` keeps working.
+      isElite: canPostShoutouts,
     });
   } catch (error) {
     console.error("[Business GET] Error:", error);

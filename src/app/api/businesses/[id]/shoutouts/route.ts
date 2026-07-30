@@ -148,7 +148,7 @@ export async function POST(
         name: businesses.name,
         userId: businesses.userId,
         subscriptionPlanId: businesses.subscriptionPlanId,
-        showVideo: subscriptionPlans.showVideo, // proxy for Elite tier — Elite has showVideo=true
+        showShoutouts: subscriptionPlans.showShoutouts,
         planName: subscriptionPlans.name,
         planSlug: subscriptionPlans.slug,
       })
@@ -165,11 +165,8 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Check Elite tier (proxy: plan name contains "elite" or showVideo=true)
-    const isElite =
-      business.showVideo === true ||
-      (business.planName || "").toLowerCase().includes("elite") ||
-      (business.planSlug || "").toLowerCase().includes("elite");
+    // Real plan capability, not the old show_video proxy.
+    const isElite = business.showShoutouts === true;
 
     if (!isAdmin && !isElite) {
       return NextResponse.json(
