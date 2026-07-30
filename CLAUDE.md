@@ -1711,354 +1711,198 @@ Urbanist → **Frank Ruhl Libre** (display, `--font-display`) + **Assistant** (U
 
 ---
 
-### 2026-07-29/30 — Legacy MSSQL import: members, simchas, shiva, kosher alerts, blog
+### 2026-07-29/30 — Legacy MSSQL import, and the search/pagination/verification work it forced
 
-Imported the old FrumToronto MSSQL site into Postgres. **~25,700 content rows + 3,052 accounts**, all reconciled against source and re-runnable.
+Consolidated from ~16 append-only notes written during the session. **States what is true at the end**; superseded claims were removed rather than left as a trail. A short list of wrong turns worth remembering is at the bottom.
 
 #### Where the legacy data actually lives
 
-The old server (`216.105.90.65`, creds in `.env` as `MSSQL_*`, **read-only**) hosts 6 databases. Two matter:
+Old server `216.105.90.65` (creds `MSSQL_*` in `.env`, **read-only**) hosts 6 databases. Two matter.
 
-| What | Source | Rows imported |
+**The structural discovery:** the old site had **no** simcha, shiva or kosher-alert tables. All three were *blog categories* inside one shared `FrumShared.dbo.BlogEntries` table (35,007 rows), flagged `MailerSimchas` / `MailerShiva` / `MailerAlerts`. Anyone hunting for "the simchas table" will not find one. Members are separate, in `FrumToronto.dbo.MemberList`.
+
+| Imported into | Rows | Source |
 |---|---|---|
-| Members | `FrumToronto.dbo.MemberList` | 3,052 users / 2,957 subscribers |
-| Simchas | `FrumShared.dbo.BlogEntries` cats 114/115/116/117/29 | 16,542 |
-| Shiva | same table, cat 85 | 3,553 |
-| Kosher alerts | same table, cat 43 | 1,587 |
-| Blog | same table, cats 44/96/45 | 3,052 |
+`users` / `email_subscribers` | 3,052 / 2,957 | `MemberList` |
+`simchas` | 16,542 | cats 114/115/116/117/29 |
+`blog_posts` | 3,052 | cats 44/96/45 |
+`kosher_alerts` | 1,587 | cat 43 |
+`shiva_notifications` | 3,553 — **then deleted**, see below | cat 85 |
 
-**The key structural discovery:** the old site had no simcha/shiva/kosher-alert tables. All three were *blog categories* in one shared `BlogEntries` table (35,007 rows) flagged with `MailerSimchas` / `MailerShiva` / `MailerAlerts`. That is why earlier passes never found them. `FrumToronto.dbo.Members` (12 rows with Admin/SuperAdmin bits) was deliberately **not** imported — creating admin accounts is a security decision, not a migration one.
+`FrumToronto.dbo.Members` (12 rows with Admin/SuperAdmin bits) was deliberately **not** imported: creating admin accounts is a security decision, not a migration one.
 
 #### Scripts (`scripts/legacy-import/`)
 
-All are **dry-run by default**; nothing writes without `--commit`. `--limit=N` for a slice, `--repair --commit` to recompute text of already-imported rows in place.
+All **dry-run by default**; `--commit` writes, `--repair --commit` recomputes text in place, `--limit=N` for a slice.
 
 | File | Purpose |
 |---|---|
-| `lib.ts` | MSSQL connect, OLE-date conversion, HTML→text, target connect, CLI opts |
-| `parse.ts` | **Pure** functions only: simcha classifier, shiva name extractor, kosher classifier, HTML sanitizer, slugify |
-| `members.ts` / `simchas.ts` / `shiva.ts` / `kosher-alerts.ts` / `blog.ts` | the importers |
-| `verify-members.ts` | bcrypt round-trip, opt-out respect, flag round-trip |
-| `verify-all.ts` | source-vs-target counts + 22 invariants. **Run this after any re-import.** |
+`lib.ts` | MSSQL connect, OLE-date conversion, HTML→text, target connect, CLI opts |
+`parse.ts` | **Pure** functions only — classifiers, shiva name extractor, HTML sanitizer, slugify |
+`members/simchas/shiva/kosher-alerts/blog.ts` | the importers |
+`verify-all.ts` | source-vs-target counts + 22 invariants. **Run after any re-import.** |
+`verify-members.ts` / `verify-users-paging.ts` / `verify-user-search.ts` / `verify-blocked-users.ts` | targeted checks |
+`set-imported-optins.ts` | switch broadcast opt-ins off / `--restore` from legacy |
+`verify-imported-members.ts` | mark the cohort email-verified |
+`export-imported-members.ts` | roster `.txt`, `--with-passwords` for a second file |
+`fix-blog-authorship.ts` / `publish-archive-posts.ts` | blog author repair |
+`delete-imported-shiva.ts` | remove the imported shiva notices |
+`show-test-login.js` | prints one **verified** working credential (run manually) |
 
-`parse.ts` exists because the runners call `main()` at module scope — importing a runner from a test connected to both live databases as a side effect. Pure logic lives there and is the only thing tests import.
+`parse.ts` exists because the runners call `main()` at module scope — importing a runner from a test connected to both live databases as a side effect.
 
-#### Non-obvious decisions (all deliberate)
+#### Data decisions
 
-- **Legacy passwords were plaintext.** Bcrypt-hashed at cost 12 on import (matching `/api/auth/register`), so members keep the password they know. Verified by `bcrypt.compare` against source on a 25-row sample.
-- **156 `RemoveMe` members** asked the old site to stop emailing them. They get a user account (login preserved) but **no `email_subscribers` row at all** — absence of the row is what actually guarantees no email. `verify-all.ts` asserts this stays true.
-- **`newsletter` is set explicitly from the legacy `Subscribe` flag**, never left to its column default of `true`, which would have opted in ~1,500 people who never subscribed.
-- **141 duplicate emails** (177 surplus rows): newest row wins, flags are *not* merged across rows — merging could re-enable something a member turned off.
-- **`event_date` on simchas stays NULL.** The legacy row records when the announcement was *posted*, not when the simcha happened. The post date goes to `created_at` (what the page sorts by). Copying it into a calendar-icon field would present an inference as fact.
+- **Legacy passwords were plaintext.** Bcrypt-hashed at cost 12 on import (matching `/api/auth/register`), so members keep the password they know. Verified by `bcrypt.compare` against source.
+- **156 `RemoveMe` members** asked the old site to stop emailing them: they get a user account but **no `email_subscribers` row at all**, which is what actually guarantees silence.
+- **`newsletter` set explicitly** from the legacy `Subscribe` flag, never left to its `true` column default, which would have opted in ~1,500 people who never subscribed.
+- **All broadcast opt-ins were then switched OFF** for the whole cohort (2,220 rows). Reverse with `set-imported-optins.ts --restore --commit`. Members re-enable themselves at `/dashboard/settings` or `/newsletter/preferences?token=…`. The three *reactive* prefs (ATR answered, ATR comment replies, blog comment replies) were left on — they only fire from the person's own activity.
+- **The cohort was marked email-verified** using their **legacy signup date**, not `now()`, so the record says "this address was on file since then". Two passes were needed: those with a subscriber row (via `old_member_id`), plus the 148 email opt-outs who have no subscriber row and are matched by email. Now ~3,132 of 3,158 verified; the rest are genuine new signups.
+- **`event_date` on simchas stays NULL.** The legacy row records when an announcement was *posted*, not when the simcha happened; the post date goes to `created_at`, which is what the page sorts by.
 - **`photo_url` stays NULL.** `BlogPicture`/`BlogPictureURL` are empty on all 16,542 rows; `BlogImage` holds a generic badge filename (`MazelTov.JPG`, `ring.jpg`), not a family photo.
-- **Shiva prose had nowhere to go.** `shiva_notifications` models structured logistics; legacy notices are one prose block. Added nullable **`notice_text`** rather than overloading `levaya_info`. `shiva_start` = post date, `shiva_end` = +7 (both NOT NULL, never recorded in source); all are long expired so the `shiva_end >= today` filter keeps them off the public page. Mourner/address/davening fields stay NULL — regexing logistics for real families would fabricate data.
-- **Blog keeps its HTML** (that page uses `dangerouslySetInnerHTML`), so it is **sanitized** by `sanitizeLegacyHtml` — the repo has no sanitizer dependency. 28 tests cover script/iframe/`on*`/`javascript:`/`expression()` vectors.
-- **12 numbered Q&A rows in Message Board (cat 44) are skipped** — they are Ask-the-Rabbi content that already lives in `ask_the_rabbi` from cat 98. Importing them would duplicate it.
-- **Blog authorship:** matched to existing users by legacy email (2,636, mostly `rochel@frumtoronto.com`); the remaining **416 are attributed to `admin@frumtoronto.com` as a placeholder**, not a claim of authorship. Change with an `UPDATE blog_posts SET author_id = ... WHERE old_id IS NOT NULL`.
+- **Blog keeps its HTML** (that page uses `dangerouslySetInnerHTML`) so it is **sanitized** by `sanitizeLegacyHtml` — the repo has no sanitizer dependency. 28 tests cover script/iframe/`on*`/`javascript:`/`expression()`.
+- **12 numbered Q&A rows in Message Board were skipped** — Ask-the-Rabbi content that already exists from cat 98.
 
-#### Two real bugs found and fixed
+#### Shiva notices: imported, then deleted
 
-1. **Windows-1252 numeric entities.** The legacy editor stored `’` as `&#146;` — a cp1252 *byte* value, which is an invisible C1 control character in Unicode. `String.fromCodePoint` therefore produced garbage, corrupting **1,168 of 16,542** simcha rows ("Canadas" instead of "Canada’s"). Fixed with a cp1252 table in `safeCodePoint`, plus support for **unterminated** entities (`&#146Mitzvos`, no semicolon) and **double-encoded** rows (`&amp;amp;`, `&lt;br&gt;`) via strip-then-decode to a fixed point. Repaired in place with `simchas.ts --repair --commit`.
-2. **`/kosher-alerts` took 46 seconds** after the import — `select()` with no LIMIT under `force-dynamic`, rendering all 1,588 rows per request. Same latent bug `/simchas` had. Both now paginate; kosher-alerts is 1.5s cold / 0.3s warm.
+All 3,553 were deleted (`delete-imported-shiva.ts`). They had no value and were doing harm: every one was long expired so the public page (`shiva_end >= today`) showed **0**; their prose sat in `notice_text`, which **nothing renders**; and because the shiva import did not carry the post date into `created_at`, all 3,553 took the import timestamp and sorted **above the one real notice** in the admin queue. They are also the most sensitive data in the import — bereavement details, mourner names, addresses in prose.
 
-#### Pagination
+Result 3,554 → 1. **Fully reversible:** `shiva.ts --commit` restores them; the `notice_text` column was kept so no migration is needed.
 
-New reusable **`src/components/ui/PaginationLinks.tsx`** — link-based, for server components (shareable URLs, works without JS, no hydration). `BlogListing.tsx` keeps its client-side version; that page streams over an API.
+#### Blog authorship
 
-Applied to `/simchas` (24/page, 690 pages) and `/kosher-alerts` (25/page). Both order by `created_at DESC, id DESC` — **the `id` tiebreaker is required**: many legacy rows share a `created_at`, and without it `OFFSET` paging repeats or skips rows. Out-of-range pages show "That page doesn't exist" with a link back rather than a misleading "nothing here". Admin APIs already paginated (20/page) — unchanged.
+Of the 416 posts that landed on the admin placeholder: **133** had a real author address (123 from `benolamhaba@koshernet.com` plus 10 one-offs) and were credited to 11 newly created accounts; the remaining **283** had no author at all and are now owned by a **FrumToronto Archive** account (`archive@frumtoronto.com`, user 3159) and published — crediting 283 Torah posts to "admin" reads as an oversight.
 
-#### Migrations (applied to primary)
+Those 11 + archive accounts have **no password** (cannot be logged into) and **no subscriber row** (nothing is emailed). They exist only to own content.
 
-- `migrations/2026-07-29-legacy-import-old-id.sql` — `old_id` on simchas/shiva/kosher_alerts/blog_posts + **partial UNIQUE indexes** (`WHERE old_id IS NOT NULL`) so duplicate imports are impossible at the DB level, not merely unlikely in script logic. Also a unique index on the long-dormant `email_subscribers.old_member_id` (declared in schema since the first migration, never written to by any code until now) and `idx_simchas_listing`.
-- `migrations/2026-07-29-shiva-notice-text.sql` — `notice_text` + `idx_shiva_notifications_window`.
+Re-hide if the client objects: `UPDATE blog_posts SET is_active = false WHERE author_id = 3159;`
 
-New generic runner `scripts/apply-sql-file.ts <file.sql> [--test]`; it **refuses** files containing DROP/TRUNCATE/DELETE.
+Final imported-post authorship: 1,395 Rochel · 1,011 Halacha For Today · 283 Archive · 133 Aaron · 123 benolamhaba · ~37 Alan · plus individual contributors.
+
+#### Bugs found and fixed
+
+1. **Windows-1252 numeric entities corrupted 1,168 simcha rows.** The legacy editor stored `’` as `&#146;` — a cp1252 *byte* value, which is an invisible C1 control character in Unicode, so `String.fromCodePoint` produced garbage ("Canadas" for "Canada’s"). Fixed with a cp1252 table plus support for **unterminated** entities (`&#146Mitzvos`) and **double-encoded** rows (`&amp;amp;`, `&lt;br&gt;`) via strip-then-decode to a fixed point. Repaired in place.
+2. **`/kosher-alerts` took 46 seconds** after the import — unbounded `select()` under `force-dynamic`. Same latent bug `/simchas` had. Both now paginate.
+3. **`/admin/users` was unusable** at 3,146 rows — no search, filter *or* pagination, rendering every row with all 24 permission columns.
+4. **The admin user search dropped characters while typing.** `UserFilters` echoed the URL back into a controlled input, so a debounce push of "ab" overwrote a newer "abc". Fixed with a `lastPushedSearch` ref distinguishing our own navigation from an external one.
+5. **Full-name search returned nothing.** The whole query was matched inside each column, and no column holds both a first and last name, so *every* full-name search failed. Now each term must match somewhere: AND across terms, OR across columns — the shape `searchAskTheRabbi` already used.
+6. **Two X buttons** in the admin search field: `type="search"` makes Chromium draw its own clear button.
+7. **`UniversalSearch` displayed queries that were not applied** — it seeded from `initialQuery` on mount only.
+8. **Two silent dead ends in forgot-password.** A disabled account received a reset link, reset successfully and still could not log in (the reset never touches `is_active`); and 16 password-less legacy accounts were told "check your email" while the OAuth-only guard sent nothing.
+9. **`blog` had no entry in `TYPE_LABELS`** despite already being in `searchAll`, so blog rows in homepage search rendered unlabelled.
+10. **`classifieds/[id]/contact` had no authentication at all**, and took `senderEmail` from the request body — so a caller could forge the seller's reply-to.
+
+#### What was built
+
+- **Pagination** via new `src/components/ui/PaginationLinks.tsx` (link-based, for server components) on `/simchas` (24/page), `/kosher-alerts` (25/page) and `/admin/users` (20/page). Item count is **constant at 7 slots** (`src/lib/pagination-items.ts`) so the control never changes width and Next stops moving under the cursor.
+- **All list orderings carry an `id` tiebreaker.** 17 `created_at` values in `users` are shared by more than one row, and imported content shares timestamps in bulk — without it `OFFSET` paging repeats or skips rows.
+- **Search** on `/simchas`, `/kosher-alerts` and `/blog`, all server-side, all with trigram indexes. `simchas` and `kosher-alerts` are new `SearchType`s; simchas and kosher alerts also feed `searchAll`. The multi-word matcher is shared: **`buildSubstringCondition(columns, search)`** in `src/lib/search/substring-search.ts` (with `parseSearchTerms`), used by the simchas/kosher/blog list queries and by `src/lib/admin/user-search.ts`, so the call sites cannot drift. Unlike `parseWords` in `fuzzy-search.ts` it **keeps single characters** — this is substring matching, not trigram similarity, so dropping a 1-char term would silently apply no filter at all.
+- **`/simchas/[id]` detail pages** so each of 16,542 announcements is shareable, with related items and OpenGraph metadata.
+- **Simcha type filter pills** with live result counts that honour the active search.
+- **`/admin/users`** with debounced search, role filter and an **All / Active / Blocked** status filter (blocking already worked; finding blocked accounts did not).
+- **`UserPicker`** replacing a 3,146-entry `<Select>` in the shul-manager dialog, with AbortController so a slow earlier response cannot overwrite a newer one.
+- **Verification gate** on all 23 submission endpoints via `assertCanPost()`, plus `POST /api/auth/resend-verification`, which **did not exist** — the verification email had only ever been sent once, at registration.
+- **Component testing now works**: `@testing-library/react` was installed but `jsdom` was not. Added `jsdom`, `user-event`, `@testing-library/dom`, `tests/unit-setup.ts`, and `.tsx` in the unit glob (per-file `// @vitest-environment jsdom`).
+
+#### Semantics worth knowing
+
+- **`isActive` is the ban flag** — checked in password login (`auth.ts:127`), the Google `signIn` callback (`auth.ts:37`) and admin notifications. It blocks **both** sign-in paths. The admin "Active" switch is the block control.
+- **`emailVerified` gates nothing by itself** — it is written in three places and read only by the new `assertCanPost`. Before this session it controlled nothing at all: an unverified user had identical access.
+- **`assertCanPost` reads the database, not the JWT.** `emailVerified` is not in the token, and putting it there would go stale — someone verifying mid-session would keep being refused until their token refreshed. It also re-checks `is_active`, since a session can outlive a block, and deliberately does not import `auth` (callers pass `session.user.id`), which keeps it loadable in tests without dragging next-auth into a node environment.
+- **A password reset deliberately does NOT reactivate an account.** Since `isActive` is the ban, that would let anyone banned un-ban themselves from the forgot-password form.
+- **98 accounts are blocked: 96 from the import, 2 that predate it** — a blanket "activate all" would un-ban two genuine blocks. Evidence the 96 were not real bans: none flagged, all had working passwords, 83 of 101 created in 2010, and ids 1139–1148 are ten *consecutive* legacy signups deactivated together. Unchanged pending Daniel's call; `verify-blocked-users.ts` lists them.
+
+#### Migrations (all applied to primary)
+
+- `2026-07-29-legacy-import-old-id.sql` — `old_id` on simchas/shiva/kosher_alerts/blog_posts with **partial UNIQUE indexes** (`WHERE old_id IS NOT NULL`) so a duplicate import is impossible at the DB level; unique index on the long-dormant `email_subscribers.old_member_id`; `idx_simchas_listing`.
+- `2026-07-29-shiva-notice-text.sql` — `notice_text` + window index.
+- `2026-07-30-simchas-search-indexes.sql`, `2026-07-30-kosher-alerts-search-indexes.sql`, `2026-07-30-blog-search-indexes.sql` — trigram GIN indexes.
+
+New runner `scripts/apply-sql-file.ts <file.sql> [--test]`; it **refuses** files containing DROP/TRUNCATE/DELETE.
+
+#### Local artefacts (gitignored, on disk only)
+
+- **`imported-members.txt`** (~327 KB) — every imported member with legacy MemberID, email, active/verified/password status and notification flags, plus the opt-outs listed separately. Snapshot taken **before** the cohort was marked verified, so it is also the undo reference.
+- **`imported-members-passwords.txt`** (~196 KB) — original legacy passwords, written only with `--with-passwords`. **Live plaintext credentials**; because the old site stored them unhashed and people reuse passwords, treat it as working credentials for *other* services too. Delete when done.
+
+Both are gitignored deliberately: a private repo still makes committed PII effectively permanent in git history. Regenerate any time:
+
+```
+npx tsx scripts/legacy-import/export-imported-members.ts [--with-passwords]
+```
+
+The assistant sandbox refuses to generate or read the passwords file, and refuses `show-test-login.js`, so both are run manually.
 
 #### Known content loss (unavoidable)
 
-Legacy images were served from `www.frumtoronto.com/Local/CalendarImages/` and the old server; **both return 404 today**, so they cannot be preserved or rehosted. Dropped rather than rendered broken: **360** in blog posts, and **13 kosher alerts** whose payload *was* the image (e.g. a Costco Kosher-for-Passover list) are now title-plus-thin-text. Same for `Vaughan Garbage Collection info`.
+Legacy images were served from `www.frumtoronto.com/Local/CalendarImages/` and the old server; **both 404 today**. Dropped rather than rendered broken: **360** in blog posts, and **13 kosher alerts whose payload *was* the image** (e.g. a Costco Kosher-for-Passover list) are now title-plus-thin-text.
+
+#### Accepted quirks
+
+~32 of 1,354 Message Board posts are simcha announcements, so the odd simcha appears tagged "Blog" in search. **Not duplicates** — `old_id` overlap between `blog_posts` and `simchas` is **0**; the old site simply filed them there.
+
+`searchAll` scores relevance **per type** (`1000 - index*10`), so the top hit of every type ties at 1000 and types interleave arbitrarily. Pre-existing; more visible now that nine types feed it. Fixing it needs cross-type normalisation.
 
 #### Verification
 
-`verify-all.ts`: all four content counts match source exactly, 22/22 invariants at 0 (no duplicate `old_id`, no markup/entities/control chars in plain-text columns, no `<script>`/`on*`/`javascript:`/`iframe`/dead-image in blog HTML, no empty NOT NULL columns, no orphan FKs, no opted-out member emailable). All five importers re-run to **0 inserts**. Tests **162 → 247** (+85: 33 lib, 24 shiva-name, 28 sanitizer/classifier); `tsc` 0 errors; `eslint` clean on touched files. Pages checked live: `/simchas` (+filter, last page, out-of-range, junk `?page=`), `/kosher-alerts`, `/blog`, `/shiva`, two legacy blog posts.
+`verify-all.ts`: all content counts match source exactly, 22/22 invariants at 0. All importers re-run to **0 inserts**. **Tests 61 → 351** (293 unit + 58 integration). `tsc` 0 errors.
 
-#### Follow-ups (owner's call)
+Admin pages could not be exercised in a browser (admin auth, no password available) — confirmed to compile and guard correctly (307 redirect, API 401). Public pages checked live including filters, last page, out-of-range and junk `?page=`.
 
-- **3,052 accounts can now receive email**, carrying legacy opt-ins (1,515 newsletter, 1,227 simchas, 1,684 eruv, 1,929 community alerts). These people opted into the *old* site; some addresses are untouched since 2012. Consider a re-permission email before the first big send, and expect bounces.
-- ~~134 shiva names flagged for review~~ — **moot: the 3,553 imported shiva notices were deleted on 2026-07-30** (see the later session note). If they are ever re-imported, the extraction still flags roughly 3.8% of names for review and the dry run prints them.
-- 416 blog posts attributed to the admin placeholder.
-- `notice_text` is stored but not surfaced in any UI (every legacy notice is expired, so nothing renders it).
-- **The Neon test branch credentials no longer authenticate** (`ep-long-band-ahaha6ks`, `.env.test`) — `npm run test:integration` is broken until it is recreated. This import therefore ran against the primary DB with dry-run-by-default as the safety net.
-- Still available in the legacy DB, not imported: `Shidduchim`, `BikurCholim`, `CommunityServices`, `WeeklySpecials`, `Advertisements`, `TellAFriendList`, `Raffle`, plus blog cats `Halacha for Today` sibling categories (`Shemiras Halashon` 178, `Thoughts for the Week` 191, `Articles of Interest` 223, `Israel News` 75, and others).
+#### Wrong turns worth remembering
 
-#### Follow-up same session — admin users pagination + imported opt-ins switched off
+- **Two regression tests initially passed against the broken code.** The typing test applied the URL synchronously inside `router.replace`, so the keystroke never raced the commit; the AbortController test used a 500 ms stale response that still resolved *before* the newer one. Both were only trustworthy after being verified to fail with the bug reintroduced. **A regression test that passes on broken code is worse than none.**
+- **`/shuls`, `/shiurim` and `/community/calendar` were wrongly recorded as filtering client-side.** They do not — every dropdown filter is already server-side; only the free-text box runs in the browser, over ≤91 rows. Pagination would also **break** the `/shiurim` weekly grid and `/calendar` month grid, which need the whole visible period. The error came from grepping for `useMemo`/`.filter()` without reading what the `useEffect` sent to the API. **Item closed, do not resurrect.**
+- **`aaron@`, `sara@` and `halachafortoday@` were wrongly said to have no accounts.** They do; the blog import matched them correctly all along.
+- **`createTestUser` silently dropped fields** three times over — it hardcoded `isActive: true`, coerced an explicit `passwordHash: null` to a default via `||`, and ignored `emailVerified` entirely. Each made a new test fail for the wrong reason. All three fixed.
+- **An integration test I added was flaky**: `cleanupTestUsers()` deletes **every** `test-%@frumtoronto.test` user, not just the calling file's, and every file calls it — so asserting over that whole set is order-dependent. **Never assert over the whole `@frumtoronto.test` set; assert on ids you created.**
 
-**Imported opt-ins cleared.** `scripts/legacy-import/set-imported-optins.ts --off --commit` zeroed the 8 broadcast preferences on **2,220** imported subscribers (newsletter/simchas/shiva/kosher_alerts/tehillim/eruv_status/community_alerts/community_events all now 0). Nobody is locked out — they can re-enable themselves at **`/dashboard/settings`** (they kept their old password) or at **`/newsletter/preferences?token=<unsubscribe_token>`** with no login, and that page sets flags to true as well as false. `--restore --commit` re-derives the original flags from the legacy `MemberList`, so this is reversible without a backup. The three *reactive* preferences (`ask_the_rabbi_answered`, `atr_comment_replies`, `blog_comment_notifications`) were deliberately left alone: they only fire in response to something the person posts themselves, so muting them would break a feature rather than respect a consent boundary.
+#### Open items
 
-**`/admin/users` was genuinely broken** by the import — 44 rows to 3,146, with `UserTable.tsx` having no search, no filter and no pagination, rendering every row with all 24 permission columns. Now server-side paginated (20/page, 158 pages) with a debounced search (name/email) and a role filter, both driven through the URL so Postgres does the filtering. `/api/admin/users` was rewritten: it takes `page`/`limit`/`search`/`role`, returns `{data, pagination}` like the other admin endpoints, and caps `limit` at 100 so nothing can pull the whole table again.
+1. **The 96 blocked legacy accounts** — activate, or leave blocked. Nothing changed.
+2. **Mux and homepage ads** — see the findings section below; both are discovery, not code.
+3. `searchAll` relevance normalisation (optional).
+4. The Neon test branch is a short-lived credential — endpoint `ep-curly-union-ah4r8uel` in `.env.test`, and **`TEST_DB_ENDPOINT` in `tests/setup.ts` must be updated to match any new branch** or every integration run aborts.
 
-**Gotcha worth remembering:** `UserTable` seeds local state via `useState(initialUsers)` for optimistic row updates, and React keeps that state across a filter or page change — the new rows would render behind stale state. The page passes `key={page|search|role}` to force a fresh mount per result set.
+---
 
-**A second breakage the import caused:** `UserShulAssignment.tsx` filled its "Select User" dropdown with *every* user via `/api/admin/users`, so it had 3,146 entries — and paginating that API would have silently shrunk it to 20 without any error. Replaced with a debounced type-to-search picker (`?search=&limit=50`) listing up to 50 matches.
+### 2026-07-30 — Findings: Mux video and homepage ads are both built-but-not-usable
 
-**Audited, deliberately not changed:** every other admin API already paginates at 20/page. The remaining unbounded endpoints are all tiny (classified-categories 49, notifications 21, shiurim 10, shul-neighborhoods 8, simcha-types 7, important-numbers/shul-requests/community-newsletters 0), as are the unbounded public pages (`/alerts` 1, `/community/tehillim` 2, `/newsletters` 7, `/shiva` **0 visible** since every legacy notice is expired). `admin/newsletter-segments` was flagged as a risk and then cleared on reading it: it already counts with `COUNT(*)` rather than fetching subscriber rows — it has an N+1 (one count per segment) but that is harmless for an admin-curated list.
+Two systems that look finished in the codebase but cannot currently work. Recorded because in both cases someone would otherwise start building on top of a false assumption.
 
-**Verification:** `scripts/legacy-import/verify-users-paging.ts` walks all 158 pages and proves exact coverage — 3,146 distinct ids, **0 duplicates**, repeatable ordering, filters agreeing with independent counts, out-of-range pages returning empty. It also reports that **17 `created_at` values are shared by more than one user**, which is the concrete reason the `id` tiebreaker is required rather than merely tidy. Admin pages could not be loaded end-to-end because they sit behind admin auth and no password was available; they were confirmed to compile and guard correctly (307 redirect, API 401). `tsc` 0 errors, 247 tests pass, `eslint` clean on touched files apart from one pre-existing unused-`error` warning in `UserShulAssignment` that predates this work.
+#### Mux: fully coded, zero configuration
 
-#### Follow-up — typing bug in the admin search, and the user picker rebuilt
+14 files: `src/lib/mux/client.ts` (raw REST via `fetch`, **no npm package by design**), `POST /api/mux/create-upload`, `POST /api/webhooks/mux` (with real HMAC signature verification), `businesses/[id]/video` + `.../uploaded`, admin `video-review` page with approve/reject routes, `MuxVideoUploader.tsx` wired into the business dashboard, and schema columns `muxPlaybackId` / `muxAssetId` / `muxUploadId` / `videoStatus` / `videoApprovalStatus` / `videoRejectionReason`.
 
-**Bug: characters disappeared while typing in the `/admin/users` search box.** `UserFilters` echoed the URL back into its controlled input:
+**None of it can run:**
+- `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`, `MUX_WEBHOOK_SIGNING_SECRET` are **missing locally and there are zero Mux variables in Vercel**. Also absent from `.env.example`, so nothing signals they are required.
+- `show_video` is **false on all four plans**, so no tier offers video.
+- All 1,633 businesses show `video_status = 'none'`, 0 asset ids, 0 playback ids. Never used.
 
-```ts
-const [search, setSearch] = useState(urlSearch);
-useEffect(() => { setSearch(urlSearch); }, [urlSearch]);   // clobbers newer keystrokes
-```
+**The trap:** `getMuxAuthHeader()` **throws** when tokens are absent, so `/api/mux/create-upload` returns a 500 rather than a graceful "unavailable". Enabling `show_video` on a tier *before* adding credentials gives paying customers a hard error. **Credentials first, then the plan flag.**
 
-Type `ab` → the 300 ms debounce pushes `?search=ab` → the user types `c` so local state is `abc` → the navigation commits, `urlSearch` becomes `ab`, and the sync overwrites `abc` with the stale `ab`. The `c` is gone. `UniversalSearch` never had this because its local `query` is the sole source of truth. Fixed with a `lastPushedSearch` ref: a URL change is adopted only when it differs from what this component pushed, which distinguishes our own echo (ignore) from a real external navigation such as back/forward or the "Clear filters" link (adopt).
+To enable: Mux account → two API tokens → webhook pointed at `https://www.frumtoronto.com/api/webhooks/mux` with its signing secret → all three vars in Vercel *and* `.env` → **redeploy** (env changes are inert until then) → then flip `show_video`.
 
-**The user dropdown was rebuilt to match the public one.** New `src/components/admin/UserPicker.tsx` follows the `UniversalSearch` pattern — overlay dropdown, 300 ms debounce, **AbortController**, keyboard navigation (↑/↓/Enter/Escape), click-outside dismissal, match highlighting, role badges, combobox ARIA. It replaced the inline result list in `UserShulAssignment`, which had no abort and so could show results for a query the user had already moved past. Editing the text after choosing someone clears the selection, so the dialog can never submit a stale user id while the field displays a different name.
+#### Homepage ads: an ad is a column, not a record
 
-**Component testing now works in this repo.** `@testing-library/react` was already a dependency but `jsdom` was not, which is why there was no component harness. Added `jsdom`, `@testing-library/user-event` and `@testing-library/dom` as dev deps, a `tests/unit-setup.ts` registering the jest-dom matchers, and widened the unit project glob to `*.test.tsx`. Component tests opt into a DOM per file with `// @vitest-environment jsdom`; the default stays `node` so the existing pure tests keep their fast DOM-free environment.
+`HomepageBanner` (full-width carousel under the hero, `h-32 → h-48`) and `HomepageSidebarAds` (left/right on desktop, horizontal scroll on mobile, image area `h-40`) are both live in `src/app/page.tsx`. Gated on `subscription_plans.show_in_homepage_banner` / `..._sidebar` — Premium and Elite get banner, Standard and Elite get sidebar.
 
-**Both new regression tests were verified to actually fail against the bugs** — and the first two attempts did not, which is the part worth remembering:
+**Nothing is showing:** 0 of 1,633 businesses have a `banner_image_url`, so `/api/featured-businesses` returns an empty array.
 
-- The typing test initially passed even with the bug reintroduced, because the mock applied the new URL *synchronously* inside `router.replace`. That ordering means the extra keystroke lands after the URL echo, so the race never happens. Rewritten so `replace` only records a pending URL and the test calls `commitNavigation()` explicitly, placing the commit after the next keystroke. It now fails on 2 assertions without the fix.
-- The AbortController test also passed with the abort removed, because a 500 ms stale response still resolved *before* the newer one given the timeline. Raised to 2000 ms so it genuinely lands last. It now fails without the abort.
+**There is no ads table.** An ad is `businesses.banner_image_url`, which causes every limitation:
 
-A regression test that passes against the broken code is worth nothing; both were checked by reintroducing each bug and confirming a red run.
+| Wanted | Blocked by |
+|---|---|
+An ad for a non-business (e.g. a semicha programme) | must be a business listing on a paid plan |
+Choosing where a flyer links | link is **inferred**: `business.website ? website : /directory/business/{slug}` — nobody picks, and having a website silently overrides linking to the FrumToronto page |
+Two ads for one advertiser | one image column per business |
+Seeing what is running | nothing to list; it is scattered across 1,633 business rows |
+Running an ad for a month | no start/end dates anywhere |
+Deliberate ordering | selection is `ORDER BY random()` |
+A business submitting artwork | `banner_image_url` appears **only** in admin files; there is no business-facing form, API or dashboard field |
 
-**Tests 247 → 259.** `tsc` 0 errors; `eslint` clean on touched files except one pre-existing unused-`error` warning in `UserShulAssignment` that predates this work. Admin pages still could not be exercised end-to-end in a browser (admin auth, no password available) — they were confirmed to compile and guard correctly.
+The tell: `ORDER BY random()` gated purely on subscription tier is a **perk** design ("Premium gets homepage exposure"), not an **advertising** design (a specific creative, pointing at a specific place, for a specific period). Bolting a control page onto the perk cannot deliver the latter.
 
-#### Follow-up — full-name search returned nothing, and a duplicate clear button
+**Also note the shape mismatch:** community flyers are typically full-page portrait, and both slots are short and wide. A portrait flyer is either cropped to an illegible strip or letterboxed.
 
-**Bug: `/admin/users?search=danie+makal` found nobody, though three Daniel Makalski accounts exist.** The search put the *whole* query into each column:
-
-```ts
-or(ilike(firstName, '%danie makal%'), ilike(lastName, '%danie makal%'), ilike(email, '%danie makal%'))
-```
-
-No single column can contain both a first and last name, so every full-name search returned zero. The repo's own convention had it right all along — `searchAskTheRabbi` in `src/lib/search/fuzzy-search.ts` splits the query and requires each word to match *somewhere*: **AND across terms, OR across columns**. `"danie"` hits `first_name`, `"makal"` hits `last_name`, so the row matches.
-
-Fixed in a new shared `src/lib/admin/user-search.ts` (`parseUserSearchTerms` + `buildUserSearchCondition`), used by **both** `/admin/users/page.tsx` and `/api/admin/users` — they had duplicated the query, which is how they would have drifted. Unlike `parseWords` in fuzzy-search, single characters are kept: this is a substring lookup over ~3,150 rows, not trigram similarity, so typing "d" should narrow rather than be dropped (which would show every user and look like the filter was ignored). Terms are capped at 5.
-
-**Bug: two X buttons in the search field.** `type="search"` makes Chromium draw its own clear button, which sat beside the styled one. Changed to `type="text"`. `CategoryFilters.tsx` also uses `type="search"` but has no custom clear button, so it shows only the native one and was left alone.
-
-**Verified live** with `scripts/legacy-import/verify-user-search.ts`, which runs the real drizzle condition against the database (the page is behind admin auth and cannot be curl'd): `"danie makal"`, `"makal danie"` (order-independent), `"  daniel   makalski  "` (whitespace) and `"Daniel Makalski"` all return the same 3 accounts; `"makalski daniel zzz"` correctly returns 0 because one term matches nothing; `""` applies no filter.
-
-Note that script needs `import "dotenv/config"` as its **first** import — `src/lib/db/index.ts` throws at module-evaluation time when `DATABASE_URL` is unset, and imports evaluate in order, so a later `dotenv.config()` runs too late.
-
-**Tests 259 → 272.** The SQL-shape assertions render the condition with `new PgDialect().sqlToQuery(...)` rather than inspecting the drizzle object, which is circular and cannot be JSON-stringified. One asserts the generated params contain `%danie%` and `%makal%` and *not* `%danie makal%` — i.e. the exact shape of the original bug.
-
-#### Follow-up — constant-width pagination, and search on /simchas
-
-**Pagination control was sparse and shifted width.** The old strip showed first + last + current±1, which produced only 4 items on page 1 (`‹ 1 2 … 690 ›` — the sole forward destinations being page 2 or page 690) and swung between 4 and 7 items as you moved. Because the row is centred, that changed its width and moved the Next button out from under the cursor mid-click.
-
-Extracted to pure `src/lib/pagination-items.ts` and rewritten to emit a **constant 7 items** at every position:
-
-```
-page   1 of 690 -> 1 2 3 4 5 … 690
-page  50 of 690 -> 1 … 49 50 51 … 690
-page 690 of 690 -> 1 … 686 687 688 689 690
-```
-
-7 rather than 9 so seven `min-w-9` buttons plus `gap-2` (~300px) still fit a 375px phone without wrapping. 13 tests, including the constant-count property asserted across *every* page of lists up to 5,000, plus no-duplicates, strictly-ascending, in-range, and "an ellipsis never hides just one page".
-
-**`/simchas` now has search**, which matters more than any pagination tweak for a 16,550-row archive — nobody finds the Guttman birth notice by clicking through 690 pages. `simchas` is now a `SearchType` in the universal search system (`types.ts`, `searchSimchas()` in `fuzzy-search.ts`, registered in `/api/search/suggestions`), with `SimchasSearchBar` wrapping `UniversalSearch` in the hero using `tone="onDark"`.
-
-- **Filtering is server-side.** `/shuls` and `/shiurim` filter client-side with `useMemo`, which is fine for a few dozen rows; doing that here would ship the whole archive to the browser.
-- **`searchSimchas` ranks on `family_name` only** but *matches* the announcement body too, so a grandparent named only in the prose is findable. Ranking on the body as well would flatten the ordering, since `similarity()` over several sentences scores almost everything alike.
-- **Suggestions link to `/simchas?search=<family name>`**, not a detail page — there is no `/simchas/[id]` route, so clicking a suggestion narrows the list to that announcement. Adding a detail page would make these deep-linkable and shareable; deliberately not done here.
-- `simchas` was **not** added to `searchAll`, so the homepage hero search results are unchanged. Worth considering separately: someone searching "Guttman" from the homepage would reasonably expect the simcha.
-- The multi-word matcher from the admin fix was generalised to `src/lib/search/substring-search.ts` (`parseSearchTerms` + `buildSubstringCondition(columns, search)`); `user-search.ts` is now a thin wrapper over it, so the two call sites cannot drift.
-- Type filter, pagination and the "clear filters" links all preserve the other parameter, and the empty state distinguishes a failed search from an empty category.
-
-`migrations/2026-07-30-simchas-search-indexes.sql` adds trigram GIN indexes on `family_name` and `announcement` (applied) — without them every keystroke's suggestion query scans all 16,550 rows. A trigram index also serves the `ILIKE '%term%'` the list page uses, which a btree cannot.
-
-**Verified live:** all → 16,550; `Guttman` → 26; `Guttman Jenah` → 2 (multi-word AND narrowing correctly); `Reichmann` → 69; `Reichmann` + `type=engagement` → 20 (filters compose); `zzznothing` → the "No simchas match" state; `?page=99` on a filtered set → "That page doesn't exist". Pagination strips confirmed at 7 items on pages 1, 3, 50 and 690. **Tests 272 → 285.**
-
-#### Follow-up — simcha filter pills redesigned with counts
-
-The type filters were small `<Badge>` chips. Rebuilt as proper pills (`rounded-full`, `px-4 py-2`, `text-sm font-medium`, real border and hover states) each carrying a **result count**, which on a 16,550-row archive turns them from blind guesses into information.
-
-`getTypeCounts(search)` is one extra grouped query. It honours the active **search** but not the active **type** — so each pill shows how many results that type *would* give, which is the only version worth reading. Counts verified against the database: no search → birth 8,683 / engagement 2,902 / wedding 2,686 / bar-mitzvah 2,254 / other 21 / bat-mitzvah 3 / anniversary 1 = 16,550; `Guttman` → 16+5+3+2 = 26; `Guttman Jenah` → 2.
-
-Types with zero results stay visible but render muted rather than being removed, so the row of categories does not reshuffle as the search changes.
-
-**Known issue, not yet fixed (needs a decision):** `UniversalSearch` seeds its input from `initialQuery` only on mount (`useState(initialQuery)`, no sync effect), so after navigating the box can display a query that is no longer applied — e.g. URL `?type=engagement` with no `search=`, count showing all 2,902 engagements, but the box still reading "Buksbaum - Bloom engagement". Also, typing alone does nothing until Enter or a suggestion click, which is unsignposted. The component has ten call sites, so any change there needs care.
-
-#### Follow-up — UniversalSearch fixes, simcha detail pages, simchas in unified search
-
-**`UniversalSearch` no longer shows a query that isn't applied.** It seeded its input from `initialQuery` on mount only, so navigating (e.g. clicking a type filter that drops `?search=`) left the box displaying the old text while the list showed everything. It now syncs when the applied query changes, guarded by an `appliedQueryRef` that records what this component itself submitted — so the sync can tell its own navigation from an external one. All four callers that pass `initialQuery` derive it from the URL and only navigate on submit, so the guard is belt-and-braces; without it, a future caller pushing on a debounce would hit exactly the character-eating bug `UserFilters` had.
-
-Also added: a **"Press Enter to search"** hint, shown only when `onSearch` exists and the box has diverged from what's applied (typing alone never filtered anything, and nothing said so). And `TYPE_LABELS` gained `blog` and `simchas` — **`blog` was already in `searchAll` but had no badge entry**, so blog rows in "all" mode had been rendering unlabelled.
-
-8 component tests; the stale-text one was verified to fail with the sync removed. All 10 call sites checked live for a 200.
-
-**`/simchas/[id]` detail pages exist.** Each announcement now has its own URL, so a family can share theirs. Search suggestions point at the record instead of re-filtering the list, and the list cards link through. The page uses `whitespace-pre-line` so the announcement's paragraph breaks survive (the cards deliberately collapse them), shows up to 4 more of the same type so it isn't a dead end, and sets `generateMetadata` with an OpenGraph description built from the announcement text.
-
-`parseId` rejects anything non-numeric with a regex rather than `Number.parseInt`, which would read `"12abc"` as 12. Detail pages apply the same `isActive` + `approved` filter as the list, so an unapproved announcement can't be reached by guessing an id. Verified: real ids 200; `abc`, `0`, `12abc`, `99999999` all 404.
-
-**Simchas now appear in the homepage/unified search** (`searchAll`).
-
-**Finding while verifying, not a bug:** a simcha-looking result appeared labelled "Blog" — "Lechtman / Arje / Samuels son/grandson/great-grandson". It is *not* a duplicate: `old_id` overlap between `blog_posts` and `simchas` is **0**. That announcement genuinely lived in the old site's Message Board category (`old_id` 23228) rather than in Births. About **32 of 1,354** Message Board posts are simcha-shaped. Left as-is because it reflects where the old site actually put them; the cost is that the occasional simcha shows up as a "Blog" result.
-
-**Tests 285 → 293.**
-
-#### Follow-up — search on /kosher-alerts
-
-1,586 alerts going back to 2006 with no way to search them, when "is this product still OK?" is the main question the page answers. `kosher-alerts` is now a `SearchType` with `searchKosherAlerts()` (registered in the suggestions API, badge added to `TYPE_LABELS`) and `KosherAlertsSearchBar` in the hero.
-
-Ranking is on **product name**, with brand as a weaker secondary signal (×0.8). Agency and description are *matched* but not ranked — the description runs to paragraphs and `similarity()` over that much text scores nearly everything alike, which would flatten the order. Suggestion subtitles show `brand · agency`, which is what actually disambiguates two alerts about the same product.
-
-List filtering is server-side via the shared `buildSubstringCondition` across product name, brand, agency and description, so `"Passover Costco"` matches a row where the words live in different columns. Search is preserved across pagination and the empty state distinguishes a failed search from no alerts.
-
-`migrations/2026-07-30-kosher-alerts-search-indexes.sql` (applied) adds trigram GIN indexes on all four searched columns.
-
-**Verified live:** suggestions — `Folgers` → 3 with `[OU]`, `Costco` → 3, `COR` → 3, `zzznothing` → 0. List — all 1,586; `Folgers` → 1; `Passover Costco` → 2 (multi-word AND working); `zzznothing` → the "No alerts match" state.
-
-Deliberately **not** added to `searchAll`: a recall notice surfacing in the homepage hero alongside businesses and shuls is a judgement call about prominence, not a technical one. Say so and it is a one-line change.
-
-**Still outstanding from this round:** converting `/shuls`, `/shiurim` and `/community/calendar` from client-side `useMemo` filtering to server-side. They work correctly today at 14 / 10 / 91 rows — the concern is purely that they degrade as those tables fill. Also proposed but not approved: text search on `/blog` (3,051 posts, category filter only; `searchBlog` already exists so only a `search` param on `/api/blog` and a box in `BlogListing` are missing).
-
-### 2026-07-30 (later) — shiva notices deleted, test branch restored, blog + kosher search
-
-**The 3,553 imported shiva notices were deleted** at Daniel's instruction. They had no value and were doing harm: all were long expired so the public page (which filters `shiva_end >= today`) showed **0** of them; their prose sat in `notice_text` which **nothing renders**; and because the shiva import did not carry the original post date into `created_at` (unlike the simcha import), all 3,553 took the import timestamp and sorted to the top of the admin queue, **burying the one real notice**.
-
-They are also the most sensitive data in the whole import — bereavement details, mourner names, home addresses in the prose — which makes indefinite retention with no product purpose the weakest case of anything imported.
-
-`scripts/legacy-import/delete-imported-shiva.ts` (dry-run by default) does it. Its `WHERE old_id IS NOT NULL` can by construction only match imported rows, it refuses to run if any imported notice is still inside its shiva window, and it aborts as a failure if the native count changes. Result: 3,554 → 1, the native notice intact. **Fully reversible:** the legacy MSSQL DB is untouched and `npx tsx scripts/legacy-import/shiva.ts --commit` restores all 3,553. The `notice_text` column was kept so a re-import needs no migration.
-
-**Neon test branch replaced and integration tests work again.** New endpoint `ep-curly-union-ah4r8uel` in `.env.test`, and the guard in `tests/setup.ts` was updated to match — that constant is what aborts the run if the tests ever point at production, so it has to track the branch. The branch is a fresh copy of prod, so all migrations were already present. **44 integration tests pass** (they had been unrunnable). `.env.test` is gitignored, so the credential is not in the repo.
-
-**`/blog` gained text search.** `/api/blog` accepts `search`, filtered with the shared `buildSubstringCondition` over title, excerpt **and body**. The body matters here: legacy titles are frequently just a date ("Halacha For Today: Monday, 27 Cheshvan 5773"), so title-only search would miss nearly all 1,211 of those posts. `BlogListing` got a `UniversalSearch` box that resets to page 1 on a new query. Trigram indexes applied via `migrations/2026-07-30-blog-search-indexes.sql`. Verified: 3,051 total → `Purim` 164, `Hashovas Aveidah` 44 (multi-word), `Rosh Chodesh` 484, `zzznothing` 0.
-
-**`kosher-alerts` added to `searchAll`**, so recalls surface in the homepage hero. Verified: `Folgers` returns the kosher alert alongside other types.
-
-**Known quality issue, pre-existing and now more visible:** `searchAll` assigns `relevanceScore: 1000 - index * 10` **per type**, so the top hit of every type scores 1000. Sorting by that interleaves types arbitrarily — a weak fuzzy match from Ask the Rabbi ranks level with an exact product-name match from kosher alerts. With nine types now feeding it, homepage results contain visible noise. Fixing it needs cross-type score normalisation.
-
-**Tests: 293 unit + 44 integration = 337.** `tsc` 0 errors.
-
-### PARKED — legacy-import follow-ups to resume later
-
-**Needs Daniel's decision:**
-1. **Blog authorship** — 416 legacy posts credit `admin@frumtoronto.com` as a placeholder. Real legacy authors: `aaron@frumtoronto.com`, `sara@frumtoronto.com`, `halachafortoday@yahoo.com` — none have accounts. Options offered: create accounts for those three, credit all to Rochel (user id 9), or leave as admin. Then one `UPDATE blog_posts SET author_id = … WHERE old_id IS NOT NULL`.
-2. **Imported-account logins.** 2,845 of 2,957 imported members can log in right now with their old password — `authorize()` checks only password hash, `isActive` and the bcrypt match; **there is no email-verification gate**. Two consequences worth a decision: those passwords came from a database that stored them in **plaintext** for years, so a forced reset on first login is worth considering; and the 112 who cannot log in (96 legacy `Active = 0`, 16 with no password) get a generic "invalid credentials" error with no hint to try forgot-password.
-
-**Closed, not needed — an earlier claim in these notes was wrong.** `/shuls`, `/shiurim` and `/community/calendar` were described as filtering client-side. They do not: every dropdown filter is already server-side (`/shuls` denomination/nusach/neighborhood, `/shiurim` day/level/gender/category/area/teacher/organization, `/calendar` month/year/type — the calendar refetches per month). Only the free-text box filters in the browser, over at most 91 rows.
-
-Pagination would also **break** two of them: `/shiurim` renders a weekly grid across all seven days and `/calendar` a month grid, both of which need the whole visible period. The mistake was classifying those pages from a `useMemo` + `.filter()` grep without reading what the `useEffect` actually sent to the API — the `useMemo` was the last 5% of the filtering, not the whole of it.
-
-If one of those tables ever does grow, the cheap targeted fix is moving the text search server-side; those APIs already accept filters, so it is a `search` param rather than a rewrite.
-
-**Optional cleanup:**
-4. `searchAll` relevance normalisation (see the known quality issue above).
-
-**Accepted quirks, no action intended:** ~32 of 1,354 Message Board posts are simcha announcements, so the odd simcha appears tagged "Blog" in search (not duplicated — `old_id` overlap with `simchas` is 0; the old site filed them there). Legacy images are permanently 404, so 360 blog images and 13 image-only kosher alerts are thin.
-
-#### Follow-up — what isActive and emailVerified actually do, plus the blocked-user filter
-
-Two user fields were traced end to end because their behaviour was not obvious.
-
-**`isActive` is the ban flag.** Read in exactly three places: `auth.ts:127` (password login → `return null`), `auth.ts:37` (Google `signIn` → `return false`), and `notifications.ts:42` (inactive admins stop receiving admin notifications). It blocks **both** sign-in paths, and the code's own comment calls it "banned". The admin table's "Active" switch is therefore the block/unblock control, and it already worked — `/api/admin/users/[id]` accepts `isActive`.
-
-**`emailVerified` is decorative.** It is *written* in three places (the verify-email route, Google sign-in, the admin "Verify" button) and **read by nothing that controls access**. Login does not check it; no route or page checks it. An unverified user has identical access to a verified one — someone can register with a fake address, never click the link, and use the site normally. Currently **66 of 3,146** accounts are verified.
-
-**New: an account-status filter on `/admin/users`** (All / Active / Blocked, with the blocked count shown on the option). Blocking already worked; the missing piece was *finding* blocked accounts among 3,146 users across 158 pages. `buildUserStatusCondition` lives beside the search helper so the page and API cannot diverge.
-
-That helper deliberately treats **NULL `is_active` as active**, because both the login check (`if (!user.isActive)`) and the admin UI (`user.isActive ?? true`) do. "Blocked" means explicitly `false`.
-
-**98 accounts are blocked: 96 from the legacy import, and 2 that predate it** — a distinction that matters, since a blanket "activate everything" would un-ban two genuine blocks. `scripts/legacy-import/verify-blocked-users.ts` lists them with legacy ids. Evidence that the 96 were not real bans: none flagged, all had working passwords, 83 of 101 created in 2010, and ids 1139–1148 are ten *consecutive* legacy signups deactivated together — a bulk event, not 96 decisions. Still Daniel's call; nothing was changed.
-
-**Forgot-password dead ends fixed.** Previously a disabled account received a reset email, reset successfully, and still could not log in (the reset never touches `is_active`) — and the 16 password-less legacy accounts were told "check your email" while the OAuth-only guard silently sent nothing. Now: a disabled account gets an explicit 403 "this account has been disabled, please contact us", and a password-less account is allowed to reset **only when it has no OAuth link** — which distinguishes a legacy import from a genuine Google-only account, whose takeover the guard exists to prevent.
-
-**A reset deliberately does NOT reactivate.** That was the original suggestion here and it was wrong: since `isActive = false` is the ban, letting a reset clear it would let anyone banned un-ban themselves from the forgot-password form.
-
-**`createTestUser` was silently overriding two fields** — it hardcoded `isActive: true` and turned an explicit `passwordHash: null` into the default hash via `||`, so a test could not construct a blocked or password-less account at all. Now `isActive: userData.isActive ?? true` and an `=== undefined` check on the hash. This is what made the first run of the new tests fail for the wrong reason.
-
-**Tests: 293 unit + 50 integration = 343.**
-
-#### 2026-07-30 — verification gate, imported-member verification, blog authorship resolved
-
-**Imported members exported and marked verified.** `scripts/legacy-import/export-imported-members.ts` wrote `imported-members.txt` (3,117 lines: 2,957 linked members + 145 probable opt-outs) **before** any state changed, so the cohort stays identifiable and the change is reversible from the snapshot. The file is **gitignored deliberately** — a private repo still makes committed PII effectively permanent in history.
-
-`scripts/legacy-import/verify-imported-members.ts` then marked them verified, using their **legacy signup date** rather than `now()`, so the record says "this address was on file since then" instead of implying they clicked a link today. Two passes were needed: members with a subscriber row (identified by `old_member_id`), plus the 148 email opt-outs who have a user account but *no* subscriber row and therefore no `old_member_id` — those are matched by email against `MemberList`. Only `email_verified IS NULL` rows are touched.
-
-Result: **3,121 of 3,146 verified**. The remaining 25 are genuine new signups, which is exactly who the gate should catch.
-
-**Blog authorship resolved.** The 416 admin-placeholder posts broke down as 283 with no author email at all (272 empty + 11 NULL), 123 from `benolamhaba@koshernet.com`, and 10 one-offs. Per Daniel: real authors get credit and stay published; the unattributed ones stay unpublished pending a conversation with the client. `scripts/legacy-import/fix-blog-authorship.ts` created 11 accounts (no password, no subscriber row — nothing emailed, nobody can log in until they use forgot-password), reassigned 133 posts, and set `is_active = false` on the 283. The re-publish SQL is printed by the script.
-
-**An earlier claim here was wrong:** `aaron@`, `sara@` and `halachafortoday@` were said to have no accounts. They do — the member import created them and the blog import matched them correctly (133, 5 and 1,011 posts respectively). The placeholder was never about them.
-
-**Submissions now require a verified email.** `assertCanPost()` in `src/lib/auth/require-verified.ts` is applied to all **22** submission endpoints — public content, comments/shoutouts and business/shul applications. Admins are exempt.
-
-Three deliberate design points:
-- It reads `email_verified` from the **database, not the JWT**. `emailVerified` is not in the token, and putting it there would go stale — someone who verified mid-session would keep being refused until their token refreshed, which is the same dead end this work exists to remove.
-- It also re-checks `is_active`, because a session can outlive a block.
-- It does **not** import `auth`. Callers pass `session.user.id`, which avoids a second JWT verification per request and keeps the module importable in tests without dragging next-auth into a non-Next environment. (The first version did import it, and the tests could not load at all.)
-
-**`POST /api/auth/resend-verification` was a prerequisite, not a nicety.** The verification email had only ever been sent once, at registration — there was no resend anywhere in the codebase. Gating on verification without it would have permanently stranded anyone who lost that email. The route requires a session (an endpoint that mails an arbitrary address is a spam relay), replaces outstanding tokens so only the newest link works, enforces a 2-minute cooldown, and awaits the send because serverless functions can terminate as soon as the response is sent.
-
-**`createTestUser` was silently dropping fields twice.** It ignored `emailVerified` entirely (so every test user looked unverified, which is why the gate tests first failed), on top of the earlier `isActive`/`passwordHash` overrides. Both fixed.
-
-**Tests: 293 unit + 58 integration = 351.** `tsc` 0 errors.
-
-**Still open:** the 283 unattributed blog posts await the client conversation; `/shuls`, `/shiurim`, `/community/calendar` still need the server-side conversion (approved, with search + pagination); and `classifieds/[id]/contact` has **no authentication at all**, which the verification gate does not address.
-
-#### 2026-07-30 — classifieds contact endpoint locked down
-
-`POST /api/classifieds/[id]/contact` had **no authentication at all**: anyone on the internet could mail a seller, with no account and no audit trail. It now requires a signed-in, email-verified user like every other submission path.
-
-More importantly, the sender's address is now taken from **the session, not the request body**. The old handler accepted `senderEmail` from the client and used it as the email's `replyTo`, so a caller could put anyone's address there and the seller would see a forged reply-to. `senderEmail` was removed from the Zod schema entirely — zod strips unknown keys, so any client still posting it is ignored rather than erroring. Same reasoning as the pricing rules in this file: never trust the client for anything that matters.
-
-`ContactSellerModal` follows: the email field is now read-only (showing the account address, since an editable field would be a lie once the server ignores it), the client-side email validation is gone, and a signed-out visitor gets a "Sign In Required" branch matching `KosherAlertSubmitModal` — previously they would have filled the whole form and only then hit a 401.
-
-#### 2026-07-30 — a flaky integration test I introduced, and why
-
-One integration run failed and then passed on retry. Cause: `cleanupTestUsers()` in `tests/utils/test-db.ts` deletes **every** `test-%@frumtoronto.test` user, not just the calling file's, and every test file calls it in `beforeAll`/`afterAll`. My new `forgot-password.test.ts` then asserted over *all* `@frumtoronto.test` rows (`expect(testRows.map(r => r.id)).toEqual([blockedId])`), which only holds if no other file's fixtures happen to exist — so it was order-dependent.
-
-Fixed by scoping those assertions to the file's own fixture ids (`toContain` / `not.toContain`) instead of the shared email suffix. Verified with three consecutive clean runs of the full integration suite, 58/58 each.
-
-Worth knowing for any future integration test here: **never assert over the whole `@frumtoronto.test` set.** The shared cleanup makes that inherently racy; assert on ids you created.
-
-#### 2026-07-30 — legacy passwords available as a separate export
-
-`export-imported-members.ts --with-passwords` additionally writes
-`imported-members-passwords.txt` with each member's original legacy password,
-matched by `old_member_id` and falling back to email for the opt-outs (who have no
-subscriber row).
-
-**Two files rather than one, on purpose.** The roster is genuinely useful for
-tracking who came across and can be handled freely; a list of ~2,900 live
-plaintext passwords should not be. Keeping them apart means the useful file does
-not carry the dangerous payload. Both are gitignored.
-
-The plaintext already exists in the legacy MSSQL database, so this creates no new
-secret — but a flat file is far easier to leak by accident than a database behind
-credentials, and because people reuse passwords it is effectively a list of working
-credentials for *other* services too. The file header says so.
-
-Note: the assistant sandbox refuses to generate or read this file, so it has to be
-run manually:
-
-```
-npx tsx scripts/legacy-import/export-imported-members.ts --with-passwords
-```
-
-The same restriction applies to `scripts/legacy-import/show-test-login.js`, which
-prints one verified working credential for testing that the password import works:
-
-```
-node -r dotenv/config scripts/legacy-import/show-test-login.js
-```
-
-#### 2026-07-30 — the 283 unattributed posts published as "FrumToronto Archive"
-
-Decision made: rather than leaving 283 Torah posts credited to `admin@frumtoronto.com` — which to a reader looks like an oversight — they now belong to a named **FrumToronto Archive** account (`archive@frumtoronto.com`, user 3159) and are published.
-
-`scripts/legacy-import/publish-archive-posts.ts` does it (dry-run by default). The archive account has **no password**, so it cannot be logged into; it exists only to own content, and gets no subscriber row so nothing is ever emailed to it.
-
-Result: 283 reassigned and published, 0 posts left on the admin placeholder, visible blog posts back to 3,051. Verified live that the author renders as "FrumToronto Archive" on `/blog/reb-shlomo-zalman-emor`.
-
-Re-hide if the client disagrees: `UPDATE blog_posts SET is_active = false WHERE author_id = 3159;`
-
-**Corrections worth recording, since a client update was drafted from wrong figures:** blocked accounts are **98** (96 from the import plus 2 that predate it), not 92; **3,052** blog posts were imported, not ~400 — the ~400 was only the unattributed subset; **133** of those had a real author, not 123 (123 of them one contributor plus 10 one-offs); and the **1,587 kosher alerts** were a whole import missing from the draft.
+**Agreed direction (planned, NOT built):** a proper `ads` table — image, placement, link type (business page / external / none), link value, optional business, start/end dates, active flag, sort order, approval status — plus an admin page listing everything running with add/toggle/reorder, **businesses uploading with admin approval** (mirroring the video review queue), and a **thumbnail → full-flyer overlay → button to the destination** display so portrait artwork stays readable.
