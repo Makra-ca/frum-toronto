@@ -44,6 +44,9 @@ export default async function ShulPage({ params }: PageProps) {
       and(
         eq(events.shulId, shul.id),
         eq(events.isActive, true),
+        // Without this, pending, rejected and edited-and-unpublished events
+        // all show publicly on the shul's page.
+        eq(events.approvalStatus, "approved"),
         gte(events.startTime, new Date())
       )
     )

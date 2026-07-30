@@ -37,6 +37,9 @@ export async function GET(request: Request, { params }: RouteParams) {
         and(
           eq(events.shulId, shul.id),
           eq(events.isActive, true),
+          // Without this, pending, rejected and edited-and-unpublished events
+          // all show publicly on the shul's page.
+          eq(events.approvalStatus, "approved"),
           gte(events.startTime, new Date())
         )
       )

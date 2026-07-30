@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
       .selectDistinct({ organization: events.organization })
       .from(events)
       .where(
-        sql`${events.organization} ILIKE ${searchTerm} AND ${events.organization} IS NOT NULL AND ${events.organization} != ''`
+        // approval_status is filtered here too: this endpoint is public, and
+        // without it an unapproved event leaks its organisation name.
+        sql`${events.organization} ILIKE ${searchTerm} AND ${events.organization} IS NOT NULL AND ${events.organization} != '' AND ${events.approvalStatus} = 'approved'`
       )
       .orderBy(events.organization)
       .limit(10);
