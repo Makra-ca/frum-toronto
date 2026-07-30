@@ -14,7 +14,7 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
-import { relations, desc } from "drizzle-orm";
+import { relations, desc, sql } from "drizzle-orm";
 
 // ============================================
 // USERS & AUTH
@@ -802,12 +802,16 @@ export const homepageAds = pgTable("homepage_ads", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
-  // Must match migrations/2026-07-30-homepage-ads-three-positions.sql. There is
-  // no ORDER BY for an index to satisfy any more, so the trailing column is the
-  // date window rather than sort_order.
-  index("idx_homepage_ads_live").on(
-    table.placement, table.approvalStatus, table.isActive, table.startsAt, table.endsAt
-  ),
+  // Partial: only live rows are indexed, so it stays small however many rejected
+  // or switched-off ads accumulate.
+  //
+  // The date columns are deliberately absent. The live condition tests
+  // (starts_at IS NULL OR starts_at <= now) — an OR predicate, which cannot drive
+  // an index seek — so trailing them on the key only enlarged the index and made
+  // every write more expensive for no benefit.
+  index("idx_homepage_ads_live")
+    .on(table.placement)
+    .where(sql`approval_status = 'approved' AND is_active = true`),
   // created_at DESC in the database — the review queue reads newest first.
   index("idx_homepage_ads_approval").on(table.approvalStatus, desc(table.createdAt)),
   index("idx_homepage_ads_business").on(table.businessId),
