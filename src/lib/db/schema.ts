@@ -14,7 +14,7 @@ import {
   uniqueIndex,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, desc } from "drizzle-orm";
 
 // ============================================
 // USERS & AUTH
@@ -772,7 +772,11 @@ export const homepageAds = pgTable("homepage_ads", {
   /** Admin-facing label — an image alone is hard to scan in a list. */
   title: varchar("title", { length: 200 }).notNull(),
   imageUrl: varchar("image_url", { length: 500 }).notNull(),
-  /** 'banner' | 'sidebar' */
+  /**
+   * 'banner' | 'sidebar-left' | 'sidebar-right' — three independent positions.
+   * The sidebar was split because HomepageSidebarAds never read its `position`
+   * prop, so both columns rendered identical content.
+   */
   placement: varchar("placement", { length: 20 }).notNull(),
   /** 'business' | 'external' | 'none' — chosen, not inferred from a website field. */
   linkType: varchar("link_type", { length: 20 }).default("none").notNull(),
@@ -786,16 +790,26 @@ export const homepageAds = pgTable("homepage_ads", {
   startsAt: timestamp("starts_at"),
   endsAt: timestamp("ends_at"),
   isActive: boolean("is_active").default(true).notNull(),
+  /**
+   * Retained but UNREAD. Selection is `ORDER BY RANDOM() LIMIT 3` — within a
+   * position every ad is equal. Kept rather than dropped so that adding pinning
+   * later is a small change instead of another migration; nothing reads it, so
+   * it cannot drift.
+   */
   sortOrder: integer("sort_order").default(0).notNull(),
   /** Clicks only. Impressions would mean a write on every homepage render. */
   clickCount: integer("click_count").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+  // Must match migrations/2026-07-30-homepage-ads-three-positions.sql. There is
+  // no ORDER BY for an index to satisfy any more, so the trailing column is the
+  // date window rather than sort_order.
   index("idx_homepage_ads_live").on(
-    table.placement, table.approvalStatus, table.isActive, table.sortOrder
+    table.placement, table.approvalStatus, table.isActive, table.startsAt, table.endsAt
   ),
-  index("idx_homepage_ads_approval").on(table.approvalStatus, table.createdAt),
+  // created_at DESC in the database — the review queue reads newest first.
+  index("idx_homepage_ads_approval").on(table.approvalStatus, desc(table.createdAt)),
   index("idx_homepage_ads_business").on(table.businessId),
 ]);
 
