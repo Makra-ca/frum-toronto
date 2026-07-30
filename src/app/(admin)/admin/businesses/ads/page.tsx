@@ -289,37 +289,43 @@ export default function AdminAdsPage() {
                       </div>
 
                       <div className="flex flex-shrink-0 flex-wrap gap-1">
-                        {ad.approvalStatus === "pending" && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                patch(ad, { approvalStatus: "approved" }, "Ad approved")
-                              }
-                            >
-                              <Check className="mr-1 h-4 w-4" />
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                const reason = window.prompt("Reason for rejecting (optional):");
-                                // null means the prompt was cancelled; an empty
-                                // string means "rejected, no reason given".
-                                if (reason === null) return;
-                                patch(
-                                  ad,
-                                  { approvalStatus: "rejected", rejectionReason: reason || null },
-                                  "Ad rejected"
-                                );
-                              }}
-                            >
-                              <X className="mr-1 h-4 w-4" />
-                              Reject
-                            </Button>
-                          </>
+                        {/*
+                          Approve is offered for REJECTED ads too, not just
+                          pending ones. Rejection is not final: it is usually
+                          "not like this" — the advertiser sends better artwork,
+                          or it was a misclick. Gating approval on `pending`
+                          alone leaves a rejected ad permanently stuck.
+                        */}
+                        {ad.approvalStatus !== "approved" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => patch(ad, { approvalStatus: "approved" }, "Ad approved")}
+                          >
+                            <Check className="mr-1 h-4 w-4" />
+                            Approve
+                          </Button>
+                        )}
+
+                        {ad.approvalStatus !== "rejected" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const reason = window.prompt("Reason for rejecting (optional):");
+                              // null means the prompt was cancelled; an empty
+                              // string means "rejected, no reason given".
+                              if (reason === null) return;
+                              patch(
+                                ad,
+                                { approvalStatus: "rejected", rejectionReason: reason || null },
+                                "Ad rejected"
+                              );
+                            }}
+                          >
+                            <X className="mr-1 h-4 w-4" />
+                            Reject
+                          </Button>
                         )}
 
                         <Button
