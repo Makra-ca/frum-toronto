@@ -1708,3 +1708,99 @@ Urbanist → **Frank Ruhl Libre** (display, `--font-display`) + **Assistant** (U
 **Tests: 61 → 135.** `tsc` 0 errors; `eslint` 0 errors in touched files (43 pre-existing errors elsewhere in the repo, untouched).
 
 **Not done:** `QuickLinks` still duplicates the dial's destinations, and `ZmanimWidget`/`EruvWidget` remain at the bottom of the homepage though the strip now covers them — both left as the owner's call.
+
+---
+
+### 2026-07-29/30 — Legacy MSSQL import: members, simchas, shiva, kosher alerts, blog
+
+Imported the old FrumToronto MSSQL site into Postgres. **~25,700 content rows + 3,052 accounts**, all reconciled against source and re-runnable.
+
+#### Where the legacy data actually lives
+
+The old server (`216.105.90.65`, creds in `.env` as `MSSQL_*`, **read-only**) hosts 6 databases. Two matter:
+
+| What | Source | Rows imported |
+|---|---|---|
+| Members | `FrumToronto.dbo.MemberList` | 3,052 users / 2,957 subscribers |
+| Simchas | `FrumShared.dbo.BlogEntries` cats 114/115/116/117/29 | 16,542 |
+| Shiva | same table, cat 85 | 3,553 |
+| Kosher alerts | same table, cat 43 | 1,587 |
+| Blog | same table, cats 44/96/45 | 3,052 |
+
+**The key structural discovery:** the old site had no simcha/shiva/kosher-alert tables. All three were *blog categories* in one shared `BlogEntries` table (35,007 rows) flagged with `MailerSimchas` / `MailerShiva` / `MailerAlerts`. That is why earlier passes never found them. `FrumToronto.dbo.Members` (12 rows with Admin/SuperAdmin bits) was deliberately **not** imported — creating admin accounts is a security decision, not a migration one.
+
+#### Scripts (`scripts/legacy-import/`)
+
+All are **dry-run by default**; nothing writes without `--commit`. `--limit=N` for a slice, `--repair --commit` to recompute text of already-imported rows in place.
+
+| File | Purpose |
+|---|---|
+| `lib.ts` | MSSQL connect, OLE-date conversion, HTML→text, target connect, CLI opts |
+| `parse.ts` | **Pure** functions only: simcha classifier, shiva name extractor, kosher classifier, HTML sanitizer, slugify |
+| `members.ts` / `simchas.ts` / `shiva.ts` / `kosher-alerts.ts` / `blog.ts` | the importers |
+| `verify-members.ts` | bcrypt round-trip, opt-out respect, flag round-trip |
+| `verify-all.ts` | source-vs-target counts + 22 invariants. **Run this after any re-import.** |
+
+`parse.ts` exists because the runners call `main()` at module scope — importing a runner from a test connected to both live databases as a side effect. Pure logic lives there and is the only thing tests import.
+
+#### Non-obvious decisions (all deliberate)
+
+- **Legacy passwords were plaintext.** Bcrypt-hashed at cost 12 on import (matching `/api/auth/register`), so members keep the password they know. Verified by `bcrypt.compare` against source on a 25-row sample.
+- **156 `RemoveMe` members** asked the old site to stop emailing them. They get a user account (login preserved) but **no `email_subscribers` row at all** — absence of the row is what actually guarantees no email. `verify-all.ts` asserts this stays true.
+- **`newsletter` is set explicitly from the legacy `Subscribe` flag**, never left to its column default of `true`, which would have opted in ~1,500 people who never subscribed.
+- **141 duplicate emails** (177 surplus rows): newest row wins, flags are *not* merged across rows — merging could re-enable something a member turned off.
+- **`event_date` on simchas stays NULL.** The legacy row records when the announcement was *posted*, not when the simcha happened. The post date goes to `created_at` (what the page sorts by). Copying it into a calendar-icon field would present an inference as fact.
+- **`photo_url` stays NULL.** `BlogPicture`/`BlogPictureURL` are empty on all 16,542 rows; `BlogImage` holds a generic badge filename (`MazelTov.JPG`, `ring.jpg`), not a family photo.
+- **Shiva prose had nowhere to go.** `shiva_notifications` models structured logistics; legacy notices are one prose block. Added nullable **`notice_text`** rather than overloading `levaya_info`. `shiva_start` = post date, `shiva_end` = +7 (both NOT NULL, never recorded in source); all are long expired so the `shiva_end >= today` filter keeps them off the public page. Mourner/address/davening fields stay NULL — regexing logistics for real families would fabricate data.
+- **Blog keeps its HTML** (that page uses `dangerouslySetInnerHTML`), so it is **sanitized** by `sanitizeLegacyHtml` — the repo has no sanitizer dependency. 28 tests cover script/iframe/`on*`/`javascript:`/`expression()` vectors.
+- **12 numbered Q&A rows in Message Board (cat 44) are skipped** — they are Ask-the-Rabbi content that already lives in `ask_the_rabbi` from cat 98. Importing them would duplicate it.
+- **Blog authorship:** matched to existing users by legacy email (2,636, mostly `rochel@frumtoronto.com`); the remaining **416 are attributed to `admin@frumtoronto.com` as a placeholder**, not a claim of authorship. Change with an `UPDATE blog_posts SET author_id = ... WHERE old_id IS NOT NULL`.
+
+#### Two real bugs found and fixed
+
+1. **Windows-1252 numeric entities.** The legacy editor stored `’` as `&#146;` — a cp1252 *byte* value, which is an invisible C1 control character in Unicode. `String.fromCodePoint` therefore produced garbage, corrupting **1,168 of 16,542** simcha rows ("Canadas" instead of "Canada’s"). Fixed with a cp1252 table in `safeCodePoint`, plus support for **unterminated** entities (`&#146Mitzvos`, no semicolon) and **double-encoded** rows (`&amp;amp;`, `&lt;br&gt;`) via strip-then-decode to a fixed point. Repaired in place with `simchas.ts --repair --commit`.
+2. **`/kosher-alerts` took 46 seconds** after the import — `select()` with no LIMIT under `force-dynamic`, rendering all 1,588 rows per request. Same latent bug `/simchas` had. Both now paginate; kosher-alerts is 1.5s cold / 0.3s warm.
+
+#### Pagination
+
+New reusable **`src/components/ui/PaginationLinks.tsx`** — link-based, for server components (shareable URLs, works without JS, no hydration). `BlogListing.tsx` keeps its client-side version; that page streams over an API.
+
+Applied to `/simchas` (24/page, 690 pages) and `/kosher-alerts` (25/page). Both order by `created_at DESC, id DESC` — **the `id` tiebreaker is required**: many legacy rows share a `created_at`, and without it `OFFSET` paging repeats or skips rows. Out-of-range pages show "That page doesn't exist" with a link back rather than a misleading "nothing here". Admin APIs already paginated (20/page) — unchanged.
+
+#### Migrations (applied to primary)
+
+- `migrations/2026-07-29-legacy-import-old-id.sql` — `old_id` on simchas/shiva/kosher_alerts/blog_posts + **partial UNIQUE indexes** (`WHERE old_id IS NOT NULL`) so duplicate imports are impossible at the DB level, not merely unlikely in script logic. Also a unique index on the long-dormant `email_subscribers.old_member_id` (declared in schema since the first migration, never written to by any code until now) and `idx_simchas_listing`.
+- `migrations/2026-07-29-shiva-notice-text.sql` — `notice_text` + `idx_shiva_notifications_window`.
+
+New generic runner `scripts/apply-sql-file.ts <file.sql> [--test]`; it **refuses** files containing DROP/TRUNCATE/DELETE.
+
+#### Known content loss (unavoidable)
+
+Legacy images were served from `www.frumtoronto.com/Local/CalendarImages/` and the old server; **both return 404 today**, so they cannot be preserved or rehosted. Dropped rather than rendered broken: **360** in blog posts, and **13 kosher alerts** whose payload *was* the image (e.g. a Costco Kosher-for-Passover list) are now title-plus-thin-text. Same for `Vaughan Garbage Collection info`.
+
+#### Verification
+
+`verify-all.ts`: all four content counts match source exactly, 22/22 invariants at 0 (no duplicate `old_id`, no markup/entities/control chars in plain-text columns, no `<script>`/`on*`/`javascript:`/`iframe`/dead-image in blog HTML, no empty NOT NULL columns, no orphan FKs, no opted-out member emailable). All five importers re-run to **0 inserts**. Tests **162 → 247** (+85: 33 lib, 24 shiva-name, 28 sanitizer/classifier); `tsc` 0 errors; `eslint` clean on touched files. Pages checked live: `/simchas` (+filter, last page, out-of-range, junk `?page=`), `/kosher-alerts`, `/blog`, `/shiva`, two legacy blog posts.
+
+#### Follow-ups (owner's call)
+
+- **3,052 accounts can now receive email**, carrying legacy opt-ins (1,515 newsletter, 1,227 simchas, 1,684 eruv, 1,929 community alerts). These people opted into the *old* site; some addresses are untouched since 2012. Consider a re-permission email before the first big send, and expect bounces.
+- **134 shiva names (3.8%)** are flagged as needing review — titles that never named the niftar ("Rabbi Nosson Walden on the loss of his mother"). Re-list them with `npx tsx scripts/legacy-import/shiva.ts` (dry run prints them).
+- 416 blog posts attributed to the admin placeholder.
+- `notice_text` is stored but not surfaced in any UI (every legacy notice is expired, so nothing renders it).
+- **The Neon test branch credentials no longer authenticate** (`ep-long-band-ahaha6ks`, `.env.test`) — `npm run test:integration` is broken until it is recreated. This import therefore ran against the primary DB with dry-run-by-default as the safety net.
+- Still available in the legacy DB, not imported: `Shidduchim`, `BikurCholim`, `CommunityServices`, `WeeklySpecials`, `Advertisements`, `TellAFriendList`, `Raffle`, plus blog cats `Halacha for Today` sibling categories (`Shemiras Halashon` 178, `Thoughts for the Week` 191, `Articles of Interest` 223, `Israel News` 75, and others).
+
+#### Follow-up same session — admin users pagination + imported opt-ins switched off
+
+**Imported opt-ins cleared.** `scripts/legacy-import/set-imported-optins.ts --off --commit` zeroed the 8 broadcast preferences on **2,220** imported subscribers (newsletter/simchas/shiva/kosher_alerts/tehillim/eruv_status/community_alerts/community_events all now 0). Nobody is locked out — they can re-enable themselves at **`/dashboard/settings`** (they kept their old password) or at **`/newsletter/preferences?token=<unsubscribe_token>`** with no login, and that page sets flags to true as well as false. `--restore --commit` re-derives the original flags from the legacy `MemberList`, so this is reversible without a backup. The three *reactive* preferences (`ask_the_rabbi_answered`, `atr_comment_replies`, `blog_comment_notifications`) were deliberately left alone: they only fire in response to something the person posts themselves, so muting them would break a feature rather than respect a consent boundary.
+
+**`/admin/users` was genuinely broken** by the import — 44 rows to 3,146, with `UserTable.tsx` having no search, no filter and no pagination, rendering every row with all 24 permission columns. Now server-side paginated (20/page, 158 pages) with a debounced search (name/email) and a role filter, both driven through the URL so Postgres does the filtering. `/api/admin/users` was rewritten: it takes `page`/`limit`/`search`/`role`, returns `{data, pagination}` like the other admin endpoints, and caps `limit` at 100 so nothing can pull the whole table again.
+
+**Gotcha worth remembering:** `UserTable` seeds local state via `useState(initialUsers)` for optimistic row updates, and React keeps that state across a filter or page change — the new rows would render behind stale state. The page passes `key={page|search|role}` to force a fresh mount per result set.
+
+**A second breakage the import caused:** `UserShulAssignment.tsx` filled its "Select User" dropdown with *every* user via `/api/admin/users`, so it had 3,146 entries — and paginating that API would have silently shrunk it to 20 without any error. Replaced with a debounced type-to-search picker (`?search=&limit=50`) listing up to 50 matches.
+
+**Audited, deliberately not changed:** every other admin API already paginates at 20/page. The remaining unbounded endpoints are all tiny (classified-categories 49, notifications 21, shiurim 10, shul-neighborhoods 8, simcha-types 7, important-numbers/shul-requests/community-newsletters 0), as are the unbounded public pages (`/alerts` 1, `/community/tehillim` 2, `/newsletters` 7, `/shiva` **0 visible** since every legacy notice is expired). `admin/newsletter-segments` was flagged as a risk and then cleared on reading it: it already counts with `COUNT(*)` rather than fetching subscriber rows — it has an N+1 (one count per segment) but that is harmless for an admin-curated list.
+
+**Verification:** `scripts/legacy-import/verify-users-paging.ts` walks all 158 pages and proves exact coverage — 3,146 distinct ids, **0 duplicates**, repeatable ordering, filters agreeing with independent counts, out-of-range pages returning empty. It also reports that **17 `created_at` values are shared by more than one user**, which is the concrete reason the `id` tiebreaker is required rather than merely tidy. Admin pages could not be loaded end-to-end because they sit behind admin auth and no password was available; they were confirmed to compile and guard correctly (307 redirect, API 401). `tsc` 0 errors, 247 tests pass, `eslint` clean on touched files apart from one pre-existing unused-`error` warning in `UserShulAssignment` that predates this work.

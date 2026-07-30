@@ -1,12 +1,13 @@
 import { db } from "@/lib/db";
 import { simchas, simchaTypes } from "@/lib/db/schema";
-import { desc, eq, and } from "drizzle-orm";
+import { desc, eq, and, sql } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PartyPopper, Calendar, MapPin, Info } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { SimchaSubmitModal } from "@/components/simchas/SimchaSubmitModal";
+import { PaginationLinks } from "@/components/ui/PaginationLinks";
 
 export const metadata = {
   title: "Simchas - FrumToronto",
@@ -15,7 +16,10 @@ export const metadata = {
 
 export const revalidate = 300; // Cache for 5 minutes
 
-async function getSimchas(typeSlug?: string) {
+// Divisible by both 2 and 3 so the last row of the responsive grid is never ragged.
+const PAGE_SIZE = 24;
+
+async function getSimchas(typeSlug: string | undefined, page: number) {
   const conditions = [
     eq(simchas.isActive, true),
     eq(simchas.approvalStatus, "approved"),
@@ -23,25 +27,41 @@ async function getSimchas(typeSlug?: string) {
   if (typeSlug) {
     conditions.push(eq(simchaTypes.slug, typeSlug));
   }
+  const whereClause = and(...conditions);
 
-  const simchasList = await db
-    .select({
-      id: simchas.id,
-      familyName: simchas.familyName,
-      announcement: simchas.announcement,
-      eventDate: simchas.eventDate,
-      location: simchas.location,
-      photoUrl: simchas.photoUrl,
-      createdAt: simchas.createdAt,
-      typeName: simchaTypes.name,
-      typeSlug: simchaTypes.slug,
-    })
-    .from(simchas)
-    .leftJoin(simchaTypes, eq(simchas.typeId, simchaTypes.id))
-    .where(and(...conditions))
-    .orderBy(desc(simchas.createdAt));
+  // The archive holds ~16.5k announcements imported from the legacy site, so
+  // both the page window and the count have to be pushed down to Postgres —
+  // this page used to select every row and render all of them.
+  const [rows, countRows] = await Promise.all([
+    db
+      .select({
+        id: simchas.id,
+        familyName: simchas.familyName,
+        announcement: simchas.announcement,
+        eventDate: simchas.eventDate,
+        location: simchas.location,
+        photoUrl: simchas.photoUrl,
+        createdAt: simchas.createdAt,
+        typeName: simchaTypes.name,
+        typeSlug: simchaTypes.slug,
+      })
+      .from(simchas)
+      .leftJoin(simchaTypes, eq(simchas.typeId, simchaTypes.id))
+      .where(whereClause)
+      .orderBy(desc(simchas.createdAt), desc(simchas.id))
+      .limit(PAGE_SIZE)
+      .offset((page - 1) * PAGE_SIZE),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(simchas)
+      .leftJoin(simchaTypes, eq(simchas.typeId, simchaTypes.id))
+      .where(whereClause),
+  ]);
 
-  return simchasList;
+  return {
+    items: rows,
+    totalCount: Number(countRows[0]?.count ?? 0),
+  };
 }
 
 async function getSimchaTypes() {
@@ -53,16 +73,31 @@ async function getSimchaTypes() {
   return types;
 }
 
+/** Parses ?page= defensively: junk, 0 and negatives all fall back to page 1. */
+function parsePage(raw: string | undefined): number {
+  const n = Number.parseInt(raw ?? "1", 10);
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
 export default async function SimchasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string }>;
+  searchParams: Promise<{ type?: string; page?: string }>;
 }) {
-  const { type: activeType } = await searchParams;
-  const [simchasList, types] = await Promise.all([
-    getSimchas(activeType),
+  const { type: activeType, page: pageParam } = await searchParams;
+  const requestedPage = parsePage(pageParam);
+
+  const [{ items: simchasList, totalCount }, types] = await Promise.all([
+    getSimchas(activeType, requestedPage),
     getSimchaTypes(),
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  // A page number past the end returns no rows; report the clamped value so the
+  // pagination control still highlights a real page.
+  const currentPage = Math.min(requestedPage, totalPages);
+  const firstShown = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const lastShown = Math.min(currentPage * PAGE_SIZE, totalCount);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -121,10 +156,25 @@ export default async function SimchasPage({
             <CardContent className="py-12 text-center">
               <Info className="h-12 w-12 mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {activeType ? "No simchas of this type yet" : "No Simchas Posted"}
+                {totalCount > 0
+                  ? "That page doesn't exist"
+                  : activeType
+                    ? "No simchas of this type yet"
+                    : "No Simchas Posted"}
               </h3>
               <p className="text-gray-500">
-                {activeType ? (
+                {totalCount > 0 ? (
+                  <>
+                    There {totalCount === 1 ? "is" : "are"} only {totalPages}{" "}
+                    {totalPages === 1 ? "page" : "pages"} of simchas.{" "}
+                    <Link
+                      href={activeType ? `/simchas?type=${activeType}` : "/simchas"}
+                      className="text-purple-600 hover:underline"
+                    >
+                      Back to the first page
+                    </Link>
+                  </>
+                ) : activeType ? (
                   <>
                     There are no simchas in this category right now.{" "}
                     <Link href="/simchas" className="text-purple-600 hover:underline">
@@ -138,6 +188,11 @@ export default async function SimchasPage({
             </CardContent>
           </Card>
         ) : (
+          <>
+            <p className="text-sm text-gray-500 mb-6">
+              Showing {firstShown.toLocaleString()}&ndash;{lastShown.toLocaleString()} of{" "}
+              {totalCount.toLocaleString()} simcha{totalCount === 1 ? "" : "s"}
+            </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {simchasList.map((simcha) => (
               <Card key={simcha.id} className="overflow-hidden hover:shadow-lg transition-shadow">
@@ -184,7 +239,15 @@ export default async function SimchasPage({
                 </CardContent>
               </Card>
             ))}
-          </div>
+            </div>
+
+            <PaginationLinks
+              basePath="/simchas"
+              currentPage={currentPage}
+              totalPages={totalPages}
+              preserveParams={{ type: activeType }}
+            />
+          </>
         )}
       </div>
     </div>

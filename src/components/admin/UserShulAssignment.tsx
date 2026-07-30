@@ -35,7 +35,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, Trash2, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 
 interface Assignment {
@@ -78,36 +79,63 @@ export function UserShulAssignment({ assignments, onRefresh }: UserShulAssignmen
   const [deletingAssignment, setDeletingAssignment] = useState<Assignment | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  const [userSearch, setUserSearch] = useState("");
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [shuls, setShuls] = useState<Shul[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [selectedShulId, setSelectedShulId] = useState<string>("");
   const [loadingData, setLoadingData] = useState(false);
 
-  async function loadUsersAndShuls() {
+  /**
+   * Users are fetched by search rather than all at once. The legacy import took
+   * this table to ~3,150 rows, so the old "select every user into a dropdown"
+   * approach produced an unusable list — and /api/admin/users is now paginated,
+   * so it would only ever have returned the first page anyway.
+   */
+  async function loadUsers(search: string) {
+    setLoadingUsers(true);
+    try {
+      const params = new URLSearchParams({ limit: "50" });
+      if (search.trim()) params.set("search", search.trim());
+
+      const res = await fetch(`/api/admin/users?${params.toString()}`);
+      if (res.ok) {
+        const payload = await res.json();
+        setUsers(payload.data ?? []);
+      }
+    } catch (error) {
+      console.error("Error loading users:", error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  }
+
+  async function loadShuls() {
     setLoadingData(true);
     try {
-      const [usersRes, shulsRes] = await Promise.all([
-        fetch("/api/admin/users"),
-        fetch("/api/admin/shuls"),
-      ]);
-
-      if (usersRes.ok) {
-        const usersData = await usersRes.json();
-        setUsers(usersData);
-      }
+      const shulsRes = await fetch("/api/admin/shuls");
       if (shulsRes.ok) {
         const shulsData = await shulsRes.json();
         setShuls(shulsData);
       }
     } catch (error) {
-      console.error("Error loading data:", error);
+      console.error("Error loading shuls:", error);
     } finally {
       setLoadingData(false);
     }
   }
 
+  // Debounced re-query while the dialog is open.
+  useEffect(() => {
+    if (!isDialogOpen) return;
+    const t = setTimeout(() => loadUsers(userSearch), 300);
+    return () => clearTimeout(t);
+  }, [userSearch, isDialogOpen]);
+
   function openAssignDialog() {
-    loadUsersAndShuls();
+    setUserSearch("");
+    loadShuls();
+    loadUsers("");
     setSelectedUserId("");
     setSelectedShulId("");
     setIsDialogOpen(true);
@@ -246,19 +274,57 @@ export function UserShulAssignment({ assignments, onRefresh }: UserShulAssignmen
             ) : (
               <>
                 <div className="space-y-2">
-                  <Label>Select User</Label>
-                  <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a user" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {users.map((user) => (
-                        <SelectItem key={user.id} value={user.id.toString()}>
-                          {user.firstName} {user.lastName} ({user.email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="user-search">Select User</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Input
+                      id="user-search"
+                      type="search"
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                      placeholder="Search by name or email…"
+                      className="pl-9"
+                      autoComplete="off"
+                    />
+                  </div>
+
+                  <div className="max-h-56 overflow-y-auto rounded-md border border-gray-200 divide-y">
+                    {loadingUsers ? (
+                      <div className="flex items-center justify-center py-6">
+                        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                      </div>
+                    ) : users.length === 0 ? (
+                      <p className="px-3 py-6 text-center text-sm text-gray-500">
+                        No users match that search.
+                      </p>
+                    ) : (
+                      users.map((user) => {
+                        const isSelected = selectedUserId === user.id.toString();
+                        return (
+                          <button
+                            key={user.id}
+                            type="button"
+                            onClick={() => setSelectedUserId(user.id.toString())}
+                            aria-pressed={isSelected}
+                            className={`block w-full px-3 py-2 text-left text-sm transition-colors ${
+                              isSelected
+                                ? "bg-blue-50 text-blue-900"
+                                : "hover:bg-gray-50 text-gray-700"
+                            }`}
+                          >
+                            <span className="font-medium">
+                              {user.firstName} {user.lastName}
+                            </span>{" "}
+                            <span className="text-gray-500">({user.email})</span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Showing up to 50 matches &mdash; refine the search if the person
+                    you want is not listed.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Select Shul</Label>

@@ -552,6 +552,7 @@ export const simchas = pgTable("simchas", {
   approvalStatus: varchar("approval_status", { length: 20 }).default("pending"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
+  oldId: integer("old_id"), // migration mapping (legacy FrumShared.BlogEntries.BlogEntryID)
 });
 
 // ============================================
@@ -572,12 +573,17 @@ export const shivaNotifications = pgTable("shiva_notifications", {
   levayaInfo: text("levaya_info"), // Funeral details (time, location)
   zoomInfo: text("zoom_info"), // Zoom link / dial-in for remote participation
   minyanInfo: text("minyan_info"), // "Help making the minyan" — needs/times
+  // Verbatim prose body of a legacy (pre-migration) notice, which was a single
+  // free-text announcement rather than the structured fields above. NULL for
+  // everything created natively.
+  noticeText: text("notice_text"),
   attachmentUrl: varchar("attachment_url", { length: 500 }), // Original Misaskim JPEG/PDF
   mealInfo: text("meal_info"),
   donationInfo: text("donation_info"),
   contactPhone: varchar("contact_phone", { length: 40 }),
   approvalStatus: varchar("approval_status", { length: 20 }).default("approved"),
   createdAt: timestamp("created_at").defaultNow(),
+  oldId: integer("old_id"), // migration mapping (legacy FrumShared.BlogEntries.BlogEntryID)
 });
 
 // ============================================
@@ -611,6 +617,7 @@ export const kosherAlerts = pgTable("kosher_alerts", {
   approvalStatus: varchar("approval_status", { length: 20 }).default("pending"), // pending, approved, rejected
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
+  oldId: integer("old_id"), // migration mapping (legacy FrumShared.BlogEntries.BlogEntryID)
 });
 
 // ============================================
@@ -671,6 +678,7 @@ export const blogPosts = pgTable("blog_posts", {
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  oldId: integer("old_id"), // migration mapping (legacy FrumShared.BlogEntries.BlogEntryID)
 }, (table) => [
   index("idx_blog_posts_listing").on(table.approvalStatus, table.isActive, table.publishedAt),
   index("idx_blog_posts_author").on(table.authorId),

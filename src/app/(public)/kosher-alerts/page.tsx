@@ -1,10 +1,12 @@
 import { db } from "@/lib/db";
 import { kosherAlerts } from "@/lib/db/schema";
-import { desc, eq, and } from "drizzle-orm";
+import { desc, eq, and, sql } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Info, Calendar, Package } from "lucide-react";
 import { KosherAlertSubmitModal } from "@/components/kosher-alerts/KosherAlertSubmitModal";
+import Link from "next/link";
+import { PaginationLinks } from "@/components/ui/PaginationLinks";
 
 export const metadata = {
   title: "Kosher Alerts - FrumToronto",
@@ -13,19 +15,40 @@ export const metadata = {
 
 export const dynamic = "force-dynamic"; // Fresh data always
 
-async function getKosherAlerts() {
-  const alerts = await db
-    .select()
-    .from(kosherAlerts)
-    .where(
-      and(
-        eq(kosherAlerts.isActive, true),
-        eq(kosherAlerts.approvalStatus, "approved")
-      )
-    )
-    .orderBy(desc(kosherAlerts.createdAt));
+const PAGE_SIZE = 25;
 
-  return alerts;
+async function getKosherAlerts(page: number) {
+  const whereClause = and(
+    eq(kosherAlerts.isActive, true),
+    eq(kosherAlerts.approvalStatus, "approved")
+  );
+
+  // The archive holds ~1,600 alerts imported from the legacy site. This page is
+  // force-dynamic, so without a LIMIT every request fetched and rendered all of
+  // them — measured at 46s once the legacy import landed.
+  const [rows, countRows] = await Promise.all([
+    db
+      .select()
+      .from(kosherAlerts)
+      .where(whereClause)
+      // id breaks ties: many legacy alerts share a created_at, and without a
+      // stable tiebreaker OFFSET paging can repeat or skip rows.
+      .orderBy(desc(kosherAlerts.createdAt), desc(kosherAlerts.id))
+      .limit(PAGE_SIZE)
+      .offset((page - 1) * PAGE_SIZE),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(kosherAlerts)
+      .where(whereClause),
+  ]);
+
+  return { items: rows, totalCount: Number(countRows[0]?.count ?? 0) };
+}
+
+/** Parses ?page= defensively: junk, 0 and negatives all fall back to page 1. */
+function parsePage(raw: string | undefined): number {
+  const n = Number.parseInt(raw ?? "1", 10);
+  return Number.isFinite(n) && n >= 1 ? n : 1;
 }
 
 function getAlertTypeBadge(type: string | null) {
@@ -56,8 +79,19 @@ function getAlertBorderColor(type: string | null) {
   }
 }
 
-export default async function KosherAlertsPage() {
-  const alerts = await getKosherAlerts();
+export default async function KosherAlertsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const { page: pageParam } = await searchParams;
+  const requestedPage = parsePage(pageParam);
+  const { items: alerts, totalCount } = await getKosherAlerts(requestedPage);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const currentPage = Math.min(requestedPage, totalPages);
+  const firstShown = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const lastShown = Math.min(currentPage * PAGE_SIZE, totalCount);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -89,11 +123,19 @@ export default async function KosherAlertsPage() {
             <CardContent className="py-12 text-center">
               <Info className="h-12 w-12 mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No Active Alerts
+                {totalCount > 0 ? "That page doesn't exist" : "No Active Alerts"}
               </h3>
               <p className="text-gray-500 mb-4">
-                There are currently no kosher alerts to display.
-                Check back later for updates.
+                {totalCount > 0 ? (
+                  <>
+                    There are only {totalPages} {totalPages === 1 ? "page" : "pages"} of alerts.{" "}
+                    <Link href="/kosher-alerts" className="text-red-700 hover:underline">
+                      Back to the first page
+                    </Link>
+                  </>
+                ) : (
+                  "There are currently no kosher alerts to display. Check back later for updates."
+                )}
               </p>
               <p className="text-sm text-gray-400">
                 Know of a kosher concern? Use the &quot;Report Kosher Alert&quot; button above
@@ -102,7 +144,12 @@ export default async function KosherAlertsPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <>
+            <p className="text-sm text-gray-500 mb-6">
+              Showing {firstShown.toLocaleString()}&ndash;{lastShown.toLocaleString()} of{" "}
+              {totalCount.toLocaleString()} alert{totalCount === 1 ? "" : "s"}
+            </p>
+            <div className="space-y-4">
             {alerts.map((alert) => (
               <Card key={alert.id} className={`border-l-4 ${getAlertBorderColor(alert.alertType)}`}>
                 <CardHeader>
@@ -144,7 +191,14 @@ export default async function KosherAlertsPage() {
                 </CardContent>
               </Card>
             ))}
-          </div>
+            </div>
+
+            <PaginationLinks
+              basePath="/kosher-alerts"
+              currentPage={currentPage}
+              totalPages={totalPages}
+            />
+          </>
         )}
 
         {/* Disclaimer */}
