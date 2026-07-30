@@ -5,6 +5,7 @@ import { daveningSchedules, shuls } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { canUserManageShul } from "@/lib/auth/permissions";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -66,6 +67,11 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Submissions require a verified email address (admins exempt). Also
+    // re-checks the account is not disabled, since a session can outlive a block.
+    const notAllowed = await assertCanPost(session?.user?.id);
+    if (notAllowed) return notAllowed;
 
     const { id } = await params;
     const shulId = parseInt(id);

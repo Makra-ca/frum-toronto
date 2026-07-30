@@ -5,6 +5,7 @@ import { shivaNotifications, users } from "@/lib/db/schema";
 import { eq, and, gte } from "drizzle-orm";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { sendShivaNoticeEmail } from "@/lib/email/send";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 // GET - Fetch all approved, active shiva notices
 export async function GET() {
@@ -43,6 +44,11 @@ export async function POST(request: Request) {
         { status: 401 }
       );
     }
+
+    // Submissions require a verified email address (admins exempt). Also
+    // re-checks the account is not disabled, since a session can outlive a block.
+    const notAllowed = await assertCanPost(session?.user?.id);
+    if (notAllowed) return notAllowed;
 
     const body = await request.json();
     const {

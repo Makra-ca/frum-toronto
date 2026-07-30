@@ -51,6 +51,9 @@ export async function createTestUser(userData: Partial<typeof schema.users.$infe
       // `?? true` so a test can create a blocked account (is_active = false is
       // this project's ban flag) rather than always getting an active one.
       isActive: userData.isActive ?? true,
+      // Passed through so tests can build a verified account; submissions are
+      // gated on this, so without it every test user looks unverified.
+      emailVerified: userData.emailVerified ?? null,
       isTrusted: userData.isTrusted ?? false,
       canAutoApproveKosherAlerts: userData.canAutoApproveKosherAlerts ?? false,
       canAutoApproveShiva: userData.canAutoApproveShiva ?? false,

@@ -5,6 +5,7 @@ import { askTheRabbi, askTheRabbiComments, users } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +94,11 @@ export async function POST(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
+
+    // Submissions require a verified email address (admins exempt). Also
+    // re-checks the account is not disabled, since a session can outlive a block.
+    const notAllowed = await assertCanPost(session?.user?.id);
+    if (notAllowed) return notAllowed;
 
     const { id } = await params;
     const questionId = parseInt(id);

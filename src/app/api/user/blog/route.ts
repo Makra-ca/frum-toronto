@@ -5,6 +5,7 @@ import { blogPosts, blogCategories, users } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { blogPostSchema } from "@/lib/validations/blog";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 function generateSlug(name: string): string {
   return name
@@ -85,6 +86,11 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Submissions require a verified email address (admins exempt). Also
+    // re-checks the account is not disabled, since a session can outlive a block.
+    const notAllowed = await assertCanPost(session?.user?.id);
+    if (notAllowed) return notAllowed;
 
     const body = await request.json();
     const result = blogPostSchema.safeParse(body);

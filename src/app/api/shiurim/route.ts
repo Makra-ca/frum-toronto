@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { shiurim, shuls, users } from "@/lib/db/schema";
 import { eq, and, asc, isNull, or } from "drizzle-orm";
 import { auth } from "@/lib/auth/auth";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 interface ScheduleEntry {
   start?: string;
@@ -170,6 +171,11 @@ export async function POST(request: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Submissions require a verified email address (admins exempt). Also
+    // re-checks the account is not disabled, since a session can outlive a block.
+    const notAllowed = await assertCanPost(session?.user?.id);
+    if (notAllowed) return notAllowed;
 
     // Check if user has permission to auto-approve shiurim
     const userId = parseInt(session.user.id);

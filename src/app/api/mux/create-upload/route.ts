@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { businesses, subscriptionPlans } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { createDirectUpload, deleteAsset } from "@/lib/mux/client";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,11 @@ export async function POST(request: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Submissions require a verified email address (admins exempt). Also
+    // re-checks the account is not disabled, since a session can outlive a block.
+    const notAllowed = await assertCanPost(session?.user?.id);
+    if (notAllowed) return notAllowed;
 
     const body = await request.json();
     const { businessId: rawBusinessId } = body;

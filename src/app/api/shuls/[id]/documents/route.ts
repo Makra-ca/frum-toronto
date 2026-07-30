@@ -6,6 +6,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { canUserManageShul } from "@/lib/auth/permissions";
 import { z } from "zod";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 // Notification prep only — never let a name lookup fail the request
 async function getShulName(shulId: number): Promise<string> {
@@ -72,6 +73,11 @@ export async function POST(
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Submissions require a verified email address (admins exempt). Also
+    // re-checks the account is not disabled, since a session can outlive a block.
+    const notAllowed = await assertCanPost(session?.user?.id);
+    if (notAllowed) return notAllowed;
 
     const { id } = await params;
     const shulId = parseInt(id);

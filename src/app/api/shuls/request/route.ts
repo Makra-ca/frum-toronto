@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { shulRegistrationRequests, userShuls, shuls } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 // POST - create a request to manage a shul
 export async function POST(request: Request) {
@@ -13,6 +14,11 @@ export async function POST(request: Request) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Submissions require a verified email address (admins exempt). Also
+    // re-checks the account is not disabled, since a session can outlive a block.
+    const notAllowed = await assertCanPost(session?.user?.id);
+    if (notAllowed) return notAllowed;
 
     const userId = parseInt(session.user.id);
     const body = await request.json();

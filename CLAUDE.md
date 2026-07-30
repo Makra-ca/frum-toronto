@@ -1973,3 +1973,30 @@ That helper deliberately treats **NULL `is_active` as active**, because both the
 **`createTestUser` was silently overriding two fields** — it hardcoded `isActive: true` and turned an explicit `passwordHash: null` into the default hash via `||`, so a test could not construct a blocked or password-less account at all. Now `isActive: userData.isActive ?? true` and an `=== undefined` check on the hash. This is what made the first run of the new tests fail for the wrong reason.
 
 **Tests: 293 unit + 50 integration = 343.**
+
+#### 2026-07-30 — verification gate, imported-member verification, blog authorship resolved
+
+**Imported members exported and marked verified.** `scripts/legacy-import/export-imported-members.ts` wrote `imported-members.txt` (3,117 lines: 2,957 linked members + 145 probable opt-outs) **before** any state changed, so the cohort stays identifiable and the change is reversible from the snapshot. The file is **gitignored deliberately** — a private repo still makes committed PII effectively permanent in history.
+
+`scripts/legacy-import/verify-imported-members.ts` then marked them verified, using their **legacy signup date** rather than `now()`, so the record says "this address was on file since then" instead of implying they clicked a link today. Two passes were needed: members with a subscriber row (identified by `old_member_id`), plus the 148 email opt-outs who have a user account but *no* subscriber row and therefore no `old_member_id` — those are matched by email against `MemberList`. Only `email_verified IS NULL` rows are touched.
+
+Result: **3,121 of 3,146 verified**. The remaining 25 are genuine new signups, which is exactly who the gate should catch.
+
+**Blog authorship resolved.** The 416 admin-placeholder posts broke down as 283 with no author email at all (272 empty + 11 NULL), 123 from `benolamhaba@koshernet.com`, and 10 one-offs. Per Daniel: real authors get credit and stay published; the unattributed ones stay unpublished pending a conversation with the client. `scripts/legacy-import/fix-blog-authorship.ts` created 11 accounts (no password, no subscriber row — nothing emailed, nobody can log in until they use forgot-password), reassigned 133 posts, and set `is_active = false` on the 283. The re-publish SQL is printed by the script.
+
+**An earlier claim here was wrong:** `aaron@`, `sara@` and `halachafortoday@` were said to have no accounts. They do — the member import created them and the blog import matched them correctly (133, 5 and 1,011 posts respectively). The placeholder was never about them.
+
+**Submissions now require a verified email.** `assertCanPost()` in `src/lib/auth/require-verified.ts` is applied to all **22** submission endpoints — public content, comments/shoutouts and business/shul applications. Admins are exempt.
+
+Three deliberate design points:
+- It reads `email_verified` from the **database, not the JWT**. `emailVerified` is not in the token, and putting it there would go stale — someone who verified mid-session would keep being refused until their token refreshed, which is the same dead end this work exists to remove.
+- It also re-checks `is_active`, because a session can outlive a block.
+- It does **not** import `auth`. Callers pass `session.user.id`, which avoids a second JWT verification per request and keeps the module importable in tests without dragging next-auth into a non-Next environment. (The first version did import it, and the tests could not load at all.)
+
+**`POST /api/auth/resend-verification` was a prerequisite, not a nicety.** The verification email had only ever been sent once, at registration — there was no resend anywhere in the codebase. Gating on verification without it would have permanently stranded anyone who lost that email. The route requires a session (an endpoint that mails an arbitrary address is a spam relay), replaces outstanding tokens so only the newest link works, enforces a 2-minute cooldown, and awaits the send because serverless functions can terminate as soon as the response is sent.
+
+**`createTestUser` was silently dropping fields twice.** It ignored `emailVerified` entirely (so every test user looked unverified, which is why the gate tests first failed), on top of the earlier `isActive`/`passwordHash` overrides. Both fixed.
+
+**Tests: 293 unit + 58 integration = 351.** `tsc` 0 errors.
+
+**Still open:** the 283 unattributed blog posts await the client conversation; `/shuls`, `/shiurim`, `/community/calendar` still need the server-side conversion (approved, with search + pagination); and `classifieds/[id]/contact` has **no authentication at all**, which the verification gate does not address.

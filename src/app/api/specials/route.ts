@@ -5,6 +5,7 @@ import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth/auth";
 import { specialSchema } from "@/lib/validations/specials";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 export async function GET(request: NextRequest) {
   try {
@@ -64,6 +65,11 @@ export async function POST(request: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Submissions require a verified email address (admins exempt). Also
+    // re-checks the account is not disabled, since a session can outlive a block.
+    const notAllowed = await assertCanPost(session?.user?.id);
+    if (notAllowed) return notAllowed;
 
     // Check if user has permission to post specials
     const userId = parseInt(session.user.id);
