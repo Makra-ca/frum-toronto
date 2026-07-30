@@ -1957,3 +1957,21 @@ npx tsx scripts/apply-sql-file.ts migrations/<file>.sql --test
 ```
 
 **Also:** the Neon test branch is short-lived and can drop connections mid-run. A burst of `NeonDbError: Error connecting to database: TypeError: fetch failed` across *unrelated* test files, with the suite taking ~114s instead of ~19s, is the branch suspending — not a code failure. Re-run before investigating; it passed 63/63 twice immediately afterwards.
+
+#### 2026-07-30 — homepage ads: schema foundation
+
+`migrations/2026-07-30-homepage-ads.sql` (applied to **both** primary and the test branch) creates `homepage_ads`, making an ad a record rather than `businesses.banner_image_url`. The plan-based banners keep working; this runs alongside.
+
+Columns: `title` (admin-facing label — an image alone is unscannable in a list), `image_url`, `placement`, `link_type` + `link_url`, `business_id`, `submitted_by`, `approval_status` + `rejection_reason`, `starts_at` / `ends_at`, `is_active`, `sort_order`, `click_count`.
+
+Deliberate choices:
+- **`link_type` is `business` | `external` | `none`, chosen rather than inferred.** The old behaviour derived the target from whether the business had a `website`, so nobody could pick and a website silently overrode linking to the FrumToronto page. `none` is a real case — a flyer carrying a phone number needs no click-through, and `resolveAdHref` returns **null** for it so callers must handle it rather than falling back to `"#"`.
+- **`business_id` is `ON DELETE SET NULL`**, so removing a business does not silently delete a paid ad.
+- **Clicks are counted, impressions are not** — impressions would mean a write on every homepage render.
+- **Five CHECK constraints** enforce the enums and reject combinations that would render a dead click (`external` with no URL, `business` with no business) or silently never show (`ends_at` before `starts_at`). Enforced in the database, not just in a Zod schema, because an ad that cannot render is worse than a rejected write.
+
+`src/lib/ads/live-ads.ts` holds `liveAdCondition(placement, now)` — the single definition of "should be on the page right now" (approved + active + within the date window), shared by the public render, the admin preview and the tests, because four clauses duplicated across call sites is how an expired ad stays visible in one of them. `now` is a parameter so tests can ask what would be live at an arbitrary moment. Ordering is `sort_order` then `created_at` — deliberate, unlike the plan-based banners' `ORDER BY random()`; someone paying for a placement should be able to rely on where it appears, and the tie-break stops equal-priority ads flickering between renders.
+
+18 integration tests cover the constraints and the scheduling window in both directions. **Tests: 293 unit + 81 integration = 374.**
+
+**Still to build:** admin ads page (list/add/toggle/approve/reorder), homepage rendering with the thumbnail → full-flyer overlay → destination button, and business-facing submission with admin approval.

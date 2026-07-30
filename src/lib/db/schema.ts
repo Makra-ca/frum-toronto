@@ -756,6 +756,50 @@ export const contactSubmissions = pgTable("contact_submissions", {
 });
 
 // ============================================
+// HOMEPAGE ADS
+// ============================================
+
+/**
+ * Homepage advertising as first-class records.
+ *
+ * Replaces the older approach where an ad was `businesses.banner_image_url`
+ * gated on the plan — which could not express a non-business advertiser, a
+ * chosen link target, more than one ad per advertiser, scheduling, or any way to
+ * list what is running. The plan-based banners still work; this runs alongside.
+ */
+export const homepageAds = pgTable("homepage_ads", {
+  id: serial("id").primaryKey(),
+  /** Admin-facing label — an image alone is hard to scan in a list. */
+  title: varchar("title", { length: 200 }).notNull(),
+  imageUrl: varchar("image_url", { length: 500 }).notNull(),
+  /** 'banner' | 'sidebar' */
+  placement: varchar("placement", { length: 20 }).notNull(),
+  /** 'business' | 'external' | 'none' — chosen, not inferred from a website field. */
+  linkType: varchar("link_type", { length: 20 }).default("none").notNull(),
+  linkUrl: varchar("link_url", { length: 500 }),
+  /** ON DELETE SET NULL, so removing a business does not delete a paid ad. */
+  businessId: integer("business_id").references(() => businesses.id, { onDelete: "set null" }),
+  submittedBy: integer("submitted_by").references(() => users.id, { onDelete: "set null" }),
+  approvalStatus: varchar("approval_status", { length: 20 }).default("pending").notNull(),
+  rejectionReason: text("rejection_reason"),
+  /** NULL means unbounded, so an ad with neither date runs indefinitely. */
+  startsAt: timestamp("starts_at"),
+  endsAt: timestamp("ends_at"),
+  isActive: boolean("is_active").default(true).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  /** Clicks only. Impressions would mean a write on every homepage render. */
+  clickCount: integer("click_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_homepage_ads_live").on(
+    table.placement, table.approvalStatus, table.isActive, table.sortOrder
+  ),
+  index("idx_homepage_ads_approval").on(table.approvalStatus, table.createdAt),
+  index("idx_homepage_ads_business").on(table.businessId),
+]);
+
+// ============================================
 // NEWSLETTERS
 // ============================================
 
