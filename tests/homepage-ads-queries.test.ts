@@ -26,14 +26,16 @@ let bloggerBusinessId: number;
 let quietBusinessId: number;
 
 async function insertAd(values: Partial<typeof schema.homepageAds.$inferInsert>) {
+  const { title, ...rest } = values;
   const [row] = await testDb
     .insert(schema.homepageAds)
     .values({
-      title: `${TITLE_PREFIX} ${values.title ?? 'untitled'}`,
       imageUrl: 'https://example.test/flyer.jpg',
       placement: 'banner',
       approvalStatus: 'approved',
-      ...values,
+      ...rest,
+      // MUST come after the spread — see the same note in homepage-ads.test.ts.
+      title: `${TITLE_PREFIX} ${title ?? 'untitled'}`,
     } as typeof schema.homepageAds.$inferInsert)
     .returning();
   return row;

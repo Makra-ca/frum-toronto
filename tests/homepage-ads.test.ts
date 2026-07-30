@@ -14,13 +14,17 @@ import { normalizeExternalUrl } from '@/lib/safe-url';
 const TITLE_PREFIX = '[TEST-AD]';
 
 async function insertAd(values: Partial<typeof schema.homepageAds.$inferInsert>) {
+  const { title, ...rest } = values;
   const [row] = await testDb
     .insert(schema.homepageAds)
     .values({
-      title: `${TITLE_PREFIX} ${values.title ?? 'untitled'}`,
       imageUrl: 'https://example.test/flyer.jpg',
       placement: 'banner',
-      ...values,
+      ...rest,
+      // MUST come after the spread. It used to sit before it, so `values.title`
+      // overwrote the prefixed title, the afterEach `LIKE '[TEST-AD]%'` matched
+      // nothing, and every run leaked its rows into the shared test branch.
+      title: `${TITLE_PREFIX} ${title ?? 'untitled'}`,
     } as typeof schema.homepageAds.$inferInsert)
     .returning();
   return row;

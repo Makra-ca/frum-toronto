@@ -20,30 +20,34 @@ export function AdStrip({ ads }: { ads: LiveAd[] }) {
   return (
     <>
       <section className="w-full py-2">
-        <div
-          className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2"
-          role="list"
+        <ul
+          className="-mx-4 flex snap-x snap-mandatory list-none gap-3 overflow-x-auto px-4 pb-2"
           aria-label="Featured advertisers"
         >
           {ads.map((ad) => (
-            <button
-              key={ad.id}
-              type="button"
-              role="listitem"
-              onClick={() => setExpanded(ad)}
-              aria-label={`${ad.title} — view full flyer`}
-              className="w-56 flex-shrink-0 snap-start overflow-hidden rounded-lg bg-slate-100 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={ad.imageUrl}
-                alt={ad.title}
-                className="h-32 w-full object-contain"
-                loading="lazy"
-              />
-            </button>
+            /*
+              The listitem must be the wrapper, not the button. Putting
+              role="listitem" on the <button> overrides its implicit button role,
+              so assistive tech stops announcing it as activatable at all.
+            */
+            <li key={ad.id} className="flex-shrink-0 snap-start">
+              <button
+                type="button"
+                onClick={() => setExpanded(ad)}
+                aria-label={`${ad.title} — view full flyer`}
+                className="w-56 overflow-hidden rounded-lg bg-slate-100 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={ad.imageUrl}
+                  alt={ad.title}
+                  className="h-32 w-full object-contain"
+                  loading="lazy"
+                />
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       </section>
 
       {expanded && <AdLightbox ad={expanded} onClose={() => setExpanded(null)} />}

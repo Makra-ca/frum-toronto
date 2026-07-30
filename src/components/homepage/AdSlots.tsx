@@ -26,7 +26,13 @@ export async function HomepageBannerAds() {
   return (
     <section className="w-full bg-gradient-to-r from-slate-900 to-slate-800 py-4">
       <div className="container mx-auto px-4">
-        <AdRotator ads={ads} variant="banner" label="Featured advertisers" />
+        {/*
+          Every ad region needs a DISTINCT accessible name. The mobile strip is
+          also called "Featured advertisers", and two regions sharing a name is
+          ambiguous to a screen reader — both are in the DOM at once, since the
+          desktop and mobile variants are hidden with CSS rather than unmounted.
+        */}
+        <AdRotator ads={ads} variant="banner" label="Featured advertisers, top" />
       </div>
     </section>
   );
