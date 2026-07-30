@@ -63,7 +63,7 @@ export type SubmissionContentType =
   | "business" | "shul_request" | "non_profit" | "shoutout"          // Tier A
   | "event" | "simcha" | "classified" | "tehillim" | "blog_post"
   | "blog_comment" | "atr_comment" | "special" | "business_video"
-  | "community_alert"                                                 // Tier B
+  | "community_alert" | "homepage_ad"                                 // Tier B
   | "atr_quick_post" | "shul_edit" | "davening_edit" | "shul_document"; // Tier C-only
 
 // Tier A types get an instant email when pending. Tehillim is Tier B but

@@ -16,6 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { MuxVideoUploader } from "@/components/business/MuxVideoUploader";
+import { HomepageAdSubmission } from "@/components/business/HomepageAdSubmission";
 import { NonProfitApplicationForm } from "@/components/business/NonProfitApplicationForm";
 import { ShoutoutSection } from "@/components/business/ShoutoutEditor";
 
@@ -45,6 +46,8 @@ interface BusinessDetail {
   planName: string | null;
   planSlug: string | null;
   showVideo: boolean | null;
+  showInHomepageBanner: boolean | null;
+  showInHomepageSidebar: boolean | null;
   isElite: boolean;
   // Category
   categoryId: number | null;
@@ -218,6 +221,12 @@ export default function BusinessDashboardPage() {
         </Card>
 
         <div className="space-y-6">
+          {/* Homepage ads — only for plans granting a homepage position. Until
+              this existed, showInHomepageBanner/Sidebar granted nothing at all. */}
+          {(business.showInHomepageBanner || business.showInHomepageSidebar) && (
+            <HomepageAdSubmission businessId={business.id} />
+          )}
+
           {/* MUX Video Uploader — only for plans with showVideo */}
           {business.showVideo && (
             <MuxVideoUploader

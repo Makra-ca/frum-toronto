@@ -6,6 +6,7 @@ import {
   classifieds,
   tehillimList,
   blogPosts,
+  homepageAds,
   blogComments,
   askTheRabbiComments,
   specials,
@@ -46,6 +47,7 @@ export async function GET(request: NextRequest) {
       [specialsCount],
       [alertsCount],
       [videosCount],
+      [adsCount],
     ] = await Promise.all([
       db.select({ count }).from(events)
         .where(and(eq(events.approvalStatus, "pending"), eq(events.isActive, true))),
@@ -67,6 +69,10 @@ export async function GET(request: NextRequest) {
         .where(and(eq(alerts.approvalStatus, "pending"), eq(alerts.isActive, true))),
       db.select({ count }).from(businesses)
         .where(and(eq(businesses.videoStatus, "ready"), eq(businesses.videoApprovalStatus, "pending"))),
+      // Homepage ads have no isActive gate on the pending count: an ad can be
+      // submitted and switched off, and it still needs reviewing.
+      db.select({ count }).from(homepageAds)
+        .where(eq(homepageAds.approvalStatus, "pending")),
     ]);
 
     const categories = [
@@ -80,6 +86,7 @@ export async function GET(request: NextRequest) {
       { label: "Specials", count: Number(specialsCount?.count || 0), path: "/admin/programs/specials" },
       { label: "Community alerts", count: Number(alertsCount?.count || 0), path: "/admin/community/alerts" },
       { label: "Business videos", count: Number(videosCount?.count || 0), path: "/admin/businesses/video-review" },
+      { label: "Homepage ads", count: Number(adsCount?.count || 0), path: "/admin/businesses/ads" },
     ];
 
     const nonZero = categories.filter((c) => c.count > 0);

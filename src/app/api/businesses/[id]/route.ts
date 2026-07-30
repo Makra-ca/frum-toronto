@@ -55,6 +55,11 @@ export async function GET(
         planSlug: subscriptionPlans.slug,
         showVideo: subscriptionPlans.showVideo,
         showShoutouts: subscriptionPlans.showShoutouts,
+        // These two granted nothing at all between the old plan-based banners
+        // being deleted and homepage ad submission existing. They now gate
+        // whether this business may submit an ad for that position.
+        showInHomepageBanner: subscriptionPlans.showInHomepageBanner,
+        showInHomepageSidebar: subscriptionPlans.showInHomepageSidebar,
         // Category info
         categoryId: businesses.categoryId,
         categoryName: businessCategories.name,
