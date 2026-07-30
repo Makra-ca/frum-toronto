@@ -28,7 +28,8 @@ generates none of this.
 | Structure | **One list** at `/dashboard/submissions`, all types together |
 | Editing an approved item | **Unpublished and re-reviewed**, via a distinct `pending_edit` status |
 | Blog's conflicting rule | **Blog adopts the unpublish rule**; one policy everywhere |
-| Auto-approvers and admins | **Their edits stay live** — see *Auto-approve* |
+| Auto-approvers and admins | **Their edits stay live**, admin notified in-app — see *Auto-approve* |
+| Shul-linked content | **Editable by whoever currently manages the shul**, not only the poster |
 | Notification channel | **Email on approve and reject, plus an in-app record** |
 | Rejection reason | **Optional**, with written fallback copy when blank |
 | Email opt-out | **None — transactional** (CASL: consent not required, identification still is) |
@@ -80,6 +81,12 @@ load the user row, so it cannot know.
 **Rule:** the edit path re-runs the same determination the create path runs — admin OR
 `canAutoApprove<Type>` — and only falls back to `pending_edit` when that does not hold. The determination
 lives in one shared helper used by both create and edit, per type, so they cannot drift.
+
+**Their edits stay live, and the admin is notified.** The permission means "posts go live without review",
+so corrections behave the same way; anything less self-unpublishes admins. The residual risk is that a
+trusted user could publish something innocuous and later edit it to anything, unreviewed. Mitigated by an
+in-app notification (not an email) whenever an auto-approver edits already-public content, so there is a
+trail without adding inbox noise. The flag is granted and revoked by an admin.
 
 ## State machine
 
@@ -236,17 +243,33 @@ An optional reason box in the reject dialog, writing to a `rejection_reason` col
 *Considered and rejected:* a shared `submission_reviews` table. It would suit the single-writer requirement,
 but it is a larger refactor than this feature needs and diverges from two existing patterns.
 
-## Open decisions
+## Ownership is institutional where a shul is involved
 
-**Shul-linked content ownership.** Events created for a shul pass a `canUserManageShul` check but store
-`user_id` = the individual manager. If that manager is removed from `user_shuls`, or a second manager needs
-to fix the event, neither can — ownership is personal, not institutional. `events.shul_id` exists, so
-"owner OR current manager of the linked shul" is available. **Undecided.**
+Content linked to a shul is editable by **the owner OR anyone currently assigned to that shul** in
+`user_shuls`. `events.shul_id` already exists and the create path already runs `canUserManageShul`, so the
+check is available; the edit path must run it too.
 
-**Blocked and deleted owners.** `assertCanPost` re-checks `is_active`, so a blocked user cannot edit. But an
-already-approved item from a since-blocked user stays live, and the spec takes no position. Owner columns
-have no `ON DELETE` clause, so a user delete would fail at the FK; no admin delete route exists today, so
-this is latent.
+Personal-only ownership was rejected because it produces the case most likely to generate a support email: a
+gabbai leaves, the new one cannot fix the shul's own event, and the departed one still can.
+
+The ownership check per type is therefore:
+
+```
+owner(row) = row.<ownerCol> === userId
+           || (row.shulId != null && canUserManageShul(userId, row.shulId, role))
+```
+
+Businesses are **not** included yet — no in-scope type carries a `business_id`. When one does, the same
+shape applies.
+
+## Blocked and deleted owners
+
+`assertCanPost` re-checks `is_active`, so a blocked user cannot edit — verified, not a gap. An
+already-approved item from a since-blocked user stays live; taking it down is an admin action, not an
+automatic one, and this spec takes no further position.
+
+Owner columns have no `ON DELETE` clause, so deleting a user would fail at the foreign key. No admin
+user-delete route exists today, so this is latent rather than live.
 
 ## Build order
 
@@ -257,8 +280,11 @@ Cut from the tail if it drags; nothing later is a prerequisite for anything earl
 2. **events** — mostly built; fix the auto-approve bug and the `detailKind` gap
 3. **classifieds, simchas** — what ordinary people post
 4. **kosher_alerts, alerts, tehillim_list**
-5. **shiva_notifications** — and reconsider: bereavement details are the most sensitive content on the site,
-   and self-service editing of a live notice deserves its own thought rather than inheriting the generic rule
+5. **shiva_notifications** — in scope under the same rule, decided deliberately. Two mitigations are
+   required rather than optional: the edit form carries a **stronger, shiva-specific warning** than other
+   types, because a notice disappearing mid-shiva is the sharpest form of the unpublish trade-off; and
+   re-approval of a `pending_edit` shiva notice must not re-send `sendShivaNoticeEmail` (already guaranteed
+   by the `pending_edit` rule, and worth an explicit test given the consequence)
 6. **blog_posts** — last; changes working code that 3,058 posts depend on
 
 Migrations go to the primary database **and** the Neon test branch. A previous migration went to primary
@@ -308,3 +334,4 @@ Revision 2 followed an adversarial review. Changes made:
 | `specials` has no submission path | Moved out of scope |
 | `ask_the_rabbi` "has no owner" was misleading | Corrected — submissions are owned |
 | Interface lacked `canEdit` | Added |
+| Shul managers unaddressed | Ownership is institutional where `shul_id` is set |
