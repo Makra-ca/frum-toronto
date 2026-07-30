@@ -1944,8 +1944,11 @@ They are also the most sensitive data in the whole import — bereavement detail
 1. **Blog authorship** — 416 legacy posts credit `admin@frumtoronto.com` as a placeholder. Real legacy authors: `aaron@frumtoronto.com`, `sara@frumtoronto.com`, `halachafortoday@yahoo.com` — none have accounts. Options offered: create accounts for those three, credit all to Rochel (user id 9), or leave as admin. Then one `UPDATE blog_posts SET author_id = … WHERE old_id IS NOT NULL`.
 2. **Imported-account logins.** 2,845 of 2,957 imported members can log in right now with their old password — `authorize()` checks only password hash, `isActive` and the bcrypt match; **there is no email-verification gate**. Two consequences worth a decision: those passwords came from a database that stored them in **plaintext** for years, so a forced reset on first login is worth considering; and the 112 who cannot log in (96 legacy `Active = 0`, 16 with no password) get a generic "invalid credentials" error with no hint to try forgot-password.
 
-**Approved but not built:**
-3. **Convert `/shuls`, `/shiurim`, `/community/calendar` to server-side filtering.** Currently client-side `useMemo`. Correct today at 14 / 10 / 91 rows; purely a future-degradation concern. Reuse the `/simchas` pattern: server `searchParams` → `buildSubstringCondition` → `PaginationLinks`.
+**Closed, not needed — an earlier claim in these notes was wrong.** `/shuls`, `/shiurim` and `/community/calendar` were described as filtering client-side. They do not: every dropdown filter is already server-side (`/shuls` denomination/nusach/neighborhood, `/shiurim` day/level/gender/category/area/teacher/organization, `/calendar` month/year/type — the calendar refetches per month). Only the free-text box filters in the browser, over at most 91 rows.
+
+Pagination would also **break** two of them: `/shiurim` renders a weekly grid across all seven days and `/calendar` a month grid, both of which need the whole visible period. The mistake was classifying those pages from a `useMemo` + `.filter()` grep without reading what the `useEffect` actually sent to the API — the `useMemo` was the last 5% of the filtering, not the whole of it.
+
+If one of those tables ever does grow, the cheap targeted fix is moving the text search server-side; those APIs already accept filters, so it is a `search` param rather than a rewrite.
 
 **Optional cleanup:**
 4. `searchAll` relevance normalisation (see the known quality issue above).
