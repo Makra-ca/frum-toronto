@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
+import { UniversalSearch } from "@/components/search/UniversalSearch";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,7 @@ export function BlogListing() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [categories, setCategories] = useState<BlogCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [search, setSearch] = useState("");
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,6 +77,9 @@ export function BlogListing() {
       if (selectedCategory) {
         params.set("categoryId", selectedCategory);
       }
+      if (search) {
+        params.set("search", search);
+      }
 
       const res = await fetch(`/api/blog?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch posts");
@@ -86,7 +91,7 @@ export function BlogListing() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, selectedCategory]);
+  }, [page, selectedCategory, search]);
 
   useEffect(() => {
     fetch("/api/blog/categories")
@@ -130,6 +135,23 @@ export function BlogListing() {
               </Link>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Search — 3,051 posts, most of them legacy imports, so browsing by
+          category alone is not enough to find anything specific. */}
+      <div className="bg-white border-b">
+        <div className="container mx-auto px-4 py-4">
+          <UniversalSearch
+            searchType="blog"
+            placeholder="Search posts…"
+            initialQuery={search}
+            onSearch={(q) => {
+              setSearch(q);
+              setPage(1); // a new query invalidates the current page
+            }}
+            className="max-w-2xl"
+          />
         </div>
       </div>
 

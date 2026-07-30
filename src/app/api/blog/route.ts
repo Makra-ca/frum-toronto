@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { blogPosts, blogCategories, blogComments, users } from "@/lib/db/schema";
 import { eq, and, sql, desc } from "drizzle-orm";
+import { buildSubstringCondition } from "@/lib/search/substring-search";
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,6 +10,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "12");
     const categoryId = searchParams.get("categoryId");
+    const search = (searchParams.get("search") || "").trim();
     const offset = (page - 1) * limit;
 
     const conditions = [
@@ -19,6 +21,15 @@ export async function GET(request: NextRequest) {
     if (categoryId) {
       conditions.push(eq(blogPosts.categoryId, parseInt(categoryId)));
     }
+
+    // Every term must match the title, excerpt or body. Searching the body
+    // matters for the legacy imports, whose titles are often just a date
+    // ("Halacha For Today: Monday, 27 Cheshvan 5773").
+    const searchCondition = buildSubstringCondition(
+      [blogPosts.title, blogPosts.excerpt, blogPosts.content],
+      search
+    );
+    if (searchCondition) conditions.push(searchCondition);
 
     const whereClause = and(...conditions);
 

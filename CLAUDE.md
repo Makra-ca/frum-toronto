@@ -1785,7 +1785,7 @@ Legacy images were served from `www.frumtoronto.com/Local/CalendarImages/` and t
 #### Follow-ups (owner's call)
 
 - **3,052 accounts can now receive email**, carrying legacy opt-ins (1,515 newsletter, 1,227 simchas, 1,684 eruv, 1,929 community alerts). These people opted into the *old* site; some addresses are untouched since 2012. Consider a re-permission email before the first big send, and expect bounces.
-- **134 shiva names (3.8%)** are flagged as needing review — titles that never named the niftar ("Rabbi Nosson Walden on the loss of his mother"). Re-list them with `npx tsx scripts/legacy-import/shiva.ts` (dry run prints them).
+- ~~134 shiva names flagged for review~~ — **moot: the 3,553 imported shiva notices were deleted on 2026-07-30** (see the later session note). If they are ever re-imported, the extraction still flags roughly 3.8% of names for review and the dry run prints them.
 - 416 blog posts attributed to the admin placeholder.
 - `notice_text` is stored but not surfaced in any UI (every legacy notice is expired, so nothing renders it).
 - **The Neon test branch credentials no longer authenticate** (`ep-long-band-ahaha6ks`, `.env.test`) — `npm run test:integration` is broken until it is recreated. This import therefore ran against the primary DB with dry-run-by-default as the safety net.
@@ -1920,21 +1920,34 @@ Deliberately **not** added to `searchAll`: a recall notice surfacing in the home
 
 **Still outstanding from this round:** converting `/shuls`, `/shiurim` and `/community/calendar` from client-side `useMemo` filtering to server-side. They work correctly today at 14 / 10 / 91 rows — the concern is purely that they degrade as those tables fill. Also proposed but not approved: text search on `/blog` (3,051 posts, category filter only; `searchBlog` already exists so only a `search` param on `/api/blog` and a box in `BlogListing` are missing).
 
-### PARKED 2026-07-30 — legacy-import follow-ups to resume later
+### 2026-07-30 (later) — shiva notices deleted, test branch restored, blog + kosher search
 
-Work was paused here by agreement to move onto something else. Everything below is recorded so it can be picked up cold.
+**The 3,553 imported shiva notices were deleted** at Daniel's instruction. They had no value and were doing harm: all were long expired so the public page (which filters `shiva_end >= today`) showed **0** of them; their prose sat in `notice_text` which **nothing renders**; and because the shiva import did not carry the original post date into `created_at` (unlike the simcha import), all 3,553 took the import timestamp and sorted to the top of the admin queue, **burying the one real notice**.
 
-**Needs Daniel's decision (no code blocked on anything else):**
+They are also the most sensitive data in the whole import — bereavement details, mourner names, home addresses in the prose — which makes indefinite retention with no product purpose the weakest case of anything imported.
+
+`scripts/legacy-import/delete-imported-shiva.ts` (dry-run by default) does it. Its `WHERE old_id IS NOT NULL` can by construction only match imported rows, it refuses to run if any imported notice is still inside its shiva window, and it aborts as a failure if the native count changes. Result: 3,554 → 1, the native notice intact. **Fully reversible:** the legacy MSSQL DB is untouched and `npx tsx scripts/legacy-import/shiva.ts --commit` restores all 3,553. The `notice_text` column was kept so a re-import needs no migration.
+
+**Neon test branch replaced and integration tests work again.** New endpoint `ep-curly-union-ah4r8uel` in `.env.test`, and the guard in `tests/setup.ts` was updated to match — that constant is what aborts the run if the tests ever point at production, so it has to track the branch. The branch is a fresh copy of prod, so all migrations were already present. **44 integration tests pass** (they had been unrunnable). `.env.test` is gitignored, so the credential is not in the repo.
+
+**`/blog` gained text search.** `/api/blog` accepts `search`, filtered with the shared `buildSubstringCondition` over title, excerpt **and body**. The body matters here: legacy titles are frequently just a date ("Halacha For Today: Monday, 27 Cheshvan 5773"), so title-only search would miss nearly all 1,211 of those posts. `BlogListing` got a `UniversalSearch` box that resets to page 1 on a new query. Trigram indexes applied via `migrations/2026-07-30-blog-search-indexes.sql`. Verified: 3,051 total → `Purim` 164, `Hashovas Aveidah` 44 (multi-word), `Rosh Chodesh` 484, `zzznothing` 0.
+
+**`kosher-alerts` added to `searchAll`**, so recalls surface in the homepage hero. Verified: `Folgers` returns the kosher alert alongside other types.
+
+**Known quality issue, pre-existing and now more visible:** `searchAll` assigns `relevanceScore: 1000 - index * 10` **per type**, so the top hit of every type scores 1000. Sorting by that interleaves types arbitrarily — a weak fuzzy match from Ask the Rabbi ranks level with an exact product-name match from kosher alerts. With nine types now feeding it, homepage results contain visible noise. Fixing it needs cross-type score normalisation.
+
+**Tests: 293 unit + 44 integration = 337.** `tsc` 0 errors.
+
+### PARKED — legacy-import follow-ups to resume later
+
+**Needs Daniel's decision:**
 1. **Blog authorship** — 416 legacy posts credit `admin@frumtoronto.com` as a placeholder. Real legacy authors: `aaron@frumtoronto.com`, `sara@frumtoronto.com`, `halachafortoday@yahoo.com` — none have accounts. Options offered: create accounts for those three, credit all to Rochel (user id 9), or leave as admin. Then one `UPDATE blog_posts SET author_id = … WHERE old_id IS NOT NULL`.
-2. **134 shiva names (3.8%)** need human review — titles that never named the niftar. `npx tsx scripts/legacy-import/shiva.ts` (dry run) lists them.
+2. **Imported-account logins.** 2,845 of 2,957 imported members can log in right now with their old password — `authorize()` checks only password hash, `isActive` and the bcrypt match; **there is no email-verification gate**. Two consequences worth a decision: those passwords came from a database that stored them in **plaintext** for years, so a forced reset on first login is worth considering; and the 112 who cannot log in (96 legacy `Active = 0`, 16 with no password) get a generic "invalid credentials" error with no hint to try forgot-password.
 
 **Approved but not built:**
 3. **Convert `/shuls`, `/shiurim`, `/community/calendar` to server-side filtering.** Currently client-side `useMemo`. Correct today at 14 / 10 / 91 rows; purely a future-degradation concern. Reuse the `/simchas` pattern: server `searchParams` → `buildSubstringCondition` → `PaginationLinks`.
 
-**Proposed, awaiting approval:**
-4. **Text search on `/blog`** — 3,051 posts, category filter only. Cheapest item: `searchBlog` already exists, so it needs only a `search` param on `/api/blog` and a box in `BlogListing`.
-5. Adding `kosher-alerts` to `searchAll`. Deliberately omitted — whether a recall belongs in the homepage hero beside businesses is a prominence judgement.
+**Optional cleanup:**
+4. `searchAll` relevance normalisation (see the known quality issue above).
 
 **Accepted quirks, no action intended:** ~32 of 1,354 Message Board posts are simcha announcements, so the odd simcha appears tagged "Blog" in search (not duplicated — `old_id` overlap with `simchas` is 0; the old site filed them there). Legacy images are permanently 404, so 360 blog images and 13 image-only kosher alerts are thin.
-
-**Also still broken, unrelated to the import:** the Neon test-branch credentials in `.env.test` (`ep-long-band-ahaha6ks`) no longer authenticate, so `npm run test:integration` cannot run until that branch is recreated.

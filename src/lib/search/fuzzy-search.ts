@@ -587,7 +587,7 @@ export async function searchAll(
 ): Promise<SearchSuggestion[]> {
   const perTypeLimit = 3;
 
-  const [biz, cls, shl, shr, evt, atr, blg, sim] = await Promise.all([
+  const [biz, cls, shl, shr, evt, atr, blg, sim, kos] = await Promise.all([
     searchBusinesses(query, perTypeLimit),
     searchClassifieds(query, perTypeLimit),
     searchShuls(query, perTypeLimit),
@@ -596,9 +596,10 @@ export async function searchAll(
     searchAskTheRabbi(query, perTypeLimit),
     searchBlog(query, perTypeLimit),
     searchSimchas(query, perTypeLimit),
+    searchKosherAlerts(query, perTypeLimit),
   ]);
 
-  const all = [...biz, ...cls, ...shl, ...shr, ...evt, ...atr, ...blg, ...sim];
+  const all = [...biz, ...cls, ...shl, ...shr, ...evt, ...atr, ...blg, ...sim, ...kos];
   all.sort((a, b) => b.relevanceScore - a.relevanceScore);
   return all.slice(0, limit);
 }
