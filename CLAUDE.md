@@ -2050,3 +2050,15 @@ prints one verified working credential for testing that the password import work
 ```
 node -r dotenv/config scripts/legacy-import/show-test-login.js
 ```
+
+#### 2026-07-30 — the 283 unattributed posts published as "FrumToronto Archive"
+
+Decision made: rather than leaving 283 Torah posts credited to `admin@frumtoronto.com` — which to a reader looks like an oversight — they now belong to a named **FrumToronto Archive** account (`archive@frumtoronto.com`, user 3159) and are published.
+
+`scripts/legacy-import/publish-archive-posts.ts` does it (dry-run by default). The archive account has **no password**, so it cannot be logged into; it exists only to own content, and gets no subscriber row so nothing is ever emailed to it.
+
+Result: 283 reassigned and published, 0 posts left on the admin placeholder, visible blog posts back to 3,051. Verified live that the author renders as "FrumToronto Archive" on `/blog/reb-shlomo-zalman-emor`.
+
+Re-hide if the client disagrees: `UPDATE blog_posts SET is_active = false WHERE author_id = 3159;`
+
+**Corrections worth recording, since a client update was drafted from wrong figures:** blocked accounts are **98** (96 from the import plus 2 that predate it), not 92; **3,052** blog posts were imported, not ~400 — the ~400 was only the unattributed subset; **133** of those had a real author, not 123 (123 of them one contributor plus 10 one-offs); and the **1,587 kosher alerts** were a whole import missing from the draft.
