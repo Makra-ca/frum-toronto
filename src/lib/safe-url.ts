@@ -80,6 +80,45 @@ export function normalizeExternalUrl(raw: string | null | undefined): string | n
 }
 
 /**
+ * Hosts an ad image may be served from.
+ *
+ * Uploads go direct-to-Blob via `src/lib/upload-client.ts`, which returns a
+ * `*.public.blob.vercel-storage.com` URL — the same host `next.config.ts`
+ * already allows for `next/image`.
+ */
+const UPLOADED_IMAGE_HOST = /(^|\.)public\.blob\.vercel-storage\.com$/i;
+
+/**
+ * True when an image URL points at our own upload storage.
+ *
+ * ## Why this is a security control, not tidiness
+ *
+ * Ad images are rendered with a raw `<img src>` (deliberately — advertiser
+ * artwork has arbitrary dimensions, so `next/image` is bypassed), which means
+ * `next.config.ts` `remotePatterns` does NOT apply to them.
+ *
+ * An unconstrained `imageUrl` defeats the entire review workflow. An advertiser
+ * submits a URL on infrastructure they control; an admin approves the benign
+ * artwork it serves at review time; the advertiser then changes what that URL
+ * returns. The database row never changes, so the "any edit sends the ad back to
+ * pending" rule — written precisely to stop approval becoming a standing
+ * permission to display anything — is bypassed completely. Approval is only
+ * meaningful if the approved bytes cannot be swapped afterwards.
+ *
+ * Secondary: it also stops every homepage visitor's IP and User-Agent being
+ * disclosed to a third-party host on each render.
+ */
+export function isUploadedImageUrl(raw: string | null | undefined): boolean {
+  const normalized = normalizeExternalUrl(raw);
+  if (!normalized) return false;
+  try {
+    return UPLOADED_IMAGE_HOST.test(new URL(normalized).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * True when a URL is safe to put in an href.
  *
  * For form validation, where the goal is to reject the submission with a message

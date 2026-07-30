@@ -4,7 +4,8 @@ import { z } from "zod";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { homepageAds, businesses } from "@/lib/db/schema";
-import { normalizeExternalUrl, isSafeExternalUrl } from "@/lib/safe-url";
+import { normalizeExternalUrl, isSafeExternalUrl, isUploadedImageUrl } from "@/lib/safe-url";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -13,7 +14,13 @@ interface RouteParams {
 const editSchema = z
   .object({
     title: z.string().trim().min(1).max(200).optional(),
-    imageUrl: z.string().trim().min(1).max(500).optional(),
+    imageUrl: z
+      .string()
+      .trim()
+      .min(1)
+      .max(500)
+      .refine(isUploadedImageUrl, "Upload your artwork rather than linking to an image elsewhere")
+      .optional(),
     linkType: z.enum(["own", "external", "none"]).optional(),
     linkUrl: z.string().trim().max(500).optional().nullable(),
   })
@@ -70,6 +77,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (!Number.isInteger(adId) || adId <= 0) {
       return NextResponse.json({ error: "Invalid ad id" }, { status: 400 });
     }
+
+    // Re-checked at WRITE time, not trusted from sign-in. `isActive` is read
+    // only in the signIn/authorize callbacks, never in the jwt/session ones, so
+    // a JWT outlives a ban — a disabled advertiser's live session could
+    // otherwise still swap their ad's image and link. POST had this gate from
+    // the start; PATCH and DELETE did not.
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
 
     const owned = await loadOwnAd(adId, parseInt(session.user.id));
     if (!owned) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -129,6 +144,11 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     if (!Number.isInteger(adId) || adId <= 0) {
       return NextResponse.json({ error: "Invalid ad id" }, { status: 400 });
     }
+
+    // Same reasoning as PATCH: a banned account's session must not still be able
+    // to mutate its advertising.
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
 
     const owned = await loadOwnAd(adId, parseInt(session.user.id));
     if (!owned) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

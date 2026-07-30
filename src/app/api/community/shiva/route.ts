@@ -6,6 +6,7 @@ import { eq, and, gte } from "drizzle-orm";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { sendShivaNoticeEmail } from "@/lib/email/send";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import { isUploadedImageUrl } from "@/lib/safe-url";
 
 // GET - Fetch all approved, active shiva notices
 export async function GET() {
@@ -114,7 +115,10 @@ export async function POST(request: Request) {
         levayaInfo: levayaInfo?.trim() || null,
         zoomInfo: zoomInfo?.trim() || null,
         minyanInfo: minyanInfo?.trim() || null,
-        attachmentUrl: attachmentUrl || null,
+        // Was destructured from the body and stored with NO validation at all,
+        // then rendered as an href on the public page. zoomInfo two fields up was
+        // hardened in the same pass and this was missed.
+        attachmentUrl: isUploadedImageUrl(attachmentUrl) ? attachmentUrl.trim() : null,
         mealInfo: mealInfo?.trim() || null,
         donationInfo: donationInfo?.trim() || null,
         contactPhone: contactPhone?.trim() || null,

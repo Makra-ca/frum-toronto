@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeExternalUrl, isSafeExternalUrl } from "@/lib/safe-url";
+import { normalizeExternalUrl, isSafeExternalUrl, isUploadedImageUrl } from "@/lib/safe-url";
 
 /**
  * These cases exist because `z.string().url()` — used on every URL field in this
@@ -77,6 +77,50 @@ describe("normalizeExternalUrl", () => {
     // Documents why there is no hostname check: this parses to host "nowhere",
     // and a genuinely hostless http(s) URL cannot parse at all.
     expect(normalizeExternalUrl("https:///nowhere")).toBe("https://nowhere/");
+  });
+});
+
+/**
+ * `imageUrl` is rendered with a raw <img src> — next/image is deliberately
+ * bypassed for advertiser artwork — so `remotePatterns` does NOT constrain it.
+ *
+ * An image on infrastructure the advertiser controls defeats the whole review
+ * workflow: the admin approves what the URL served at review time, and the
+ * advertiser changes it afterwards. The row never changes, so the
+ * "any edit resets to pending" rule never fires.
+ */
+describe("isUploadedImageUrl", () => {
+  it.each([
+    "https://abc123.public.blob.vercel-storage.com/homepage-ads/flyer.jpg",
+    "https://xyz.public.blob.vercel-storage.com/a/b/c.png",
+  ])("accepts our own upload host: %s", (url) => {
+    expect(isUploadedImageUrl(url)).toBe(true);
+  });
+
+  it.each([
+    ["a host the advertiser controls", "https://evil.example/flyer.jpg"],
+    ["a lookalike suffix", "https://public.blob.vercel-storage.com.evil.example/x.jpg"],
+    ["a lookalike prefix", "https://notpublic.blob.vercel-storage.com.evil.io/x.jpg"],
+    ["an unsafe scheme", "javascript:alert(1)"],
+    ["a data URL", "data:image/svg+xml,<svg onload=alert(1)>"],
+    ["an empty value", ""],
+    ["a bare hostname", "public.blob.vercel-storage.com.evil.example/x.jpg"],
+  ])("rejects %s", (_label, url) => {
+    expect(isUploadedImageUrl(url)).toBe(false);
+  });
+
+  it("rejects null and undefined", () => {
+    expect(isUploadedImageUrl(null)).toBe(false);
+    expect(isUploadedImageUrl(undefined)).toBe(false);
+  });
+
+  it("is not fooled by the host appearing in the path or query", () => {
+    expect(
+      isUploadedImageUrl("https://evil.example/public.blob.vercel-storage.com/x.jpg")
+    ).toBe(false);
+    expect(
+      isUploadedImageUrl("https://evil.example/x.jpg?h=public.blob.vercel-storage.com")
+    ).toBe(false);
   });
 });
 

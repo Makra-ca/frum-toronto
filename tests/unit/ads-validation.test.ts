@@ -3,7 +3,7 @@ import { createAdSchema, updateAdSchema, moderateAdSchema, adRulesSchema } from 
 
 const VALID = {
   title: "TorahMasters Semicha",
-  imageUrl: "https://blob.example/flyer.jpg",
+  imageUrl: "https://abc123.public.blob.vercel-storage.com/homepage-ads/flyer.jpg",
   placement: "banner",
   linkType: "none",
 };

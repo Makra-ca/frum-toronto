@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { AD_PLACEMENTS, AD_LINK_TYPES } from "@/lib/ads/live-ads";
-import { isSafeExternalUrl } from "@/lib/safe-url";
+import { isSafeExternalUrl, isUploadedImageUrl } from "@/lib/safe-url";
 
 /**
  * Mirrors the CHECK constraints on `homepage_ads` so a bad ad is rejected with a
@@ -18,7 +18,15 @@ const optionalDate = z
 
 const baseAdFields = {
   title: z.string().trim().min(1, "Give the ad a title").max(200),
-  imageUrl: z.string().trim().min(1, "Upload an image").max(500),
+  imageUrl: z
+    .string()
+    .trim()
+    .min(1, "Upload an image")
+    .max(500)
+    // Must be OUR upload host. An image on infrastructure the advertiser
+    // controls can be swapped after approval, which defeats the review gate
+    // entirely — see isUploadedImageUrl.
+    .refine(isUploadedImageUrl, "Upload the image here rather than linking to one elsewhere"),
   placement: z.enum(AD_PLACEMENTS as [string, ...string[]], {
     message: "Choose where the ad appears",
   }),

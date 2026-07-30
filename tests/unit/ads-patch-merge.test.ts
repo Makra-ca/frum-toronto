@@ -43,7 +43,7 @@ describe("updateAdSchema — absent keys must stay absent", () => {
 describe("createAdSchema — absent means none, but only on create", () => {
   const VALID = {
     title: "Flyer",
-    imageUrl: "https://blob.example/a.jpg",
+    imageUrl: "https://abc123.public.blob.vercel-storage.com/homepage-ads/flyer.jpg",
     placement: "banner",
   };
 

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { X, ExternalLink, ArrowRight } from "lucide-react";
 import { resolveAdHref } from "@/lib/ads/live-ads";
+import { lockBodyScroll } from "@/lib/scroll-lock";
 import type { LiveAd } from "@/lib/ads/queries";
 
 interface AdLightboxProps {
@@ -22,25 +23,63 @@ export function AdLightbox({ ad, onClose }: AdLightboxProps) {
   const target = resolveAdHref(ad);
   const closeRef = useRef<HTMLButtonElement>(null);
 
-  // Escape to close, and the background must not scroll underneath the overlay.
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Kept in a ref so the close/restore effect does not depend on `onClose`,
+  // which is an inline arrow at both call sites and so changes identity on every
+  // parent render — re-running the effect would yank focus back to Close and
+  // churn the scroll lock.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
+    // Remember where focus came from, so it can be handed back on close.
+    // Without this a keyboard user is dumped on <body> and has to traverse the
+    // whole page again to get back to the ad they were reading.
+    const trigger = document.activeElement as HTMLElement | null;
+
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      // Focus trap. Without one, Tab walks out of an aria-modal dialog into the
+      // page behind it — which is how a second lightbox could be opened while
+      // this one was still up.
+      const focusables = panelRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusables?.length) return;
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
+
     document.addEventListener("keydown", onKeyDown);
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    // Move focus into the dialog so a keyboard user is not left behind on the
-    // element that opened it.
+    const releaseScroll = lockBodyScroll();
     closeRef.current?.focus();
 
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
+      releaseScroll();
+      // Only take focus back if it is still inside the dialog — otherwise the
+      // user has already moved on and stealing it would be worse than leaving it.
+      if (trigger?.isConnected && panelRef.current?.contains(document.activeElement)) {
+        trigger.focus();
+      }
     };
-  }, [onClose]);
+    // Deliberately empty: this must run once per mount. See onCloseRef above.
+  }, []);
 
   function recordClick() {
     // sendBeacon is fire-and-forget, so counting never delays the navigation.
@@ -61,6 +100,7 @@ export function AdLightbox({ ad, onClose }: AdLightboxProps) {
       onClick={onClose}
     >
       <div
+        ref={panelRef}
         className="relative flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
         // Clicks inside the panel must not reach the backdrop's close handler.
         onClick={(event) => event.stopPropagation()}
