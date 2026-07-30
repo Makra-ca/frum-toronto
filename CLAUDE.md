@@ -1951,3 +1951,25 @@ They are also the most sensitive data in the whole import — bereavement detail
 4. `searchAll` relevance normalisation (see the known quality issue above).
 
 **Accepted quirks, no action intended:** ~32 of 1,354 Message Board posts are simcha announcements, so the odd simcha appears tagged "Blog" in search (not duplicated — `old_id` overlap with `simchas` is 0; the old site filed them there). Legacy images are permanently 404, so 360 blog images and 13 image-only kosher alerts are thin.
+
+#### Follow-up — what isActive and emailVerified actually do, plus the blocked-user filter
+
+Two user fields were traced end to end because their behaviour was not obvious.
+
+**`isActive` is the ban flag.** Read in exactly three places: `auth.ts:127` (password login → `return null`), `auth.ts:37` (Google `signIn` → `return false`), and `notifications.ts:42` (inactive admins stop receiving admin notifications). It blocks **both** sign-in paths, and the code's own comment calls it "banned". The admin table's "Active" switch is therefore the block/unblock control, and it already worked — `/api/admin/users/[id]` accepts `isActive`.
+
+**`emailVerified` is decorative.** It is *written* in three places (the verify-email route, Google sign-in, the admin "Verify" button) and **read by nothing that controls access**. Login does not check it; no route or page checks it. An unverified user has identical access to a verified one — someone can register with a fake address, never click the link, and use the site normally. Currently **66 of 3,146** accounts are verified.
+
+**New: an account-status filter on `/admin/users`** (All / Active / Blocked, with the blocked count shown on the option). Blocking already worked; the missing piece was *finding* blocked accounts among 3,146 users across 158 pages. `buildUserStatusCondition` lives beside the search helper so the page and API cannot diverge.
+
+That helper deliberately treats **NULL `is_active` as active**, because both the login check (`if (!user.isActive)`) and the admin UI (`user.isActive ?? true`) do. "Blocked" means explicitly `false`.
+
+**98 accounts are blocked: 96 from the legacy import, and 2 that predate it** — a distinction that matters, since a blanket "activate everything" would un-ban two genuine blocks. `scripts/legacy-import/verify-blocked-users.ts` lists them with legacy ids. Evidence that the 96 were not real bans: none flagged, all had working passwords, 83 of 101 created in 2010, and ids 1139–1148 are ten *consecutive* legacy signups deactivated together — a bulk event, not 96 decisions. Still Daniel's call; nothing was changed.
+
+**Forgot-password dead ends fixed.** Previously a disabled account received a reset email, reset successfully, and still could not log in (the reset never touches `is_active`) — and the 16 password-less legacy accounts were told "check your email" while the OAuth-only guard silently sent nothing. Now: a disabled account gets an explicit 403 "this account has been disabled, please contact us", and a password-less account is allowed to reset **only when it has no OAuth link** — which distinguishes a legacy import from a genuine Google-only account, whose takeover the guard exists to prevent.
+
+**A reset deliberately does NOT reactivate.** That was the original suggestion here and it was wrong: since `isActive = false` is the ban, letting a reset clear it would let anyone banned un-ban themselves from the forgot-password form.
+
+**`createTestUser` was silently overriding two fields** — it hardcoded `isActive: true` and turned an explicit `passwordHash: null` into the default hash via `||`, so a test could not construct a blocked or password-less account at all. Now `isActive: userData.isActive ?? true` and an `=== undefined` check on the hash. This is what made the first run of the new tests fail for the wrong reason.
+
+**Tests: 293 unit + 50 integration = 343.**

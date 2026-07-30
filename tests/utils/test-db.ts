@@ -43,8 +43,14 @@ export async function createTestUser(userData: Partial<typeof schema.users.$infe
       firstName: userData.firstName || 'Test',
       lastName: userData.lastName || 'User',
       role: userData.role || 'member',
-      passwordHash: userData.passwordHash || '$2a$12$test',
-      isActive: true,
+      // `=== undefined` rather than `||` so a test can ask for an account with
+      // NO password (the legacy-import case) instead of silently getting the
+      // default hash.
+      passwordHash:
+        userData.passwordHash === undefined ? '$2a$12$test' : userData.passwordHash,
+      // `?? true` so a test can create a blocked account (is_active = false is
+      // this project's ban flag) rather than always getting an active one.
+      isActive: userData.isActive ?? true,
       isTrusted: userData.isTrusted ?? false,
       canAutoApproveKosherAlerts: userData.canAutoApproveKosherAlerts ?? false,
       canAutoApproveShiva: userData.canAutoApproveShiva ?? false,

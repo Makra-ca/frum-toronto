@@ -3,7 +3,12 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { desc, eq, and, sql } from "drizzle-orm";
-import { buildUserSearchCondition } from "@/lib/admin/user-search";
+import {
+  buildUserSearchCondition,
+  buildUserStatusCondition,
+  parseUserStatus,
+  type UserStatusFilter,
+} from "@/lib/admin/user-search";
 import { UserTable } from "@/components/admin/UserTable";
 import { UserFilters } from "@/components/admin/UserFilters";
 import { PaginationLinks } from "@/components/ui/PaginationLinks";
@@ -22,7 +27,7 @@ function parsePage(raw: string | undefined): number {
   return Number.isFinite(n) && n >= 1 ? n : 1;
 }
 
-async function getUsers(page: number, search: string, role: string) {
+async function getUsers(page: number, search: string, role: string, status: UserStatusFilter) {
   const conditions = [];
 
   const searchCondition = buildUserSearchCondition(search);
@@ -31,6 +36,9 @@ async function getUsers(page: number, search: string, role: string) {
   if (role && role !== "all" && VALID_ROLES.includes(role)) {
     conditions.push(eq(users.role, role));
   }
+
+  const statusCondition = buildUserStatusCondition(status);
+  if (statusCondition) conditions.push(statusCondition);
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -81,21 +89,36 @@ async function getUsers(page: number, search: string, role: string) {
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; search?: string; role?: string }>;
+  searchParams: Promise<{ page?: string; search?: string; role?: string; status?: string }>;
 }) {
-  const { page: pageParam, search: searchParam, role: roleParam } = await searchParams;
+  const {
+    page: pageParam,
+    search: searchParam,
+    role: roleParam,
+    status: statusParam,
+  } = await searchParams;
 
   const requestedPage = parsePage(pageParam);
   const search = (searchParam ?? "").trim();
   const role = roleParam ?? "all";
+  const status = parseUserStatus(statusParam);
 
-  const { items: pageUsers, totalCount } = await getUsers(requestedPage, search, role);
+  const [{ items: pageUsers, totalCount }, blockedCount] = await Promise.all([
+    getUsers(requestedPage, search, role, status),
+    // Surfaced in the filter so blocked accounts are discoverable at all — with
+    // 3,146 users across 158 pages they were otherwise unfindable.
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(eq(users.isActive, false))
+      .then((r) => Number(r[0]?.count ?? 0)),
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const currentPage = Math.min(requestedPage, totalPages);
   const firstShown = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const lastShown = Math.min(currentPage * PAGE_SIZE, totalCount);
-  const isFiltered = search !== "" || (role !== "all" && role !== "");
+  const isFiltered = search !== "" || (role !== "all" && role !== "") || status !== "all";
 
   return (
     <div className="space-y-6">
@@ -112,7 +135,7 @@ export default async function AdminUsersPage({
         </div>
       </div>
 
-      <UserFilters />
+      <UserFilters blockedCount={blockedCount} />
 
       {pageUsers.length === 0 ? (
         <div className="rounded-lg border border-gray-200 bg-white py-12 text-center">
@@ -152,7 +175,7 @@ export default async function AdminUsersPage({
             result set.
           */}
           <UserTable
-            key={`${currentPage}|${search}|${role}`}
+            key={`${currentPage}|${search}|${role}|${status}`}
             users={pageUsers}
           />
 
@@ -163,6 +186,7 @@ export default async function AdminUsersPage({
             preserveParams={{
               search: search || undefined,
               role: role !== "all" ? role : undefined,
+              status: status !== "all" ? status : undefined,
             }}
           />
         </>

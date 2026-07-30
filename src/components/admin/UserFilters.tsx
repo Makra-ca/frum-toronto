@@ -21,6 +21,12 @@ const ROLES = [
   { value: "member", label: "Member" },
 ];
 
+const STATUSES = [
+  { value: "all", label: "All accounts" },
+  { value: "active", label: "Active only" },
+  { value: "blocked", label: "Blocked only" },
+];
+
 const DEBOUNCE_MS = 300; // matches UniversalSearch
 
 /**
@@ -31,13 +37,19 @@ const DEBOUNCE_MS = 300; // matches UniversalSearch
  * filtering would mean shipping the whole table to the browser — which is what
  * this page used to do.
  */
-export function UserFilters() {
+interface UserFiltersProps {
+  /** Shown on the Blocked option so the count is visible without selecting it. */
+  blockedCount?: number;
+}
+
+export function UserFilters({ blockedCount }: UserFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
   const urlSearch = searchParams.get("search") ?? "";
   const urlRole = searchParams.get("role") ?? "all";
+  const urlStatus = searchParams.get("status") ?? "all";
 
   const [search, setSearch] = useState(urlSearch);
 
@@ -61,7 +73,7 @@ export function UserFilters() {
     setSearch(urlSearch);
   }, [urlSearch]);
 
-  const pushParams = (next: { search?: string; role?: string }) => {
+  const pushParams = (next: { search?: string; role?: string; status?: string }) => {
     const params = new URLSearchParams(searchParams.toString());
 
     if (next.search !== undefined) {
@@ -74,6 +86,10 @@ export function UserFilters() {
     if (next.role !== undefined) {
       if (next.role && next.role !== "all") params.set("role", next.role);
       else params.delete("role");
+    }
+    if (next.status !== undefined) {
+      if (next.status && next.status !== "all") params.set("status", next.status);
+      else params.delete("status");
     }
 
     // Any change to the filters invalidates the current page number.
@@ -129,6 +145,22 @@ export function UserFilters() {
           {ROLES.map((r) => (
             <SelectItem key={r.value} value={r.value}>
               {r.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={urlStatus} onValueChange={(status) => pushParams({ status })}>
+        <SelectTrigger className="sm:w-52" aria-label="Filter by account status">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {STATUSES.map((st) => (
+            <SelectItem key={st.value} value={st.value}>
+              {st.label}
+              {st.value === "blocked" && blockedCount !== undefined
+                ? ` (${blockedCount.toLocaleString()})`
+                : ""}
             </SelectItem>
           ))}
         </SelectContent>

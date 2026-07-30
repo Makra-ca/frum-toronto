@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { users, passwordResetTokens } from "@/lib/db/schema";
+import { users, passwordResetTokens, accounts } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
@@ -38,9 +38,41 @@ export async function POST(request: Request) {
       return successResponse;
     }
 
-    // Only allow password reset for users with passwords (not OAuth-only)
+    // A disabled account is this project's ban (is_active = false blocks both
+    // password and Google sign-in). Sending a reset link was a dead end: the
+    // person reset successfully and still could not log in, because the reset
+    // does not touch is_active. Say so instead — and deliberately do NOT
+    // reactivate on reset, or anyone banned could unban themselves from here.
+    if (user.isActive === false) {
+      return NextResponse.json(
+        {
+          error:
+            "This account has been disabled. Please contact us and we'll be glad to help.",
+        },
+        { status: 403 }
+      );
+    }
+
+    // No password hash has two very different causes.
+    //
+    // An OAuth-only account must NOT be resettable — issuing a password to it
+    // would let someone who controls the inbox take over a Google-linked
+    // account. That is the case this guard originally existed for.
+    //
+    // A legacy imported member with no password is different: there is no OAuth
+    // link, and refusing left 16 of them told to "check your email" while no
+    // email was ever sent. They are allowed through so a reset gives them a
+    // password for the first time.
     if (!user.passwordHash) {
-      return successResponse;
+      const [oauthAccount] = await db
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(eq(accounts.userId, user.id))
+        .limit(1);
+
+      if (oauthAccount) {
+        return successResponse;
+      }
     }
 
     // Delete any existing tokens for this user

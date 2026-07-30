@@ -3,7 +3,11 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { desc, eq, and, sql } from "drizzle-orm";
-import { buildUserSearchCondition } from "@/lib/admin/user-search";
+import {
+  buildUserSearchCondition,
+  buildUserStatusCondition,
+  parseUserStatus,
+} from "@/lib/admin/user-search";
 
 const DEFAULT_LIMIT = 20;
 /**
@@ -41,6 +45,7 @@ export async function GET(request: NextRequest) {
 
     const search = (searchParams.get("search") || "").trim();
     const role = searchParams.get("role") || "";
+    const status = parseUserStatus(searchParams.get("status") ?? undefined);
 
     const conditions = [];
 
@@ -50,6 +55,9 @@ export async function GET(request: NextRequest) {
     if (role && role !== "all" && VALID_ROLES.includes(role)) {
       conditions.push(eq(users.role, role));
     }
+
+    const statusCondition = buildUserStatusCondition(status);
+    if (statusCondition) conditions.push(statusCondition);
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
