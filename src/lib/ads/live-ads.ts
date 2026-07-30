@@ -73,6 +73,57 @@ export function liveAdCondition(placement: AdPlacement, now: Date = new Date()):
  */
 export const liveAdOrdering = [sql`RANDOM()`];
 
+/** Only these may reach an href. Everything else is rejected, not repaired. */
+const SAFE_URL_PROTOCOLS = new Set(["http:", "https:"]);
+
+/** A leading scheme, e.g. "https:", "javascript:", "mailto:". */
+const HAS_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+
+/**
+ * Normalises an advertiser-supplied URL, or returns null if it cannot be trusted.
+ *
+ * Two separate problems, both real:
+ *
+ * 1. **No scheme.** Advertisers type "torahmasters.org". Left alone that is a
+ *    *relative* href, so it resolves to frumtoronto.com/torahmasters.org and 404s.
+ *    Eight other places in this repo prefix "https://" for exactly this reason.
+ *
+ * 2. **Dangerous schemes.** `link_url` is submitted by businesses and lands in an
+ *    href, so `javascript:alert(1)` is a stored-XSS vector. Note that zod's
+ *    `.url()` does NOT catch this — it is `new URL()` underneath, which accepts
+ *    `javascript:` and `data:` as perfectly valid URLs while rejecting the
+ *    scheme-less "torahmasters.org" that we actually want to accept.
+ *
+ * The repo's usual `startsWith("http") ? url : "https://" + url` idiom blocks
+ * javascript: only by accident (it gets prefixed into nonsense) and still lets
+ * "httpevil:x" through, since that does start with "http". This parses instead
+ * and checks the protocol against an allowlist.
+ *
+ * Fails closed: an unusable URL returns null, matching the "points nowhere"
+ * contract that callers already have to handle.
+ */
+export function normalizeAdUrl(raw: string | null | undefined): string | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) return null;
+
+  const candidate = HAS_SCHEME.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    return null;
+  }
+
+  if (!SAFE_URL_PROTOCOLS.has(parsed.protocol)) return null;
+
+  // No hostname check is needed after the protocol allowlist: for http/https a
+  // missing host makes `new URL()` throw ("https://" and "http://?q=1" both do),
+  // so anything reaching here already has one. Verified rather than assumed —
+  // note that "https:///nowhere" is NOT hostless, it parses as host "nowhere".
+  return parsed.toString();
+}
+
 /**
  * Resolves where an ad points.
  *
@@ -85,8 +136,11 @@ export function resolveAdHref(ad: {
   linkUrl: string | null;
   businessSlug?: string | null;
 }): { href: string; external: boolean } | null {
-  if (ad.linkType === "external" && ad.linkUrl) {
-    return { href: ad.linkUrl, external: true };
+  if (ad.linkType === "external") {
+    const href = normalizeAdUrl(ad.linkUrl);
+    // An ad stored with an unusable URL renders as unclickable rather than as a
+    // broken or hostile link. The admin list surfaces it; the visitor never does.
+    return href ? { href, external: true } : null;
   }
   if (ad.linkType === "business" && ad.businessSlug) {
     return { href: `/directory/business/${ad.businessSlug}`, external: false };

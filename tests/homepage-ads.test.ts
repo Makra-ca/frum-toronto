@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { like } from 'drizzle-orm';
 import { testDb } from './utils/test-db';
 import * as schema from '@/lib/db/schema';
-import { liveAdCondition, resolveAdHref } from '@/lib/ads/live-ads';
+import { liveAdCondition, resolveAdHref, normalizeAdUrl } from '@/lib/ads/live-ads';
 
 /**
  * The database constraints are the real guarantee here: an ad that says "link to
@@ -189,9 +189,50 @@ describe('homepage_ads', () => {
 
     it('opens an external link in a new tab', () => {
       expect(resolveAdHref({ linkType: 'external', linkUrl: 'https://torahmasters.org' })).toEqual({
-        href: 'https://torahmasters.org',
+        href: 'https://torahmasters.org/',
         external: true,
       });
+    });
+
+    it('adds the missing scheme advertisers leave off', () => {
+      // "torahmasters.org" alone is a RELATIVE href — it would resolve to
+      // frumtoronto.com/torahmasters.org and 404.
+      expect(resolveAdHref({ linkType: 'external', linkUrl: 'torahmasters.org/semicha' })).toEqual({
+        href: 'https://torahmasters.org/semicha',
+        external: true,
+      });
+    });
+
+    it.each([
+      'javascript:alert(1)',
+      'JavaScript:alert(1)',
+      '  javascript:alert(1)  ',
+      'data:text/html,<script>alert(1)</script>',
+      'vbscript:msgbox(1)',
+      'file:///etc/passwd',
+      'httpevil:payload',
+    ])('refuses the unsafe scheme %s', (linkUrl) => {
+      // link_url is submitted by businesses and lands straight in an href, so this
+      // is a stored-XSS vector. zod's .url() does NOT catch it: it is new URL()
+      // underneath, which accepts javascript: and data: as valid URLs.
+      expect(resolveAdHref({ linkType: 'external', linkUrl })).toBeNull();
+    });
+
+    it.each(['https://', 'http://?q=1', 'https://:8080/x'])(
+      'refuses the unparseable URL %s',
+      (linkUrl) => {
+        expect(resolveAdHref({ linkType: 'external', linkUrl })).toBeNull();
+      }
+    );
+
+    it('refuses whitespace masquerading as a URL', () => {
+      expect(resolveAdHref({ linkType: 'external', linkUrl: '   ' })).toBeNull();
+    });
+
+    it('treats a triple slash as a host, not as hostless', () => {
+      // Documents why normalizeAdUrl has no hostname check: this parses to
+      // host "nowhere", and a genuinely hostless http(s) URL cannot parse at all.
+      expect(normalizeAdUrl('https:///nowhere')).toBe('https://nowhere/');
     });
 
     it('links to the business directory page in the same tab', () => {
