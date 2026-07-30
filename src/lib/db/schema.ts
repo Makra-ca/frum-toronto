@@ -49,7 +49,7 @@ export const users = pgTable("users", {
   canManageAskTheRabbi: boolean("can_manage_ask_the_rabbi").default(false).notNull(),
   commentPermission: varchar("comment_permission", { length: 20 }).default("allowed").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
 // ============================================
@@ -211,7 +211,7 @@ export const businesses = pgTable("businesses", {
   displayOrder: integer("display_order").default(0),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
   oldId: integer("old_id"), // migration mapping
 }, (table) => [
   index("idx_businesses_category").on(table.categoryId),
@@ -243,7 +243,7 @@ export const businessSubscriptions = pgTable("business_subscriptions", {
   currentPeriodEnd: timestamp("current_period_end"),
   cancelledAt: timestamp("cancelled_at"),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
 // ============================================
@@ -276,7 +276,7 @@ export const shuls = pgTable("shuls", {
   // Status
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   uniqueIndex("idx_shuls_slug").on(table.slug),
 ]);
@@ -357,6 +357,12 @@ export const classifieds = pgTable("classifieds", {
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   oldId: integer("old_id"),
+  // Stamped the first time this row is announced to subscribers. The broadcast
+  // guard is `broadcast_at IS NULL`, so an item can never be announced twice.
+  broadcastAt: timestamp("broadcast_at"),
+  rejectionReason: text("rejection_reason"),
+  // $onUpdate is what makes this move. A DEFAULT only fires on insert.
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   index("idx_classifieds_category").on(table.categoryId),
 ]);
@@ -379,7 +385,7 @@ export const specials = pgTable("specials", {
   viewCount: integer("view_count").default(0),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   index("idx_specials_business").on(table.businessId),
   index("idx_specials_dates").on(table.startDate, table.endDate),
@@ -413,6 +419,12 @@ export const events = pgTable("events", {
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   oldId: integer("old_id"),
+  // Stamped the first time this row is announced to subscribers. The broadcast
+  // guard is `broadcast_at IS NULL`, so an item can never be announced twice.
+  broadcastAt: timestamp("broadcast_at"),
+  rejectionReason: text("rejection_reason"),
+  // $onUpdate is what makes this move. A DEFAULT only fires on insert.
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   index("idx_events_start").on(table.startTime),
 ]);
@@ -459,7 +471,7 @@ export const shiurim = pgTable("shiurim", {
   isActive: boolean("is_active").default(true),
   approvalStatus: varchar("approval_status", { length: 20 }).default("approved"),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
   oldId: integer("old_id"),
 });
 
@@ -557,6 +569,12 @@ export const simchas = pgTable("simchas", {
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   oldId: integer("old_id"), // migration mapping (legacy FrumShared.BlogEntries.BlogEntryID)
+  // Stamped the first time this row is announced to subscribers. The broadcast
+  // guard is `broadcast_at IS NULL`, so an item can never be announced twice.
+  broadcastAt: timestamp("broadcast_at"),
+  rejectionReason: text("rejection_reason"),
+  // $onUpdate is what makes this move. A DEFAULT only fires on insert.
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
 // ============================================
@@ -588,6 +606,12 @@ export const shivaNotifications = pgTable("shiva_notifications", {
   approvalStatus: varchar("approval_status", { length: 20 }).default("approved"),
   createdAt: timestamp("created_at").defaultNow(),
   oldId: integer("old_id"), // migration mapping (legacy FrumShared.BlogEntries.BlogEntryID)
+  // Stamped the first time this row is announced to subscribers. The broadcast
+  // guard is `broadcast_at IS NULL`, so an item can never be announced twice.
+  broadcastAt: timestamp("broadcast_at"),
+  rejectionReason: text("rejection_reason"),
+  // $onUpdate is what makes this move. A DEFAULT only fires on insert.
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
 // ============================================
@@ -606,6 +630,12 @@ export const alerts = pgTable("alerts", {
   approvalStatus: varchar("approval_status", { length: 20 }).default("approved"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
+  // Stamped the first time this row is announced to subscribers. The broadcast
+  // guard is `broadcast_at IS NULL`, so an item can never be announced twice.
+  broadcastAt: timestamp("broadcast_at"),
+  rejectionReason: text("rejection_reason"),
+  // $onUpdate is what makes this move. A DEFAULT only fires on insert.
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
 export const kosherAlerts = pgTable("kosher_alerts", {
@@ -622,6 +652,12 @@ export const kosherAlerts = pgTable("kosher_alerts", {
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   oldId: integer("old_id"), // migration mapping (legacy FrumShared.BlogEntries.BlogEntryID)
+  // Stamped the first time this row is announced to subscribers. The broadcast
+  // guard is `broadcast_at IS NULL`, so an item can never be announced twice.
+  broadcastAt: timestamp("broadcast_at"),
+  rejectionReason: text("rejection_reason"),
+  // $onUpdate is what makes this move. A DEFAULT only fires on insert.
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
 // ============================================
@@ -640,6 +676,12 @@ export const tehillimList = pgTable("tehillim_list", {
   expiresAt: date("expires_at"),
   isPermanent: boolean("is_permanent").default(false), // Admin can set to never expire
   createdAt: timestamp("created_at").defaultNow(),
+  // Stamped the first time this row is announced to subscribers. The broadcast
+  // guard is `broadcast_at IS NULL`, so an item can never be announced twice.
+  broadcastAt: timestamp("broadcast_at"),
+  rejectionReason: text("rejection_reason"),
+  // $onUpdate is what makes this move. A DEFAULT only fires on insert.
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
 export const eruvStatus = pgTable("eruv_status", {
@@ -648,7 +690,7 @@ export const eruvStatus = pgTable("eruv_status", {
   isUp: boolean("is_up").notNull(),
   message: varchar("message", { length: 500 }),
   updatedBy: integer("updated_by").references(() => users.id),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
 // ============================================
@@ -661,7 +703,7 @@ export const blogCategories = pgTable("blog_categories", {
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   displayOrder: integer("display_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
 export const blogPosts = pgTable("blog_posts", {
@@ -681,8 +723,12 @@ export const blogPosts = pgTable("blog_posts", {
   publishedAt: timestamp("published_at"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
   oldId: integer("old_id"), // migration mapping (legacy FrumShared.BlogEntries.BlogEntryID)
+  // Stamped the first time this row is announced to subscribers. The broadcast
+  // guard is `broadcast_at IS NULL`, so an item can never be announced twice.
+  broadcastAt: timestamp("broadcast_at"),
+  rejectionReason: text("rejection_reason"),
 }, (table) => [
   index("idx_blog_posts_listing").on(table.approvalStatus, table.isActive, table.publishedAt),
   index("idx_blog_posts_author").on(table.authorId),
@@ -698,7 +744,7 @@ export const blogComments = pgTable("blog_comments", {
   approvalStatus: varchar("approval_status", { length: 20 }).default("pending").notNull(),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   index("idx_blog_comments_post").on(table.postId, table.approvalStatus, table.isActive),
   index("idx_blog_comments_author").on(table.authorId),
@@ -800,7 +846,7 @@ export const homepageAds = pgTable("homepage_ads", {
   /** Clicks only. Impressions would mean a write on every homepage render. */
   clickCount: integer("click_count").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   // Partial: only live rows are indexed, so it stays small however many rejected
   // or switched-off ads accumulate.
@@ -835,7 +881,7 @@ export const newsletters = pgTable("newsletters", {
   sentAt: timestamp("sent_at"),
   createdBy: integer("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   index("idx_newsletters_status").on(table.status),
   index("idx_newsletters_scheduled").on(table.scheduledAt),
@@ -895,7 +941,7 @@ export const formEmailRecipients = pgTable("form_email_recipients", {
   name: varchar("name", { length: 200 }), // Optional display name
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   index("idx_form_recipients_type").on(table.formType),
 ]);
@@ -931,7 +977,7 @@ export const siteSettings = pgTable("site_settings", {
   key: varchar("key", { length: 100 }).notNull().unique(),
   value: text("value"),
   description: varchar("description", { length: 255 }),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
 // ============================================
