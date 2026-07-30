@@ -2,7 +2,8 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { like } from 'drizzle-orm';
 import { testDb } from './utils/test-db';
 import * as schema from '@/lib/db/schema';
-import { liveAdCondition, resolveAdHref, normalizeAdUrl } from '@/lib/ads/live-ads';
+import { liveAdCondition, resolveAdHref } from '@/lib/ads/live-ads';
+import { normalizeExternalUrl } from '@/lib/safe-url';
 
 /**
  * The database constraints are the real guarantee here: an ad that says "link to
@@ -232,7 +233,7 @@ describe('homepage_ads', () => {
     it('treats a triple slash as a host, not as hostless', () => {
       // Documents why normalizeAdUrl has no hostname check: this parses to
       // host "nowhere", and a genuinely hostless http(s) URL cannot parse at all.
-      expect(normalizeAdUrl('https:///nowhere')).toBe('https://nowhere/');
+      expect(normalizeExternalUrl('https:///nowhere')).toBe('https://nowhere/');
     });
 
     it('links to the business directory page in the same tab', () => {

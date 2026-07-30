@@ -23,6 +23,7 @@ import { HDate, gematriya } from "@hebcal/core";
 import { anchorCivilDate, civilDateInTimeZone } from "@/lib/zmanim-day";
 import { TORONTO_LOCATION } from "@/lib/zmanim-location";
 import { formatInstant } from "@/lib/datetime";
+import { normalizeExternalUrl } from "@/lib/safe-url";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -108,6 +109,14 @@ export default async function EventDetailPage({ params }: PageProps) {
   const endDate = event.endTime ? new Date(event.endTime) : null;
   const typeConfig = getEventTypeConfig(event.eventType);
   const hebrewDate = getHebrewDate(startDate);
+
+  /*
+    flyerUrl arrives from a public event submission validated only by
+    z.string().url(), which ACCEPTS "javascript:alert(1)". The ".pdf" test below
+    is not a guard either — "javascript:alert(1)#.pdf" satisfies it. Null here
+    hides the flyer block entirely rather than rendering a dead or hostile link.
+  */
+  const flyerHref = normalizeExternalUrl(event.flyerUrl);
   const hasContactInfo = event.contactName || event.contactEmail || event.contactPhone;
 
   return (
@@ -265,12 +274,12 @@ export default async function EventDetailPage({ params }: PageProps) {
                   )}
 
                   {/* Flyer (image shown inline; PDF shown as a download/view card) */}
-                  {event.flyerUrl && (
+                  {flyerHref && (
                     <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
                       <h2 className="text-lg font-semibold text-gray-900 mb-4">Event Flyer</h2>
-                      {event.flyerUrl.toLowerCase().includes(".pdf") ? (
+                      {flyerHref.toLowerCase().includes(".pdf") ? (
                         <a
-                          href={event.flyerUrl}
+                          href={flyerHref}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -281,7 +290,7 @@ export default async function EventDetailPage({ params }: PageProps) {
                       ) : (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={event.flyerUrl}
+                          src={flyerHref}
                           alt={`${event.title} flyer`}
                           className="w-full max-h-[40rem] object-contain bg-slate-100 rounded-lg"
                         />

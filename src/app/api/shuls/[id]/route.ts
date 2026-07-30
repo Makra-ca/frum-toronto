@@ -5,10 +5,41 @@ import { shuls, daveningSchedules } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { canUserManageShul } from "@/lib/auth/permissions";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
+import { normalizeExternalUrl } from "@/lib/safe-url";
+import { z } from "zod";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
+
+/**
+ * This route previously wrote `body.*` straight into the update with no
+ * validation of any kind. Combined with the public shul page rendering
+ * `href={shul.website}` raw, and this route's own "edits go live without review"
+ * behaviour, a shul manager could store `javascript:...` and have it become a
+ * clickable link on a public page.
+ *
+ * `website` is deliberately a plain string here, not `z.string().url()`:
+ *  - `.url()` REJECTS "myshul.com", which is what people actually type, and
+ *  - `.url()` ACCEPTS "javascript:alert(1)", because it is `new URL()` underneath.
+ *
+ * It is normalised through `normalizeExternalUrl` below instead, which adds the
+ * missing scheme and rejects unsafe ones.
+ */
+const shulUpdateSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(200),
+  description: z.string().max(5000).optional().nullable(),
+  address: z.string().max(300).optional().nullable(),
+  city: z.string().max(100).optional().nullable(),
+  postalCode: z.string().max(20).optional().nullable(),
+  phone: z.string().max(50).optional().nullable(),
+  email: z.string().email("Enter a valid email address").max(255).optional().nullable().or(z.literal("")),
+  website: z.string().max(255).optional().nullable(),
+  rabbi: z.string().max(200).optional().nullable(),
+  denomination: z.string().max(50).optional().nullable(),
+  nusach: z.string().max(50).optional().nullable(),
+  hasMinyan: z.boolean().optional(),
+});
 
 // GET shul details (for shul managers)
 export async function GET(request: Request, { params }: RouteParams) {
@@ -76,23 +107,43 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const body = await request.json();
+    const result = shulUpdateSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error.issues[0].message },
+        { status: 400 }
+      );
+    }
+    const data = result.data;
+
+    // Reject an unusable website rather than silently storing null — dropping
+    // what someone typed without telling them is a decision made on their behalf.
+    const rawWebsite = data.website?.trim();
+    const website = rawWebsite ? normalizeExternalUrl(rawWebsite) : null;
+    if (rawWebsite && !website) {
+      return NextResponse.json(
+        { error: "Enter a valid website address, e.g. myshul.com or https://myshul.com" },
+        { status: 400 }
+      );
+    }
 
     // Update shul directly (no more business table)
     await db
       .update(shuls)
       .set({
-        name: body.name,
-        description: body.description,
-        address: body.address,
-        city: body.city,
-        postalCode: body.postalCode,
-        phone: body.phone,
-        email: body.email,
-        website: body.website,
-        rabbi: body.rabbi,
-        denomination: body.denomination,
-        nusach: body.nusach,
-        hasMinyan: body.hasMinyan,
+        name: data.name,
+        description: data.description,
+        address: data.address,
+        city: data.city,
+        postalCode: data.postalCode,
+        phone: data.phone,
+        email: data.email || null,
+        website,
+        rabbi: data.rabbi,
+        denomination: data.denomination,
+        nusach: data.nusach,
+        hasMinyan: data.hasMinyan,
         updatedAt: new Date(),
       })
       .where(eq(shuls.id, shulId));
@@ -100,9 +151,9 @@ export async function PUT(request: Request, { params }: RouteParams) {
     // Notify admins (Tier C FYI — shul manager edits go live without review)
     await notifyAdminOfSubmission({
       contentType: "shul_edit",
-      title: `Shul details updated: ${body.name || `Shul #${shulId}`}`,
+      title: `Shul details updated: ${data.name || `Shul #${shulId}`}`,
       body:
-        `Shul: ${body.name || `#${shulId}`}\n` +
+        `Shul: ${data.name || `#${shulId}`}\n` +
         `Updated by: ${session.user.name || session.user.email || "Unknown user"}`,
       linkUrl: "/admin/shuls",
       status: "auto_approved",

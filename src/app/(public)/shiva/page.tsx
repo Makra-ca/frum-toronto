@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { ShivaSubmitModal } from "@/components/shiva/ShivaSubmitModal";
 import { formatInstant } from "@/lib/datetime";
+import { normalizeExternalUrl } from "@/lib/safe-url";
 
 export const metadata = {
   title: "Shiva Notices - FrumToronto",
@@ -238,9 +239,14 @@ export default async function ShivaPage() {
                           <Video className="h-4 w-4 mt-0.5 text-gray-500 flex-shrink-0" />
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-500 mb-1">Zoom / Remote Access</p>
-                            {notice.zoomInfo.trim().startsWith("http") ? (
+                            {/*
+                              startsWith("http") was the old test. It admits
+                              "httpevil:x", and shiva notices are publicly
+                              submitted, so the scheme is checked properly here.
+                            */}
+                            {normalizeExternalUrl(notice.zoomInfo) ? (
                               <a
-                                href={notice.zoomInfo.trim()}
+                                href={normalizeExternalUrl(notice.zoomInfo)!}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:underline text-sm break-all"

@@ -10,6 +10,7 @@ import { DAYS_OF_WEEK } from "@/lib/validations/content";
 import { ShulEventsCalendar } from "@/components/shuls/ShulEventsCalendar";
 import { PageViewTracker } from "@/components/analytics/PageViewTracker";
 import { formatInstant } from "@/lib/datetime";
+import { normalizeExternalUrl } from "@/lib/safe-url";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -98,6 +99,14 @@ export default async function ShulPage({ params }: PageProps) {
     const day = DAYS_OF_WEEK.find((d) => d.value === dayOfWeek);
     return day?.label || "Unknown";
   }
+
+  /*
+    Normalised at render as well as on write. The write path now rejects unsafe
+    values, but rows predating that fix are still in the table, and this is a
+    public page — so it does not rely on every historical writer having behaved.
+    Null when the stored value is unusable, which hides the link entirely.
+  */
+  const websiteHref = normalizeExternalUrl(shul.website);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -320,11 +329,11 @@ export default async function ShulPage({ params }: PageProps) {
                   </div>
                 )}
 
-                {shul.website && (
+                {websiteHref && (
                   <div className="flex items-center gap-3">
                     <Globe className="h-5 w-5 text-gray-400" />
                     <a
-                      href={shul.website}
+                      href={websiteHref}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:underline truncate"
