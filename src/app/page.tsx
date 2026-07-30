@@ -12,8 +12,11 @@ import { ZmanimWidget } from "@/components/widgets/ZmanimWidget";
 import { EruvWidget } from "@/components/widgets/EruvWidget";
 import { WeatherWidget } from "@/components/widgets/WeatherWidget";
 import { OmerWidget } from "@/components/widgets/OmerWidget";
-import { HomepageBanner } from "@/components/homepage/HomepageBanner";
-import { HomepageSidebarAds, HomepageSidebarAdsMobile } from "@/components/homepage/HomepageSidebarAds";
+import {
+  HomepageBannerAds,
+  HomepageSidebarAd,
+  HomepageMobileAds,
+} from "@/components/homepage/AdSlots";
 
 // The hero renders live zmanim, eruv status and counts on the server, and the ad
 // components below read admin-managed content. Without this the page would be
@@ -29,7 +32,7 @@ export default async function HomePage() {
       <HeroSection zmanim={hero.zmanim} eruv={hero.eruv} counts={hero.counts} />
 
       {/* Banner Ads - After Hero */}
-      <HomepageBanner />
+      <HomepageBannerAds />
 
       {/* Main Content with Sidebar Ads on Both Sides */}
       <div className="container mx-auto px-4 py-8">
@@ -37,7 +40,7 @@ export default async function HomePage() {
           {/* Left Sidebar Ad - Desktop only (xl screens) */}
           <aside className="hidden xl:block">
             <div className="sticky top-24">
-              <HomepageSidebarAds position="left" />
+              <HomepageSidebarAd side="left" />
             </div>
           </aside>
 
@@ -48,7 +51,7 @@ export default async function HomePage() {
 
             {/* Mobile Sidebar Ads - Below Explore section */}
             <div className="xl:hidden">
-              <HomepageSidebarAdsMobile />
+              <HomepageMobileAds />
             </div>
 
             {/* Community Corner */}
@@ -64,7 +67,7 @@ export default async function HomePage() {
           {/* Right Sidebar Ad - Desktop only (xl screens) */}
           <aside className="hidden xl:block">
             <div className="sticky top-24">
-              <HomepageSidebarAds position="right" />
+              <HomepageSidebarAd side="right" />
             </div>
           </aside>
         </div>
