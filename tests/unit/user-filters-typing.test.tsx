@@ -123,6 +123,17 @@ describe("UserFilters search input", () => {
     expect(nav.params.get("search")).toBe("rochel");
   });
 
+  it("renders exactly one clear button", () => {
+    // type="search" makes Chromium draw its own clear button, which showed up
+    // next to the styled one as a second X. That native control is a shadow
+    // pseudo-element and invisible to the DOM, so the input type is what gets
+    // asserted here.
+    renderFilters();
+    const input = searchBox() as HTMLInputElement;
+    expect(input.type).not.toBe("search");
+    expect(input.type).toBe("text");
+  });
+
   it("still adopts an external navigation, such as Clear filters", () => {
     nav.params = new URLSearchParams("search=preset");
     renderFilters();

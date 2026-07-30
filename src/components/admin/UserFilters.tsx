@@ -100,7 +100,9 @@ export function UserFilters() {
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <Input
-          type="search"
+          // Not type="search": Chromium renders its own clear button for that
+          // type, which appeared alongside the styled one below as a second X.
+          type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name or email…"

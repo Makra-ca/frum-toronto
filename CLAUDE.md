@@ -1828,3 +1828,23 @@ Type `ab` → the 300 ms debounce pushes `?search=ab` → the user types `c` so 
 A regression test that passes against the broken code is worth nothing; both were checked by reintroducing each bug and confirming a red run.
 
 **Tests 247 → 259.** `tsc` 0 errors; `eslint` clean on touched files except one pre-existing unused-`error` warning in `UserShulAssignment` that predates this work. Admin pages still could not be exercised end-to-end in a browser (admin auth, no password available) — they were confirmed to compile and guard correctly.
+
+#### Follow-up — full-name search returned nothing, and a duplicate clear button
+
+**Bug: `/admin/users?search=danie+makal` found nobody, though three Daniel Makalski accounts exist.** The search put the *whole* query into each column:
+
+```ts
+or(ilike(firstName, '%danie makal%'), ilike(lastName, '%danie makal%'), ilike(email, '%danie makal%'))
+```
+
+No single column can contain both a first and last name, so every full-name search returned zero. The repo's own convention had it right all along — `searchAskTheRabbi` in `src/lib/search/fuzzy-search.ts` splits the query and requires each word to match *somewhere*: **AND across terms, OR across columns**. `"danie"` hits `first_name`, `"makal"` hits `last_name`, so the row matches.
+
+Fixed in a new shared `src/lib/admin/user-search.ts` (`parseUserSearchTerms` + `buildUserSearchCondition`), used by **both** `/admin/users/page.tsx` and `/api/admin/users` — they had duplicated the query, which is how they would have drifted. Unlike `parseWords` in fuzzy-search, single characters are kept: this is a substring lookup over ~3,150 rows, not trigram similarity, so typing "d" should narrow rather than be dropped (which would show every user and look like the filter was ignored). Terms are capped at 5.
+
+**Bug: two X buttons in the search field.** `type="search"` makes Chromium draw its own clear button, which sat beside the styled one. Changed to `type="text"`. `CategoryFilters.tsx` also uses `type="search"` but has no custom clear button, so it shows only the native one and was left alone.
+
+**Verified live** with `scripts/legacy-import/verify-user-search.ts`, which runs the real drizzle condition against the database (the page is behind admin auth and cannot be curl'd): `"danie makal"`, `"makal danie"` (order-independent), `"  daniel   makalski  "` (whitespace) and `"Daniel Makalski"` all return the same 3 accounts; `"makalski daniel zzz"` correctly returns 0 because one term matches nothing; `""` applies no filter.
+
+Note that script needs `import "dotenv/config"` as its **first** import — `src/lib/db/index.ts` throws at module-evaluation time when `DATABASE_URL` is unset, and imports evaluate in order, so a later `dotenv.config()` runs too late.
+
+**Tests 259 → 272.** The SQL-shape assertions render the condition with `new PgDialect().sqlToQuery(...)` rather than inspecting the drizzle object, which is circular and cannot be JSON-stringified. One asserts the generated params contain `%danie%` and `%makal%` and *not* `%danie makal%` — i.e. the exact shape of the original bug.

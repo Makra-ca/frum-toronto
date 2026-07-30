@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { desc, eq, ilike, or, and, sql } from "drizzle-orm";
+import { desc, eq, and, sql } from "drizzle-orm";
+import { buildUserSearchCondition } from "@/lib/admin/user-search";
 
 const DEFAULT_LIMIT = 20;
 /**
@@ -43,16 +44,8 @@ export async function GET(request: NextRequest) {
 
     const conditions = [];
 
-    if (search) {
-      const term = `%${search}%`;
-      conditions.push(
-        or(
-          ilike(users.firstName, term),
-          ilike(users.lastName, term),
-          ilike(users.email, term)
-        )
-      );
-    }
+    const searchCondition = buildUserSearchCondition(search);
+    if (searchCondition) conditions.push(searchCondition);
 
     if (role && role !== "all" && VALID_ROLES.includes(role)) {
       conditions.push(eq(users.role, role));

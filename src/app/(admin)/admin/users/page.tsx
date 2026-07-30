@@ -2,7 +2,8 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { desc, eq, ilike, or, and, sql } from "drizzle-orm";
+import { desc, eq, and, sql } from "drizzle-orm";
+import { buildUserSearchCondition } from "@/lib/admin/user-search";
 import { UserTable } from "@/components/admin/UserTable";
 import { UserFilters } from "@/components/admin/UserFilters";
 import { PaginationLinks } from "@/components/ui/PaginationLinks";
@@ -24,12 +25,9 @@ function parsePage(raw: string | undefined): number {
 async function getUsers(page: number, search: string, role: string) {
   const conditions = [];
 
-  if (search) {
-    const term = `%${search}%`;
-    conditions.push(
-      or(ilike(users.firstName, term), ilike(users.lastName, term), ilike(users.email, term))
-    );
-  }
+  const searchCondition = buildUserSearchCondition(search);
+  if (searchCondition) conditions.push(searchCondition);
+
   if (role && role !== "all" && VALID_ROLES.includes(role)) {
     conditions.push(eq(users.role, role));
   }
