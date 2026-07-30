@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -41,9 +41,23 @@ export function UserFilters() {
 
   const [search, setSearch] = useState(urlSearch);
 
-  // Keep the input in step with browser navigation (back/forward, or the
-  // "clear filters" link elsewhere on the page).
+  /**
+   * The last value this component pushed into the URL.
+   *
+   * Without it, characters vanish while typing. The debounce pushes "ab", the
+   * user types "c" so local state is "abc", then the navigation commits and
+   * `urlSearch` becomes "ab" — and a naive `setSearch(urlSearch)` sync would
+   * overwrite "abc" with the older "ab", eating the "c".
+   *
+   * Comparing against what we pushed distinguishes our own navigation (ignore,
+   * the input is already ahead) from a genuine external one such as back/forward
+   * or the "Clear filters" link (adopt it).
+   */
+  const lastPushedSearch = useRef(urlSearch);
+
   useEffect(() => {
+    if (urlSearch === lastPushedSearch.current) return;
+    lastPushedSearch.current = urlSearch;
     setSearch(urlSearch);
   }, [urlSearch]);
 
@@ -51,6 +65,9 @@ export function UserFilters() {
     const params = new URLSearchParams(searchParams.toString());
 
     if (next.search !== undefined) {
+      // Record it before navigating so the sync effect recognises the resulting
+      // URL change as ours and leaves the input alone.
+      lastPushedSearch.current = next.search;
       if (next.search) params.set("search", next.search);
       else params.delete("search");
     }

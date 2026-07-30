@@ -18,7 +18,12 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'unit',
-          include: ['tests/unit/**/*.test.ts'],
+          // .tsx is included so React components can be tested. Those files opt
+          // into a DOM per-file with a `// @vitest-environment jsdom` docblock;
+          // the default stays 'node' so the existing pure tests keep their fast,
+          // DOM-free environment.
+          include: ['tests/unit/**/*.test.ts', 'tests/unit/**/*.test.tsx'],
+          setupFiles: ['./tests/unit-setup.ts'],
           // Pin to UTC so tests reproduce production (Vercel runs UTC) and are
           // deterministic on any dev machine. The zmanim day-boundary bug only
           // manifests when the server's local day differs from the location's —

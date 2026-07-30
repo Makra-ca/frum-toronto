@@ -1804,3 +1804,27 @@ Legacy images were served from `www.frumtoronto.com/Local/CalendarImages/` and t
 **Audited, deliberately not changed:** every other admin API already paginates at 20/page. The remaining unbounded endpoints are all tiny (classified-categories 49, notifications 21, shiurim 10, shul-neighborhoods 8, simcha-types 7, important-numbers/shul-requests/community-newsletters 0), as are the unbounded public pages (`/alerts` 1, `/community/tehillim` 2, `/newsletters` 7, `/shiva` **0 visible** since every legacy notice is expired). `admin/newsletter-segments` was flagged as a risk and then cleared on reading it: it already counts with `COUNT(*)` rather than fetching subscriber rows — it has an N+1 (one count per segment) but that is harmless for an admin-curated list.
 
 **Verification:** `scripts/legacy-import/verify-users-paging.ts` walks all 158 pages and proves exact coverage — 3,146 distinct ids, **0 duplicates**, repeatable ordering, filters agreeing with independent counts, out-of-range pages returning empty. It also reports that **17 `created_at` values are shared by more than one user**, which is the concrete reason the `id` tiebreaker is required rather than merely tidy. Admin pages could not be loaded end-to-end because they sit behind admin auth and no password was available; they were confirmed to compile and guard correctly (307 redirect, API 401). `tsc` 0 errors, 247 tests pass, `eslint` clean on touched files apart from one pre-existing unused-`error` warning in `UserShulAssignment` that predates this work.
+
+#### Follow-up — typing bug in the admin search, and the user picker rebuilt
+
+**Bug: characters disappeared while typing in the `/admin/users` search box.** `UserFilters` echoed the URL back into its controlled input:
+
+```ts
+const [search, setSearch] = useState(urlSearch);
+useEffect(() => { setSearch(urlSearch); }, [urlSearch]);   // clobbers newer keystrokes
+```
+
+Type `ab` → the 300 ms debounce pushes `?search=ab` → the user types `c` so local state is `abc` → the navigation commits, `urlSearch` becomes `ab`, and the sync overwrites `abc` with the stale `ab`. The `c` is gone. `UniversalSearch` never had this because its local `query` is the sole source of truth. Fixed with a `lastPushedSearch` ref: a URL change is adopted only when it differs from what this component pushed, which distinguishes our own echo (ignore) from a real external navigation such as back/forward or the "Clear filters" link (adopt).
+
+**The user dropdown was rebuilt to match the public one.** New `src/components/admin/UserPicker.tsx` follows the `UniversalSearch` pattern — overlay dropdown, 300 ms debounce, **AbortController**, keyboard navigation (↑/↓/Enter/Escape), click-outside dismissal, match highlighting, role badges, combobox ARIA. It replaced the inline result list in `UserShulAssignment`, which had no abort and so could show results for a query the user had already moved past. Editing the text after choosing someone clears the selection, so the dialog can never submit a stale user id while the field displays a different name.
+
+**Component testing now works in this repo.** `@testing-library/react` was already a dependency but `jsdom` was not, which is why there was no component harness. Added `jsdom`, `@testing-library/user-event` and `@testing-library/dom` as dev deps, a `tests/unit-setup.ts` registering the jest-dom matchers, and widened the unit project glob to `*.test.tsx`. Component tests opt into a DOM per file with `// @vitest-environment jsdom`; the default stays `node` so the existing pure tests keep their fast DOM-free environment.
+
+**Both new regression tests were verified to actually fail against the bugs** — and the first two attempts did not, which is the part worth remembering:
+
+- The typing test initially passed even with the bug reintroduced, because the mock applied the new URL *synchronously* inside `router.replace`. That ordering means the extra keystroke lands after the URL echo, so the race never happens. Rewritten so `replace` only records a pending URL and the test calls `commitNavigation()` explicitly, placing the commit after the next keystroke. It now fails on 2 assertions without the fix.
+- The AbortController test also passed with the abort removed, because a 500 ms stale response still resolved *before* the newer one given the timeline. Raised to 2000 ms so it genuinely lands last. It now fails without the abort.
+
+A regression test that passes against the broken code is worth nothing; both were checked by reintroducing each bug and confirming a red run.
+
+**Tests 247 → 259.** `tsc` 0 errors; `eslint` clean on touched files except one pre-existing unused-`error` warning in `UserShulAssignment` that predates this work. Admin pages still could not be exercised end-to-end in a browser (admin auth, no password available) — they were confirmed to compile and guard correctly.
