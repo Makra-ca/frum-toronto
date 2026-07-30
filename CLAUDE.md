@@ -2019,3 +2019,66 @@ Triggered by a support ticket about a Bais Yaakov graduation date. The ticket tu
 `UserTable.tsx`: **186 of 3,164 users have no first/last name** (legacy import — old `MemberList` had email but no name). `{firstName} {lastName}` rendered as a bare space, leaving the grey email as the only visible text, so those rows read as disabled. The email is now promoted into the dark slot. Note `{a} {b}` with both null renders `" "`, not `""` — the literal space survives, which is why it looked styled rather than broken.
 
 **Verification:** 309 unit + 81 integration = **390 tests** (was 375). `tsc` 0 errors. eslint unchanged at 8 pre-existing errors. Verified live by running the app with `TZ=UTC` (what Vercel runs) and diffing rendered dates against production — event detail now matches the calendar exactly; `/simchas` byte-identical to prod. Admin pages could not be exercised in a browser (no admin password).
+
+---
+
+### 2026-07-30 — User submissions: spec + plan (POC merged, feature not built)
+
+Started from a support ticket asking to change an event date. The ticket was a red herring — the event was
+already on the right date — but it exposed that **users cannot edit anything they submit**. Public
+submission APIs are `POST`-only for every type except blog.
+
+**Spec:** `docs/superpowers/specs/2026-07-30-user-submissions-design.md`
+**Plan:** `docs/superpowers/plans/2026-07-30-user-submissions.md`
+
+**Merged already** (`36fa788`, `d5778a0`) — an events-only POC: `/dashboard/submissions`,
+`GET /api/user/submissions`, `GET`/`PATCH /api/community/events/[id]`, `src/lib/events/edit-submission.ts`,
+`PublicEventForm` edit mode, 6 integration tests.
+
+#### The defect that shaped the design — do not undo this
+
+Approving does not just flip a status, it **broadcasts to every subscriber**
+(`admin/content/[type]/[id]/approve/route.ts:72`, guard `previousApprovalStatus !== "approved"`; same shape
+in `admin/shiva/[id]` and `admin/kosher-alerts/[id]`).
+
+So an edit must NOT set `pending`. If it did: correct a typo → `pending` → admin re-approves → the guard
+fires → **the whole community is re-emailed**. For shiva that means re-sending a bereavement notice because
+someone fixed a street address. Hence a distinct **`pending_edit`** status; broadcast guards fire only on
+`pending → approved`. `approval_status` is `varchar(20)` with no CHECK on any table, so the new value needs
+no migration.
+
+#### Two defects live on main right now
+
+1. `applyEventEdit` sets `pending` unconditionally, so **an admin or auto-approver editing their own live
+   event self-unpublishes it**. The create path computes this correctly; the edit path doesn't even load the
+   user row.
+2. `Submission.detail` has no `detailKind`, so the list page calls `formatInstant` on everything. The moment
+   simchas or shiva join, every date-only row renders **a day early**.
+
+Neither is user-visible yet (nothing links the page for non-events, no notifications fire).
+
+#### Decisions (owner)
+
+One list at `/dashboard/submissions`, all types · edit unpublishes via `pending_edit` · **blog adopts the
+same rule** (its current rule is the opposite — it *forbids* editing an approved post) · auto-approvers'
+edits stay live, admin notified in-app · shul-linked content editable by **whoever currently manages the
+shul**, not only the poster · email on approve+reject, transactional, no opt-out (CASL: consent not needed,
+identification still is) · rejection reason optional with written fallback · past items behind a toggle.
+
+#### Facts worth not rediscovering
+
+- **Ownership is the binding constraint.** Only non-NULL owner rows can ever be editable: blog 3,058;
+  classifieds 10; simchas 9; events 6; kosher_alerts 1. Everything else is legacy import with NULL owner and
+  is permanently invisible to this feature — correct, not a gap.
+- **`shiurim` has no owner column** (needs a migration); **`specials` has no public submission API** at all;
+  **`ask_the_rabbi`** published rows aren't owned, but `ask_the_rabbi_submissions` **is** and has a `status`.
+- Only `blog_posts` had an `updated_at`, so nothing else can detect a concurrent edit-vs-approve race.
+- ~15 call sites flip `approval_status` independently. The plan mandates a single `setApprovalStatus`
+  writer; anything left off it silently notifies nobody or silently re-broadcasts.
+
+#### Process note
+
+A spec review caught the broadcast defect and a false claim of mine — I wrote "every submission API is
+POST-only" after citing blog's PATCH route as the template earlier in the same session. Blog holds more
+owned rows than every other type combined. **Re-verify claims about the codebase before writing them into a
+spec, even ones established earlier in the same conversation.**
