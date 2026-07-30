@@ -55,13 +55,21 @@ export async function createTestUser(userData: Partial<typeof schema.users.$infe
       // gated on this, so without it every test user looks unverified.
       emailVerified: userData.emailVerified ?? null,
       isTrusted: userData.isTrusted ?? false,
-      canAutoApproveKosherAlerts: userData.canAutoApproveKosherAlerts ?? false,
+      // ALL TWELVE canAutoApprove* columns are passed through. Five used to be
+      // missing, so a test asking for one got a user without it and then passed
+      // for the wrong reason — the auto-approve branch was never exercised.
       canAutoApproveShiva: userData.canAutoApproveShiva ?? false,
       canAutoApproveTehillim: userData.canAutoApproveTehillim ?? false,
       canAutoApproveBusinesses: userData.canAutoApproveBusinesses ?? false,
+      canAutoApproveAskTheRabbi: userData.canAutoApproveAskTheRabbi ?? false,
+      canAutoApproveKosherAlerts: userData.canAutoApproveKosherAlerts ?? false,
+      canAutoApproveShuls: userData.canAutoApproveShuls ?? false,
       canAutoApproveSimchas: userData.canAutoApproveSimchas ?? false,
       canAutoApproveEvents: userData.canAutoApproveEvents ?? false,
       canAutoApproveClassifieds: userData.canAutoApproveClassifieds ?? false,
+      canAutoApproveShiurim: userData.canAutoApproveShiurim ?? false,
+      canAutoApproveAlerts: userData.canAutoApproveAlerts ?? false,
+      canAutoApproveBlog: userData.canAutoApproveBlog ?? false,
     })
     .returning();
   return user;
