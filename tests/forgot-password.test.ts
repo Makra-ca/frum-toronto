@@ -105,25 +105,32 @@ describe('Account state affecting password reset and login', () => {
     expect(row.isActive).toBe(false);
   });
 
-  it('the blocked-status filter finds exactly the blocked account', async () => {
+  it('the blocked-status filter finds the blocked account and not the others', async () => {
     const condition = buildUserStatusCondition(parseUserStatus('blocked'));
     const rows = await testDb
-      .select({ id: schema.users.id, email: schema.users.email })
+      .select({ id: schema.users.id })
       .from(schema.users)
       .where(condition);
+    const ids = rows.map((r) => r.id);
 
-    const testRows = rows.filter((r) => r.email.endsWith('@frumtoronto.test'));
-    expect(testRows.map((r) => r.id)).toEqual([blockedId]);
+    // Scoped to this file's own fixtures rather than every @frumtoronto.test
+    // row: cleanupTestUsers() deletes ALL test-%@frumtoronto.test users and every
+    // test file calls it, so asserting over that whole set is order-dependent and
+    // flaky.
+    expect(ids).toContain(blockedId);
+    expect(ids).not.toContain(normalId);
+    expect(ids).not.toContain(legacyNoPasswordId);
+    expect(ids).not.toContain(oauthOnlyId);
   });
 
   it('the active-status filter excludes the blocked account but keeps the rest', async () => {
     const condition = buildUserStatusCondition(parseUserStatus('active'));
     const rows = await testDb
-      .select({ id: schema.users.id, email: schema.users.email })
+      .select({ id: schema.users.id })
       .from(schema.users)
       .where(condition);
 
-    const ids = rows.filter((r) => r.email.endsWith('@frumtoronto.test')).map((r) => r.id);
+    const ids = rows.map((r) => r.id);
     expect(ids).not.toContain(blockedId);
     expect(ids).toContain(normalId);
     expect(ids).toContain(legacyNoPasswordId);

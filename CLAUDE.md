@@ -2008,3 +2008,11 @@ Three deliberate design points:
 More importantly, the sender's address is now taken from **the session, not the request body**. The old handler accepted `senderEmail` from the client and used it as the email's `replyTo`, so a caller could put anyone's address there and the seller would see a forged reply-to. `senderEmail` was removed from the Zod schema entirely — zod strips unknown keys, so any client still posting it is ignored rather than erroring. Same reasoning as the pricing rules in this file: never trust the client for anything that matters.
 
 `ContactSellerModal` follows: the email field is now read-only (showing the account address, since an editable field would be a lie once the server ignores it), the client-side email validation is gone, and a signed-out visitor gets a "Sign In Required" branch matching `KosherAlertSubmitModal` — previously they would have filled the whole form and only then hit a 401.
+
+#### 2026-07-30 — a flaky integration test I introduced, and why
+
+One integration run failed and then passed on retry. Cause: `cleanupTestUsers()` in `tests/utils/test-db.ts` deletes **every** `test-%@frumtoronto.test` user, not just the calling file's, and every test file calls it in `beforeAll`/`afterAll`. My new `forgot-password.test.ts` then asserted over *all* `@frumtoronto.test` rows (`expect(testRows.map(r => r.id)).toEqual([blockedId])`), which only holds if no other file's fixtures happen to exist — so it was order-dependent.
+
+Fixed by scoping those assertions to the file's own fixture ids (`toContain` / `not.toContain`) instead of the shared email suffix. Verified with three consecutive clean runs of the full integration suite, 58/58 each.
+
+Worth knowing for any future integration test here: **never assert over the whole `@frumtoronto.test` set.** The shared cleanup makes that inherently racy; assert on ids you created.
