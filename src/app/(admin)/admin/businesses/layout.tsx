@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminTabs } from "@/components/admin/AdminTabs";
-import { Building2, FolderTree, CreditCard, Heart, Video, Megaphone } from "lucide-react";
+import { Building2, FolderTree, CreditCard, Heart, Video, Megaphone, ImageIcon } from "lucide-react";
 
 const businessTabs = [
   { href: "/admin/businesses", label: "All Businesses", icon: Building2, exact: true },
@@ -10,6 +10,7 @@ const businessTabs = [
   { href: "/admin/businesses/non-profit", label: "Non-Profit", icon: Heart },
   { href: "/admin/businesses/video-review", label: "Video Review", icon: Video },
   { href: "/admin/businesses/shoutouts", label: "Shoutouts", icon: Megaphone },
+  { href: "/admin/businesses/ads", label: "Ads", icon: ImageIcon },
 ];
 
 export default function BusinessesLayout({ children }: { children: React.ReactNode }) {
