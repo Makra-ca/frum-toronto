@@ -1975,3 +1975,47 @@ Deliberate choices:
 18 integration tests cover the constraints and the scheduling window in both directions. **Tests: 293 unit + 81 integration = 374.**
 
 **Still to build:** admin ads page (list/add/toggle/approve/reorder), homepage rendering with the thumbnail → full-flyer overlay → destination button, and business-facing submission with admin approval.
+
+---
+
+### 2026-07-30 — Timezone rendering: the same event showed two different times
+
+Triggered by a support ticket about a Bais Yaakov graduation date. The ticket turned out to be a red herring; the investigation found a real production bug.
+
+**The data was never wrong.** `events.start_time` holds correct UTC instants. The bug was purely in rendering, and it split cleanly along `"use client"`:
+
+| | Event #43, stored `2027-01-27 00:30` |
+|---|---|
+| Calendar list (**client**, viewer's TZ) | Tue Jan 26, 7:30 PM ✅ |
+| Event detail (**server**) | Wed Jan 27, 12:30 AM ❌ |
+
+`toLocaleString()` with no `timeZone` uses the *process* timezone. In a browser that is the viewer's (Toronto, right by luck); on Vercel, Node runs **UTC**. So the day *and* time disagreed between two pages of the same site. 140 call sites had no `timeZone`; only 8 set one.
+
+**`src/lib/datetime.ts`** is now the single place this is decided:
+
+- `formatInstant(value, opts)` — pins `America/Toronto`. For `timestamp` columns holding a real moment.
+- `formatDateOnly(value, opts)` — **no conversion at all**. For the 12 `date` columns.
+- `toDateInputValue` / `toTimeInputValue` / `fromDateTimeInputs` — form helpers; typed times are always read as Toronto, never the browser's zone.
+
+**Decision (owner):** everyone sees Toronto time regardless of where they view from. A shul event at 7:30 PM reads 7:30 PM in Israel too.
+
+#### Three traps — do not re-introduce
+
+1. **`Number.prototype.toLocaleString` shares its name with the Date method.** A codemod turned 37 number-formatting calls (filter counts, "Showing 1–25") into dates; the simchas page rendered `12/31/1969, 7:00:16 PM` as a filter badge. `formatInstant` therefore **deliberately does not accept `number`** — that signature is what makes `tsc` find these. Do not widen it.
+2. **Bare local variables named like DATE columns.** `startDate` / `eventDate` in the event detail, shul calendar and `UpcomingEvents` hold `new Date(event.startTime)` — instants, not dates. Classify by *property access* (`simcha.eventDate`), never by name alone.
+3. **`expiresAt` is two types**: `date` on `tehillim_list`, `timestamp` on `alerts` and `classifieds`. Resolved from the DB — `tehillim_list` is the only table with both `reason` and `expires_at`, which identifies the four tehillim call sites.
+
+#### Deliberately untouched
+
+- **ICS / Google Calendar export** (`EventActions.tsx`) uses `toISOString()` → `DTSTART:...Z`. Because the stored value is a true UTC instant this is **already correct**; "fixing" it to local time without a TZID would break it.
+- **Zmanim** has its own explicit timezone handling.
+- **894 legacy `created_at` rows at exactly midnight UTC** — 420 kosher alerts + 474 simchas, all 2005–2010, all `old_id IS NOT NULL`. The old site stored date-only until **June 2010**. These now render one day earlier. Reviewed and **deliberately left alone** (owner's call): 16–21 year old archive rows, not worth an `UPDATE` over production. If ever wanted: `SET created_at = created_at + interval '12 hours' WHERE created_at::time='00:00:00' AND old_id IS NOT NULL`.
+- **No `timestamptz` migration.** All 82 timestamp columns are still `timestamp without time zone`, zero use `withTimezone`. Storing UTC in a naive column is the PostgreSQL wiki's "Don't Do This", and it is the reason this class of bug is easy to write. The display fix does not depend on it; it remains the hygiene step that stops recurrence.
+
+#### Also fixed
+
+`EventForm.tsx` read the two halves of a datetime in **different** timezones — `formatDateForInput` used `toISOString()` (UTC), `formatTimeForInput` used `toTimeString()` (local). For any evening event those disagree and saving wrote the mismatch back, **pushing the event one day later on every save**. Both event write paths (admin + public) now go through `fromDateTimeInputs`.
+
+`UserTable.tsx`: **186 of 3,164 users have no first/last name** (legacy import — old `MemberList` had email but no name). `{firstName} {lastName}` rendered as a bare space, leaving the grey email as the only visible text, so those rows read as disabled. The email is now promoted into the dark slot. Note `{a} {b}` with both null renders `" "`, not `""` — the literal space survives, which is why it looked styled rather than broken.
+
+**Verification:** 309 unit + 81 integration = **390 tests** (was 375). `tsc` 0 errors. eslint unchanged at 8 pre-existing errors. Verified live by running the app with `TZ=UTC` (what Vercel runs) and diffing rendered dates against production — event detail now matches the calendar exactly; `/simchas` byte-identical to prod. Admin pages could not be exercised in a browser (no admin password).

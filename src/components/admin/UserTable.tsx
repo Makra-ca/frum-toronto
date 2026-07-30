@@ -21,6 +21,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Loader2, Check, X, Shield } from "lucide-react";
+import { formatInstant } from "@/lib/datetime";
 
 interface User {
   id: number;
@@ -66,6 +67,15 @@ const PERMISSION_LABELS: { key: keyof User; label: string }[] = [
   { key: "canAutoApproveAlerts", label: "Community Alerts" },
   { key: "canPostSpecials", label: "Post Specials/Deals" },
 ];
+
+/**
+ * Many legacy-import accounts have no first or last name. Rendering
+ * `{firstName} {lastName}` for those produced a blank dark line and left the
+ * grey email as the only visible text, so those rows read as disabled.
+ */
+function displayName(user: Pick<User, "firstName" | "lastName">): string {
+  return [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+}
 
 export function UserTable({ users: initialUsers }: UserTableProps) {
   const [users, setUsers] = useState(initialUsers);
@@ -180,7 +190,10 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
               Auto-Approve Permissions
             </DialogTitle>
             <DialogDescription>
-              {permissionsDialogUser?.firstName} {permissionsDialogUser?.lastName} ({permissionsDialogUser?.email})
+              {permissionsDialogUser &&
+                (displayName(permissionsDialogUser)
+                  ? `${displayName(permissionsDialogUser)} (${permissionsDialogUser.email})`
+                  : permissionsDialogUser.email)}
             </DialogDescription>
           </DialogHeader>
 
@@ -309,14 +322,19 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
             <tbody className="divide-y divide-gray-200">
               {users.map((user) => {
                 const permCount = countActivePermissions(user);
+                const name = displayName(user);
                 return (
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="font-medium text-gray-900">
-                          {user.firstName} {user.lastName}
+                          {name || user.email}
                         </div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
+                        {name && (
+                          <div className="text-sm text-gray-500">
+                            {user.email}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -395,7 +413,7 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {user.createdAt
-                        ? new Date(user.createdAt).toLocaleDateString()
+                        ? formatInstant(user.createdAt, { month: "numeric", day: "numeric", year: "numeric" })
                         : "N/A"}
                     </td>
                   </tr>
@@ -410,14 +428,17 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
       <div className="md:hidden space-y-4">
         {users.map((user) => {
           const permCount = countActivePermissions(user);
+          const name = displayName(user);
           return (
             <div key={user.id} className="bg-white rounded-lg shadow p-4">
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <div className="font-medium text-gray-900">
-                    {user.firstName} {user.lastName}
+                    {name || user.email}
                   </div>
-                  <div className="text-sm text-gray-500">{user.email}</div>
+                  {name && (
+                    <div className="text-sm text-gray-500">{user.email}</div>
+                  )}
                 </div>
                 {user.emailVerified ? (
                   <Badge className="bg-green-100 text-green-800">
@@ -483,7 +504,7 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
                   <span className="text-sm text-gray-500">Joined:</span>
                   <span className="text-sm text-gray-900">
                     {user.createdAt
-                      ? new Date(user.createdAt).toLocaleDateString()
+                      ? formatInstant(user.createdAt, { month: "numeric", day: "numeric", year: "numeric" })
                       : "N/A"}
                   </span>
                 </div>
