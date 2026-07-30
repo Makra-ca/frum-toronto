@@ -81,7 +81,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Alert not found" }, { status: 404 });
     }
 
-    const wasNotApproved = currentAlert.approvalStatus !== "approved";
+    // Allowlist: "pending_edit" is a correction to an already-broadcast alert,
+    // so it must not trigger a second batch send.
+    const wasNotApproved = currentAlert.approvalStatus === "pending";
     const isNowApproved = result.data.approvalStatus === "approved";
 
     const [updated] = await db

@@ -96,10 +96,13 @@ async function handleUpdate(request: NextRequest, eventId: number) {
     .returning();
 
   // Trigger broadcast email when transitioning to "approved" for the first time
-  const wasApproved = existingEvent.approvalStatus === "approved";
+  // Allowlist: only a FIRST approval broadcasts. "pending_edit" means the
+  // submitter corrected an already-published item, and re-announcing it would
+  // email the whole community a second time.
+  const wasNewSubmission = existingEvent.approvalStatus === "pending";
   const isNowApproved = (approvalStatus ?? existingEvent.approvalStatus) === "approved";
 
-  if (!wasApproved && isNowApproved) {
+  if (wasNewSubmission && isNowApproved) {
     try {
       await sendEventLiveEmail(updatedEvent);
     } catch (emailError) {

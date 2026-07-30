@@ -158,8 +158,11 @@ export async function PATCH(
 
     // As-posted broadcast: only when transitioning INTO approved (not on edits
     // of an already-approved notice). Non-fatal.
+    // Allowlist: a "pending_edit" notice was already broadcast once. Re-sending
+    // it because someone corrected an address would re-announce a bereavement
+    // to the entire community.
     if (
-      prior?.approvalStatus !== "approved" &&
+      prior?.approvalStatus === "pending" &&
       updated.approvalStatus === "approved"
     ) {
       try {

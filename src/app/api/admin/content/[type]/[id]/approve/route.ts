@@ -69,7 +69,9 @@ export async function POST(
       .where(eq(table.id, parseInt(id)));
 
     // Trigger event live broadcast email when transitioning to approved
-    if (type === "events" && previousApprovalStatus !== "approved") {
+    // Allowlist, not denylist: `!== "approved"` is also true for "pending_edit",
+    // so re-approving a corrected event would re-broadcast to every subscriber.
+    if (type === "events" && previousApprovalStatus === "pending") {
       try {
         const [approvedEvent] = await db
           .select()
