@@ -1,15 +1,39 @@
-import { and, eq, or, isNull, lte, gte, asc, desc, type SQL } from "drizzle-orm";
+import { and, eq, or, isNull, lte, gte, sql, type SQL } from "drizzle-orm";
 import { homepageAds } from "@/lib/db/schema";
 
-export type AdPlacement = "banner" | "sidebar";
+/**
+ * Three independent positions, not two.
+ *
+ * `HomepageSidebarAds` takes a `position: "left" | "right"` prop that is declared,
+ * destructured and never read — both columns fetched the same ads and rendered
+ * identical content, mirrored. Splitting the sidebar makes "put this one on the
+ * right" a real choice, and doubles sidebar inventory because the columns stop
+ * duplicating each other.
+ */
+export type AdPlacement = "banner" | "sidebar-left" | "sidebar-right";
 export type AdLinkType = "business" | "external" | "none";
 
-export const AD_PLACEMENTS: AdPlacement[] = ["banner", "sidebar"];
+export const AD_PLACEMENTS: AdPlacement[] = ["banner", "sidebar-left", "sidebar-right"];
 export const AD_LINK_TYPES: AdLinkType[] = ["business", "external", "none"];
 
+export const AD_PLACEMENT_LABELS: Record<AdPlacement, string> = {
+  banner: "Banner (top)",
+  "sidebar-left": "Left sidebar",
+  "sidebar-right": "Right sidebar",
+};
+
 export function isAdPlacement(value: unknown): value is AdPlacement {
-  return value === "banner" || value === "sidebar";
+  return (AD_PLACEMENTS as string[]).includes(value as string);
 }
+
+/**
+ * How many ads a single render shows per position.
+ *
+ * Selection is random from everyone eligible, so with a larger pool each visitor
+ * sees a different three and exposure evens out across visitors rather than
+ * within one page view.
+ */
+export const ADS_PER_POSITION = 3;
 
 /**
  * The condition for "this ad should be on the page right now".
@@ -33,12 +57,21 @@ export function liveAdCondition(placement: AdPlacement, now: Date = new Date()):
 }
 
 /**
- * Deliberate ordering, unlike the plan-based banners which use `ORDER BY random()`.
- * Someone paying for a placement should be able to rely on where it appears;
- * `created_at` breaks ties so equal sort_order stays stable between renders
- * rather than flickering.
+ * Random, and deliberately so.
+ *
+ * The old plan-based banners also used `ORDER BY random()`, but wrongly: nothing
+ * deliberate happened before the randomness, since every business on a qualifying
+ * tier was swept in automatically. Here, being in the pool at all is a decision —
+ * an admin assigned this ad to this position, or approved a business's submission
+ * into it. Randomness only breaks ties between ads that have already been judged
+ * equal, which is what makes it fair rather than arbitrary.
+ *
+ * Consequence to keep in mind: with more than ADS_PER_POSITION ads in a position,
+ * no individual ad is guaranteed to appear on any given page load. Pinning was
+ * considered and rejected; `homepage_ads.sort_order` is retained but unread so
+ * that adding it later is a small change rather than another migration.
  */
-export const liveAdOrdering = [asc(homepageAds.sortOrder), desc(homepageAds.createdAt)];
+export const liveAdOrdering = [sql`RANDOM()`];
 
 /**
  * Resolves where an ad points.

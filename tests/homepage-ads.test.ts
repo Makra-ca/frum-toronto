@@ -116,13 +116,46 @@ describe('homepage_ads', () => {
       expect(rows.map((r) => r.id)).not.toContain(ad.id);
     });
 
-    it('excludes the other placement', async () => {
-      const ad = await insertAd({ title: 'sidebar one', placement: 'sidebar', approvalStatus: 'approved' });
-      const rows = await testDb
-        .select({ id: schema.homepageAds.id })
-        .from(schema.homepageAds)
-        .where(liveAdCondition('banner'));
-      expect(rows.map((r) => r.id)).not.toContain(ad.id);
+    it('rejects the retired two-value placement', async () => {
+      // 'sidebar' was split into sidebar-left/sidebar-right; the constraint is what
+      // stops a stale caller writing a row that would then render nowhere.
+      await expect(insertAd({ title: 'retired', placement: 'sidebar' })).rejects.toThrow();
+    });
+
+    it('keeps the three positions independent of each other', async () => {
+      // Left and right previously rendered identical content because the sidebar
+      // component never read its `position` prop. Each position must now be its
+      // own pool, or that duplication comes straight back.
+      const left = await insertAd({
+        title: 'left one',
+        placement: 'sidebar-left',
+        approvalStatus: 'approved',
+      });
+      const right = await insertAd({
+        title: 'right one',
+        placement: 'sidebar-right',
+        approvalStatus: 'approved',
+      });
+
+      const idsAt = async (placement: 'banner' | 'sidebar-left' | 'sidebar-right') =>
+        (
+          await testDb
+            .select({ id: schema.homepageAds.id })
+            .from(schema.homepageAds)
+            .where(liveAdCondition(placement))
+        ).map((r) => r.id);
+
+      const leftIds = await idsAt('sidebar-left');
+      expect(leftIds).toContain(left.id);
+      expect(leftIds).not.toContain(right.id);
+
+      const rightIds = await idsAt('sidebar-right');
+      expect(rightIds).toContain(right.id);
+      expect(rightIds).not.toContain(left.id);
+
+      const bannerIds = await idsAt('banner');
+      expect(bannerIds).not.toContain(left.id);
+      expect(bannerIds).not.toContain(right.id);
     });
 
     it('respects the scheduled window in both directions', async () => {

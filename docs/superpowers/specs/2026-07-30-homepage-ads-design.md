@@ -37,6 +37,9 @@ test branch) makes an ad a record. This design covers everything above that tabl
 | Image fit | **Letterbox as supplied**, with an admin warning on a bad shape |
 | Display | Thumbnail → full-flyer overlay → button to the destination |
 | Mobile | Banner stays; both sidebars merge into the single mobile strip |
+| Empty position | Keeps the existing "Advertise Here" placeholder, in all three |
+| Ad label | **None.** The existing "Sponsored" captions are removed |
+| Admin page | `/admin/businesses/ads` — a fourth tab in the Businesses group |
 
 **The single lever is position.** You decide whether an ad is top, left or right. Everything after
 that is equal treatment — no ad can jump the queue, including your own hand-placed flyers.
@@ -129,6 +132,18 @@ already exists; **focus-within pause is added** (keyboard users cannot hover), m
 already made on the hero dial. Under `prefers-reduced-motion` auto-advance is disabled entirely
 and the dots/arrows remain as the manual control — the ads stay reachable, they just do not move
 on their own.
+
+### Labels and empty positions
+
+The three existing `Sponsored` captions (`HomepageBanner.tsx:219`,
+`HomepageSidebarAds.tsx:206` and `:301`) are **removed**. Ads carry no label. Decided
+deliberately, not overlooked: the alternative considered was "Sponsored" for business ads and
+"Community" for free flyers. A flyer sitting in an obvious ad slot is not native advertising
+dressed as editorial, so nothing is being disguised.
+
+Empty positions keep the existing dashed "Advertise Here" placeholder linking to
+`/register-business`, in **all three** positions — the pitch is worth more than the tidier look
+of collapsing them.
 
 ### The overlay
 
