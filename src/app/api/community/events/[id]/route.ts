@@ -6,7 +6,10 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { publicEventSchema } from "@/lib/validations/content";
 import { assertCanPost } from "@/lib/auth/require-verified";
-import { notifyAdminOfSubmission } from "@/lib/notifications";
+import {
+  notifyAdminOfSubmission,
+  notifyAdminOfTrustedEdit,
+} from "@/lib/notifications";
 import { applyEventEdit, EventEditError } from "@/lib/events/edit-submission";
 import { formatInstant } from "@/lib/datetime";
 
@@ -76,26 +79,52 @@ export async function PATCH(
     }
 
     const data = parsed.data;
-    const result = await applyEventEdit(eventId, parseInt(session.user.id), {
-      ...data,
-      startTime: new Date(data.startTime),
-      endTime: data.endTime ? new Date(data.endTime) : null,
-    });
+    const result = await applyEventEdit(
+      eventId,
+      parseInt(session.user.id),
+      {
+        ...data,
+        startTime: new Date(data.startTime),
+        endTime: data.endTime ? new Date(data.endTime) : null,
+      },
+      session.user.role
+    );
 
+    const editorName =
+      session.user.name || session.user.email || "Unknown user";
+    const stillLive = result.status === "approved";
+
+    // Every branch below reads the RESOLVED status, not wasUnpublished. An
+    // auto-approver's event never leaves the calendar, and both the admin
+    // notification and the user-facing message used to say it had.
     await notifyAdminOfSubmission({
       contentType: "event",
       title: `Event edited by submitter: ${data.title}`,
       body:
         `${data.title}\n` +
         `Starts: ${formatInstant(data.startTime, { weekday: "long", month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}\n` +
-        `Edited by: ${session.user.name || session.user.email || "Unknown user"}\n` +
+        `Edited by: ${editorName}\n` +
         (result.wasUnpublished
           ? "This event was live and has been taken off the calendar pending re-approval."
-          : "This event was already awaiting approval."),
+          : stillLive
+            ? "This event stayed live — the editor has auto-approve for events."
+            : "This event was already awaiting approval."),
       linkUrl: "/admin/programs/events",
-      status: "pending",
+      status: stillLive ? "auto_approved" : "pending",
       replyTo: session.user.email ?? undefined,
     });
+
+    // The spec's mitigation for letting auto-approvers' edits stay live:
+    // someone could publish something innocuous and later edit it to anything,
+    // unreviewed. In-app only, so there is a trail without inbox noise.
+    if (stillLive) {
+      await notifyAdminOfTrustedEdit({
+        typeLabel: "Event",
+        itemTitle: data.title,
+        editorName,
+        linkUrl: `/community/calendar/${eventId}`,
+      });
+    }
 
     revalidatePath("/community/calendar");
     revalidatePath(`/community/calendar/${eventId}`);
@@ -104,7 +133,9 @@ export async function PATCH(
       ...result,
       message: result.wasUnpublished
         ? "Your changes were saved. The event has been removed from the calendar until an admin re-approves it."
-        : "Your changes were saved. The event is still awaiting approval.",
+        : stillLive
+          ? "Your changes were saved and the event is still on the calendar."
+          : "Your changes were saved. The event is still awaiting approval.",
     });
   } catch (error) {
     if (error instanceof EventEditError) {

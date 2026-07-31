@@ -1,13 +1,23 @@
 import { db } from "@/lib/db";
 import { events } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { resolveApprovalStatus } from "@/lib/submissions/auto-approve";
+import type { ApprovalStatus } from "@/lib/submissions/statuses";
 
 /**
  * Editing an event you submitted yourself.
  *
- * Policy: an edit to an already-approved event sends it back to `pending`, so
- * nothing reaches the public without review. The caller is expected to warn the
- * user that this removes the event from the calendar until it is re-approved.
+ * Policy: an edit to an already-approved event unpublishes it for re-review —
+ * as `pending_edit`, never `pending`. Every broadcast guard fires on
+ * `pending → approved`, so `pending` would mean a corrected typo re-emails the
+ * entire subscriber list the moment an admin re-approves.
+ *
+ * An auto-approver's edit stays live. The status is resolved by the SAME helper
+ * the create path uses, because this function used to set `pending`
+ * unconditionally without ever loading the user row — so an admin or trusted
+ * user editing their own live event self-unpublished it and had to ask someone
+ * else to restore it. The permission means "your posts go live without review";
+ * the edit path was silently revoking it.
  *
  * Kept out of the route handler so the ownership and re-approval rules can be
  * tested without going through HTTP or next-auth.
@@ -47,6 +57,8 @@ export type EventEditInput = Partial<Record<EditableField, unknown>>;
 
 export interface EventEditResult {
   id: number;
+  /** The status the edit landed on, resolved the same way a create is. */
+  status: ApprovalStatus;
   /** True when the edit pulled a live event off the calendar for re-review. */
   wasUnpublished: boolean;
 }
@@ -54,7 +66,8 @@ export interface EventEditResult {
 export async function applyEventEdit(
   eventId: number,
   userId: number,
-  input: EventEditInput
+  input: EventEditInput,
+  role?: string
 ): Promise<EventEditResult> {
   const [existing] = await db
     .select({
@@ -89,10 +102,22 @@ export async function applyEventEdit(
     throw new EventEditError("No editable fields supplied", 400);
   }
 
-  const wasUnpublished = existing.approvalStatus === "approved";
-  updates.approvalStatus = "pending";
+  const status = await resolveApprovalStatus(
+    "event",
+    userId,
+    role,
+    existing.approvalStatus
+  );
+
+  // Only true when the edit actually took something off the calendar. An
+  // auto-approver's event stays live, and telling them otherwise would be a
+  // lie the UI then repeats back to them.
+  const wasUnpublished =
+    existing.approvalStatus === "approved" && status !== "approved";
+
+  updates.approvalStatus = status;
 
   await db.update(events).set(updates).where(eq(events.id, eventId));
 
-  return { id: eventId, wasUnpublished };
+  return { id: eventId, status, wasUnpublished };
 }
