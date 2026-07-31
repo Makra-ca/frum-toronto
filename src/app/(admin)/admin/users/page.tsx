@@ -68,6 +68,7 @@ async function getUsers(page: number, search: string, role: string, status: User
         canAutoApproveClassifieds: users.canAutoApproveClassifieds,
         canAutoApproveShiurim: users.canAutoApproveShiurim,
         canAutoApproveAlerts: users.canAutoApproveAlerts,
+        canAutoApproveBlog: users.canAutoApproveBlog,
         canPostSpecials: users.canPostSpecials,
         canManageAskTheRabbi: users.canManageAskTheRabbi,
         commentPermission: users.commentPermission,

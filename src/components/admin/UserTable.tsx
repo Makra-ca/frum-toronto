@@ -44,6 +44,7 @@ interface User {
   canAutoApproveClassifieds: boolean | null;
   canAutoApproveShiurim: boolean | null;
   canAutoApproveAlerts: boolean | null;
+  canAutoApproveBlog: boolean | null;
   canPostSpecials: boolean | null;
   canManageAskTheRabbi: boolean | null;
   commentPermission: string | null;
@@ -65,6 +66,9 @@ const PERMISSION_LABELS: { key: keyof User; label: string }[] = [
   { key: "canAutoApproveClassifieds", label: "Classifieds" },
   { key: "canAutoApproveShiurim", label: "Shiurim" },
   { key: "canAutoApproveAlerts", label: "Community Alerts" },
+  // Blog was in the database from the day the blog system shipped but never
+  // in this dialog, so the only way to grant it was raw SQL.
+  { key: "canAutoApproveBlog", label: "Blog Posts" },
   { key: "canPostSpecials", label: "Post Specials/Deals" },
 ];
 

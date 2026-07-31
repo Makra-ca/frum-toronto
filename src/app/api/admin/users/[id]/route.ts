@@ -35,6 +35,7 @@ export async function PATCH(
       canAutoApproveClassifieds,
       canAutoApproveShiurim,
       canAutoApproveAlerts,
+      canAutoApproveBlog,
       canPostSpecials,
       canManageAskTheRabbi,
       commentPermission,
@@ -62,6 +63,9 @@ export async function PATCH(
     if (canAutoApproveClassifieds !== undefined) updateData.canAutoApproveClassifieds = canAutoApproveClassifieds;
     if (canAutoApproveShiurim !== undefined) updateData.canAutoApproveShiurim = canAutoApproveShiurim;
     if (canAutoApproveAlerts !== undefined) updateData.canAutoApproveAlerts = canAutoApproveAlerts;
+    // Both halves matter: the dialog alone would flip a switch the API drops,
+    // and the toast would still say saved.
+    if (canAutoApproveBlog !== undefined) updateData.canAutoApproveBlog = canAutoApproveBlog;
     if (canPostSpecials !== undefined) updateData.canPostSpecials = canPostSpecials;
     if (canManageAskTheRabbi !== undefined) updateData.canManageAskTheRabbi = canManageAskTheRabbi;
     if (commentPermission !== undefined) updateData.commentPermission = commentPermission;
