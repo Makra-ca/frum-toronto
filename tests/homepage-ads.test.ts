@@ -56,8 +56,26 @@ describe('homepage_ads', () => {
       ).rejects.toThrow();
     });
 
-    it('rejects a business-linked ad with no business', async () => {
-      await expect(insertAd({ title: 'bad business', linkType: 'business' })).rejects.toThrow();
+    it('ALLOWS a business-linked ad with no business, so the business stays deletable', async () => {
+      /*
+        This deliberately inverted. The constraint used to require a business_id
+        whenever link_type = 'business', which defeated `ON DELETE SET NULL`:
+        the cascade performs an UPDATE, Postgres re-validates CHECKs on an
+        UPDATE, so deleting a business that had a business-linked ad failed with
+        a constraint violation and the business became undeletable (500 from
+        DELETE /api/admin/businesses/[id]).
+
+        The database now permits the orphaned state, because that is precisely
+        the state the cascade must be able to produce. It is not a dead click —
+        `resolveAdHref` returns null for a business link with no slug, so the ad
+        renders as an unclickable flyer.
+
+        Requiring a business at WRITE time still holds, in the layer that can
+        express it without costing data safety — see ads-validation.test.ts.
+      */
+      const ad = await insertAd({ title: 'orphanable', linkType: 'business' });
+      expect(ad.linkType).toBe('business');
+      expect(ad.businessId).toBeNull();
     });
 
     it('rejects an unknown placement', async () => {

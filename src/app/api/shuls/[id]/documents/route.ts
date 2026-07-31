@@ -5,6 +5,7 @@ import { shulDocuments, shuls } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { canUserManageShul } from "@/lib/auth/permissions";
 import { z } from "zod";
+import { isUploadedImageUrl } from "@/lib/safe-url";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
 
@@ -25,7 +26,18 @@ async function getShulName(shulId: number): Promise<string> {
 const createDocumentSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
   type: z.enum(["newsletter", "tefillah"]),
-  fileUrl: z.string().url("Valid file URL is required"),
+  /*
+    NOT z.string().url(): that ACCEPTS "data:text/html;base64,..." — verified —
+    and this value is rendered into an <iframe src> on the public shul page.
+    React 19 blocks javascript: in an iframe src but passes data: through
+    verbatim, so a shul manager (whose edits go live with no admin review) could
+    frame arbitrary HTML inside frumtoronto.com. Constrained to our own upload
+    host, which is where every legitimate document already comes from.
+  */
+  fileUrl: z
+    .string()
+    .max(500)
+    .refine(isUploadedImageUrl, "Upload the file rather than linking to one elsewhere"),
   fileSize: z.number().optional().nullable(),
   description: z.string().optional().nullable(),
 });

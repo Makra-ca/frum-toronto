@@ -100,6 +100,14 @@ export function AdRotator({ ads, variant, label }: AdRotatorProps) {
             setPaused(false);
           }
         }}
+        /*
+          `role="region"` is load-bearing, not decoration. ARIA ignores
+          `aria-label` and `aria-roledescription` on an element whose role is
+          generic — which a bare <div> is. Without this the three distinct names
+          ("…, top" / "…, left" / "…, right") were in the DOM, inspected fine,
+          and reached no screen reader at all.
+        */
+        role="region"
         aria-roledescription="carousel"
         aria-label={label}
       >

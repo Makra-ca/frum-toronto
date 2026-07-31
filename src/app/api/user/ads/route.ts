@@ -4,7 +4,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { homepageAds, businesses, subscriptionPlans } from "@/lib/db/schema";
-import { normalizeExternalUrl, isSafeExternalUrl } from "@/lib/safe-url";
+import { normalizeExternalUrl, isSafeExternalUrl, isUploadedImageUrl } from "@/lib/safe-url";
 import { assertCanPost } from "@/lib/auth/require-verified";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import {
@@ -18,7 +18,12 @@ const submitSchema = z
   .object({
     businessId: z.number().int().positive(),
     title: z.string().trim().min(1, "Give the ad a title").max(200),
-    imageUrl: z.string().trim().min(1, "Upload your artwork").max(500),
+    imageUrl: z
+      .string()
+      .trim()
+      .min(1, "Upload your artwork")
+      .max(500)
+      .refine(isUploadedImageUrl, "Upload your artwork rather than linking to an image elsewhere"),
     placement: z.enum(["banner", "sidebar"], {
       message: "Choose where the ad should appear",
     }),

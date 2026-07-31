@@ -2082,3 +2082,99 @@ A spec review caught the broadcast defect and a false claim of mine — I wrote 
 POST-only" after citing blog's PATCH route as the template earlier in the same session. Blog holds more
 owned rows than every other type combined. **Re-verify claims about the codebase before writing them into a
 spec, even ones established earlier in the same conversation.**
+
+---
+
+### 2026-07-30 (later) — User submissions: Chunk 0 + partial Chunk 1 built
+
+**Branch:** `feature/submissions-impl` (worktree at `../ft-subs`), 7 commits, NOT merged, NOT pushed.
+**Plan:** `docs/superpowers/plans/2026-07-30-user-submissions.md` — revision 3, tracks remaining tasks.
+**Spec:** `docs/superpowers/specs/2026-07-30-user-submissions-design.md`
+
+Done: **5 of 22 tasks.** Chunk 0 complete; Chunk 1 tasks 1.1 (migration) and 1.2 (per-type config).
+Next: **1.3 `resolveApprovalStatus`**, then 1.4 `canEditRow`, 1.5 `setApprovalStatus`, 1.6 notifications.
+
+#### Migration IS applied to production
+
+`migrations/2026-07-31-submission-edits.sql` ran against **primary and the test branch**. Adds
+`broadcast_at`, `rejection_reason`, `updated_at` (+ 8 indexes) to the eight in-scope tables, and backfills
+`broadcast_at` on ~22,953 already-approved rows. Verified: 0 approved rows unstamped, 0 unapproved rows
+stamped. All additive and idempotent. **The deployed code does not yet know about these columns** — that is
+the safe ordering, and production is unaffected until a deploy.
+
+#### Decisions the owner made — do not re-litigate
+
+| Decision | Choice |
+|---|---|
+| Structure | **One list** at `/dashboard/submissions`, all types (not a page per type) |
+| Editing an approved item | **Unpublishes it**, via a distinct `pending_edit` status |
+| Blog's conflicting rule | **Blog adopts the unpublish rule** — sequenced last, 3,058 rows depend on it |
+| Auto-approvers/admins | Their edits **stay live**; admin gets an in-app (not email) notification |
+| Shul-linked content | Editable by **whoever currently manages the shul**, not only the poster |
+| Notifications | Email on approve AND reject, plus an in-app record |
+| Rejection reason | **Optional**, with written fallback copy |
+| Email opt-out | **None — transactional.** CASL: consent not needed, identification still is |
+| Old items | Active by default, past behind a toggle |
+| Shiva | **In scope**, same rule, plus a stronger warning + a test that re-approval never re-sends |
+| Scope | All types EXCEPT specials (no submission API), shiurim (no owner column), published ask_the_rabbi |
+
+#### The thing that shapes the whole design
+
+Approving does not just flip a status — **it broadcasts to every subscriber**. So an edit must never leave a
+row looking like a new submission. Two guards now exist:
+
+1. `pending_edit` — a distinct status; the four broadcast guards fire only on `pending → approved`.
+2. **`broadcast_at`** — the real fix. A transition rule alone is defeated by
+   `approved (broadcast) → edit → pending_edit → reject → edit → pending → approve`, because `rejected`
+   erases publication history. A broadcast is a fact about the **row**: gate on `broadcast_at IS NULL`.
+
+#### Bugs fixed along the way (independent of the feature)
+
+- **Public shul pages had no approval filter** — `(public)/shuls/[slug]/page.tsx` and
+  `api/shuls/slug/[slug]/route.ts` listed events on `isActive` + future date only. Same for the public
+  organisation typeahead.
+- **All four broadcast guards were denylists** (`previous !== "approved"`), including
+  `admin/events/[id]/route.ts` which no draft of the plan had listed.
+- **`alerts` could not be approved at all** — no `approvalStatus` in its admin PATCH schema, and absent from
+  the shared approve route's `tableMap` (which still covers only 4 of 8 types).
+- **17 `updatedAt` columns had zero `$onUpdate`** — every one frozen at insert since the project began. Now
+  fixed, so the eruv widget's "updated" time and the video-review queue's ordering become truthful **after
+  the next deploy**.
+
+#### Traps — each cost real time
+
+- **Most `=== "pending"` matches are OTHER state machines.** The grep finds ~53; only **~20** belong to the
+  eight in-scope tables. `newsletter_sends.status`, `ask_the_rabbi_submissions.status`
+  (pending/reviewed/answered), shul registration requests, business approval, comment approval and homepage
+  ads must NOT be widened. **And the broadcast guards must stay literal** — widening them restores the
+  mass-email bug with every test green.
+- **Drizzle reports a `date()` column as `PgDateString`, not `PgDate`.** Assuming otherwise mislabels
+  simchas / kosher alerts / shiva / tehillim and renders them a day early.
+- **`vi.mock` inside `it()` is not hoisted**, and admin routes 401 before touching the DB — so a
+  broadcast test that does not mock `auth()` **passes against completely broken code**. Every broadcast test
+  needs a hoisted mock, an assertion that the approval actually happened, and a **positive control**.
+- **`createTestUser` whitelists 7 of 12 `canAutoApprove*` fields.** Missing: `AskTheRabbi`, `Shuls`,
+  `Shiurim`, `Alerts`, `Blog`. A test asking for one silently gets a user without it.
+- **`SUBMISSION_TYPES.broadcast` must stay a lazy import** — `@/lib/email/send` pulls in `@/lib/db`, which
+  throws without `DATABASE_URL` and breaks the DB-free unit project.
+- The `ft-subs` worktree shares one `.git` with the main tree; `node_modules` is symlinked (fine for
+  tsc/vitest, but **Turbopack rejects a symlinked node_modules** — hard-link it with `cp -al` for a dev server).
+
+#### Process lesson
+
+Five separate times this session I stated a count or a fact without running the check — including once
+inside a fix, where following my own written instruction would have reinstated the bug. Two rounds of
+review (one reviewer, then four in parallel) caught 9 wrong factual claims out of 47 and ~40 substantive
+defects. **Verify claims about this codebase before writing them into a spec, plan or commit message —
+including claims established earlier in the same session, and including claims a reviewer hands you.**
+
+#### Unrelated open items
+
+- **29 commits unpushed on `main`** (mine + the concurrent ads session's). **The timezone fix is therefore
+  still not live in production.** Pushing deploys the ads work too — confirm it is deploy-ready first.
+- **Estee Kin's event #95** is still `pending`. After a deploy it reads correctly as Monday, June 21, 2027
+  at 7:30 PM. Needs approving and a reply; draft is in the session transcript.
+- `../ft-preview` worktree still exists (dev server on port 3517, 905MB hard-linked `node_modules`) — safe
+  to `git worktree remove` when done.
+- `.playwright-mcp/` keeps self-deleting; the path is gitignored but 13 files are still tracked. Wants
+  `git rm --cached -r .playwright-mcp`.

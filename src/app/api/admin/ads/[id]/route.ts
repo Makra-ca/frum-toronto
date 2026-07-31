@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { homepageAds } from "@/lib/db/schema";
-import { updateAdSchema, moderateAdSchema } from "@/lib/validations/ads";
+import { updateAdSchema, moderateAdSchema, adRulesSchema } from "@/lib/validations/ads";
 import { normalizeExternalUrl } from "@/lib/safe-url";
 
 interface RouteParams {
@@ -80,36 +80,58 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
     const data = result.data;
 
-    // Only touch what was actually sent. Building the object from the keys
-    // present means a partial edit cannot null out a field it never mentioned.
-    const updates: Partial<typeof homepageAds.$inferInsert> = { updatedAt: new Date() };
+    // The stored row is required, not optional: a partial edit's cross-field
+    // rules depend on the half that was NOT sent. Validating the body alone let
+    // "change only startsAt" through Zod and into a database CHECK violation,
+    // surfacing as a 500 where a 400 belongs.
+    const [existing] = await db
+      .select()
+      .from(homepageAds)
+      .where(eq(homepageAds.id, adId))
+      .limit(1);
 
-    if (data.title !== undefined) updates.title = data.title;
-    if (data.imageUrl !== undefined) updates.imageUrl = data.imageUrl;
-    if (data.placement !== undefined) updates.placement = data.placement;
-    if (data.businessId !== undefined) updates.businessId = data.businessId ?? null;
-    if (data.isActive !== undefined) updates.isActive = data.isActive;
-    if (data.startsAt !== undefined) updates.startsAt = toDate(data.startsAt);
-    if (data.endsAt !== undefined) updates.endsAt = toDate(data.endsAt);
+    if (!existing) return NextResponse.json({ error: "Ad not found" }, { status: 404 });
 
-    if (data.linkType !== undefined) {
-      updates.linkType = data.linkType;
-      // The URL must be re-derived whenever the type changes, or switching to
-      // 'none' would leave the old link behind and violate the DB constraint the
-      // other way round.
-      updates.linkUrl =
-        data.linkType === "external" ? normalizeExternalUrl(data.linkUrl) : null;
-    } else if (data.linkUrl !== undefined) {
-      updates.linkUrl = normalizeExternalUrl(data.linkUrl);
+    // `undefined` means "not sent, keep it"; an explicit null means "clear it".
+    const pick = <T>(sent: T | undefined, stored: T): T =>
+      sent === undefined ? stored : sent;
+
+    const linkType = pick(data.linkType, existing.linkType);
+    const startsAt = data.startsAt === undefined ? existing.startsAt : toDate(data.startsAt);
+    const endsAt = data.endsAt === undefined ? existing.endsAt : toDate(data.endsAt);
+    // NOT `pick(data.businessId ?? null, …)` — `?? null` collapses undefined to
+    // null before pick can tell them apart, which would clear the business on
+    // every edit. The same shape as the Zod-default bug this rewrite fixes.
+    const businessId =
+      data.businessId === undefined ? existing.businessId : (data.businessId ?? null);
+
+    // Re-derive the URL from the RESOLVED link type, so switching to 'none'
+    // clears a stale link and switching to 'external' keeps the stored one when
+    // no new URL was sent.
+    const linkUrl =
+      linkType === "external"
+        ? normalizeExternalUrl(data.linkUrl === undefined ? existing.linkUrl : data.linkUrl)
+        : null;
+
+    const merged = { linkType, linkUrl, businessId, startsAt, endsAt };
+    const rules = adRulesSchema.safeParse(merged);
+    if (!rules.success) {
+      return NextResponse.json({ error: rules.error.issues[0].message }, { status: 400 });
     }
 
     const [updated] = await db
       .update(homepageAds)
-      .set(updates)
+      .set({
+        title: pick(data.title, existing.title),
+        imageUrl: pick(data.imageUrl, existing.imageUrl),
+        placement: pick(data.placement, existing.placement),
+        isActive: pick(data.isActive, existing.isActive),
+        ...merged,
+        updatedAt: new Date(),
+      })
       .where(eq(homepageAds.id, adId))
       .returning();
 
-    if (!updated) return NextResponse.json({ error: "Ad not found" }, { status: 404 });
     return NextResponse.json(updated);
   } catch (error) {
     console.error("[ADS] Failed to update ad:", error);

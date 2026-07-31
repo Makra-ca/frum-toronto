@@ -33,7 +33,29 @@ async function insertAd(values: Partial<typeof schema.homepageAds.$inferInsert>)
   return row;
 }
 
+/**
+ * Delete before inserting, not only after.
+ *
+ * The fixtures use FIXED slugs, so a single leaked row from a crashed run made
+ * `beforeAll` fail with a duplicate-key error and skipped every test in the file
+ * — permanently red until someone cleaned the database by hand. Observed for
+ * real while mutation-testing this suite.
+ *
+ * Order matters: businesses reference plans and users, and `businesses.user_id`
+ * has no ON DELETE, so the children must go first or the parent delete throws.
+ */
+async function clearFixtures() {
+  await testDb.delete(schema.homepageAds).where(like(schema.homepageAds.title, `${TITLE_PREFIX}%`));
+  await testDb.delete(schema.businesses).where(like(schema.businesses.slug, 'test-sub-%'));
+  await testDb.delete(schema.users).where(like(schema.users.email, 'test-sub-%@frumtoronto.test'));
+  await testDb
+    .delete(schema.subscriptionPlans)
+    .where(like(schema.subscriptionPlans.slug, 'test-sub-%'));
+}
+
 beforeAll(async () => {
+  await clearFixtures();
+
   const plans = await testDb
     .insert(schema.subscriptionPlans)
     .values([
@@ -80,12 +102,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await testDb.delete(schema.homepageAds).where(like(schema.homepageAds.title, `${TITLE_PREFIX}%`));
-  await testDb.delete(schema.businesses).where(eq(schema.businesses.id, businessId));
-  await testDb.delete(schema.users).where(eq(schema.users.id, ownerId));
-  await testDb
-    .delete(schema.subscriptionPlans)
-    .where(inArray(schema.subscriptionPlans.id, [bannerPlanId, sidebarPlanId, bothPlanId, freePlanId]));
+  // Same helper as beforeAll — matching on the shared slug/email prefixes rather
+  // than on captured ids also sweeps up rows from a run that died mid-test.
+  await clearFixtures();
 });
 
 describe('allowedPlacements — what a plan grants', () => {
@@ -188,9 +207,17 @@ describe('the ad survives its business being deleted', () => {
       })
       .returning();
 
+    /*
+      linkType MUST be 'business' here. The previous version of this test left it
+      at the 'none' default — the one case where the rule happens to hold — so it
+      passed while the real case was broken: the CHECK constraint requiring a
+      business_id made Postgres reject the SET NULL cascade, and the business
+      could not be deleted at all.
+    */
     const ad = await insertAd({
       title: 'orphaned',
       businessId: tempBusiness.id,
+      linkType: 'business',
       approvalStatus: 'approved',
     });
 
