@@ -2178,3 +2178,84 @@ including claims established earlier in the same session, and including claims a
   to `git worktree remove` when done.
 - `.playwright-mcp/` keeps self-deleting; the path is gitignored but 13 files are still tracked. Wants
   `git rm --cached -r .playwright-mcp`.
+
+---
+
+### 2026-07-30 (session 2) — User submissions: Chunks 0–4 complete
+
+Branch `feature/submissions-impl` in the `../ft-subs` worktree. **~36 commits,
+not merged, not pushed.** Spec and plan in `docs/superpowers/`; twelve judgment
+calls recorded in `docs/superpowers/2026-07-30-submissions-judgment-calls.md`.
+
+**State:** 518 unit + 382 integration tests, `tsc` clean, eslint unchanged at
+the 49-error baseline, `next build` compiles. Migration verified applied to
+**primary and the test branch**.
+
+Users can now see, edit and hear back about everything they submit, across all
+eight types (events, simchas, classifieds, kosher alerts, alerts, tehillim,
+shiva, blog).
+
+#### The rules that hold it together
+
+- **`setApprovalStatus` is the only writer** of `approval_status` for the eight
+  in-scope tables. It owns the transition, the broadcast decision and the
+  submitter notification.
+- **Broadcast fires only when all three hold**: `broadcast_at IS NULL`,
+  `previous !== "pending_edit"`, `previous !== next`. The stamp is the
+  load-bearing one — a transition rule alone is defeated by a trip through
+  `rejected`, which erases publication history.
+- **An edit lands on `pending_edit`, never `pending`.** `pending` would make the
+  admin's re-approval look like a first approval to every guard, so correcting
+  a typo would re-email the subscriber list.
+- **Create and edit resolve status through one helper.** The events edit path
+  had already drifted from it twice.
+
+#### Traps this session paid for
+
+- **Drizzle silently ignores unknown keys in `.values()`.** Twice a test passed
+  green while setting a column that does not exist (`simchaType`, `isActive` on
+  shiva). Only `tsc` catches it — run it BEFORE committing, not after.
+- **A regression test that passes on broken code is worse than none.** Verified
+  every meaningful fix by reinstating the bug and watching the test go red. One
+  concurrency test passed against the unguarded version (neon-http gives each
+  query its own round trip, so `Promise.all` never interleaves) — deleted
+  rather than shipped.
+- **A template-literal `import()` in a test** cannot be statically analysed;
+  one run in four lost all 54 tests in that file. Use a static map.
+- **`cleanupTestUsers` is blanket** (`test-%@frumtoronto.test`) and the content
+  tables have no `ON DELETE`, so one file's interrupted afterAll made a LATER
+  file fail in beforeAll. It now clears child rows first. Safe only because
+  `fileParallelism: false`.
+- **Turbopack rejects a symlinked `node_modules`**, so `next build` in the
+  worktree needs `cp -al` over the real one first.
+
+#### Defects found in existing code and fixed
+
+- The admin **Reject button on a blog post did nothing**: `blogPostSchema` has
+  no `approvalStatus`, so `.partial().safeParse()` stripped it while the toast
+  said "Post rejected". Re-approving an already-published post was equally
+  silent.
+- **A member-submitted alert could not be approved by any admin surface** — the
+  list API did not even select `approval_status`.
+- **`user/blog` PATCH nulled `publishedAt` on an ordinary edit**, and
+  `/api/blog` orders by `publishedAt DESC` where Postgres sorts NULLs FIRST, so
+  a corrected post jumped to the top of the blog.
+- **`community/shiva` and `community/tehillim` did not treat an admin as an
+  auto-approver** while the other five create routes did.
+- **Shiva's `attachmentUrl` allowlist was create-only**, so an approved notice
+  could be repointed at any URL.
+- **Blog PATCH had no `assertCanPost`**, so a blocked account could still edit
+  its live post.
+
+#### Not done, deliberately
+
+Shul managers can edit a shul's event but it does not appear in *their*
+submissions list. The Select-driven admin edit dialogs can set `rejected`
+without offering a reason. The 409 guard catches double-writes, not the
+form-open race — that needs the client to echo a version. `applyEdit` and
+`setApprovalStatus` are two round trips with no transaction, because
+`neon-http` has none.
+
+**Before merge:** decide whether to push (the timezone fix and the ads session's
+work are still unpushed on `main`), and note that deploying makes the
+`$onUpdate` change to 17 `updated_at` columns user-visible.
