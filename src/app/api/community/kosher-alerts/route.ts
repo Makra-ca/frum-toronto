@@ -7,6 +7,7 @@ import { z } from "zod";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
 import { resolveApprovalStatus } from "@/lib/submissions/auto-approve";
+import { sendKosherAlertBroadcast } from "@/lib/email/send";
 
 const submissionSchema = z.object({
   productName: z.string().min(1, "Product name is required").max(200),
@@ -110,6 +111,29 @@ export async function POST(request: NextRequest) {
       linkUrl: "/admin/community/kosher-alerts",
       status: autoApprove ? "auto_approved" : "pending",
     });
+
+    // An auto-approved alert goes live immediately, so it announces
+    // immediately — the same rule as events and shiva. broadcast_at is stamped
+    // so a later correction cannot announce it a second time.
+    //
+    // Note what this grants: a holder of canAutoApproveKosherAlerts can email
+    // every kosher-alert subscriber with no admin in the loop. That is what
+    // the permission means for the other two announcing types, and a recall
+    // that waits for an admin is a recall nobody hears about. The flag is
+    // granted and revoked by an admin.
+    if (autoApprove) {
+      try {
+        const notified = await sendKosherAlertBroadcast(newAlert);
+        if (notified > 0) {
+          await db
+            .update(kosherAlerts)
+            .set({ broadcastAt: new Date() })
+            .where(eq(kosherAlerts.id, newAlert.id));
+        }
+      } catch (emailError) {
+        console.error("[KOSHER] Failed to send as-posted broadcast:", emailError);
+      }
+    }
 
     return NextResponse.json({
       alert: newAlert,
