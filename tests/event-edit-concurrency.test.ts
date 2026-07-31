@@ -193,6 +193,49 @@ describe("applyEventEdit ownership", () => {
     expect(row.title).toBe("[TEST] fixed by the gabbai");
   });
 
+  it("keeps the shul's LIVE event live when its manager corrects it", async () => {
+    // Everything else about their shul goes live with no review; a typo fix
+    // taking the event off the calendar was the odd one out.
+    const id = await makeEvent(ownerId, "approved", shulId);
+
+    const result = await applyEventEdit(
+      id,
+      managerId,
+      { title: "[TEST] gabbai corrected the address" },
+      "shul"
+    );
+
+    expect(result.status).toBe("approved");
+    expect(result.wasUnpublished).toBe(false);
+    const [row] = await db.select().from(events).where(eq(events.id, id));
+    expect(row.approvalStatus).toBe("approved");
+  });
+
+  it("does NOT let that manager publish an event still awaiting review", async () => {
+    // Approving an event emails every community-events subscriber, and there
+    // is no per-shul audience to send to instead.
+    const id = await makeEvent(ownerId, "pending", shulId);
+
+    const result = await applyEventEdit(
+      id,
+      managerId,
+      { title: "[TEST] not live yet" },
+      "shul"
+    );
+
+    expect(result.status).toBe("pending");
+  });
+
+  it("still unpublishes when the OWNER edits, manager or not", async () => {
+    // The exemption is institutional, not personal — it follows the shul.
+    const id = await makeEvent(ownerId, "approved", shulId);
+
+    const result = await applyEventEdit(id, ownerId, { title: "[TEST] owner edit" });
+
+    expect(result.status).toBe("pending_edit");
+    expect(result.wasUnpublished).toBe(true);
+  });
+
   it("still refuses a shul manager an event that is not their shul's", async () => {
     const id = await makeEvent(ownerId, "pending");
 

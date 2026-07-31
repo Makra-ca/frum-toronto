@@ -41,3 +41,30 @@ export async function canEditRow(
   // string | undefined, so it cannot be passed straight through.
   return canUserManageShul(userId, linkedShulId, role ?? "");
 }
+
+/**
+ * Does this user manage the shul this row belongs to?
+ *
+ * Distinct from `canEditRow`, which is satisfied by ownership alone. This asks
+ * the narrower question: is their authority here INSTITUTIONAL — are they
+ * acting as the shul, rather than as the person who happened to post?
+ *
+ * That distinction earns them one thing and nothing more: their correction to
+ * the shul's own event does not take it off the calendar. It does not let them
+ * publish, because publishing an event emails every community-events
+ * subscriber and there is no such thing as "this shul's followers".
+ */
+export async function managesRowShul(
+  type: SubmissionType,
+  row: Record<string, unknown>,
+  userId: number,
+  role: string | undefined
+): Promise<boolean> {
+  const config = SUBMISSION_TYPES[type];
+  if (!config.shulColumn) return false;
+
+  const linkedShulId = row[config.shulColumn];
+  if (typeof linkedShulId !== "number") return false;
+
+  return canUserManageShul(userId, linkedShulId, role ?? "");
+}

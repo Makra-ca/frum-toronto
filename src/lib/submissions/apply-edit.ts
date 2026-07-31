@@ -1,7 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
-import { canEditRow } from "@/lib/submissions/ownership";
+import { canEditRow, managesRowShul } from "@/lib/submissions/ownership";
 import { resolveApprovalStatus } from "@/lib/submissions/auto-approve";
 import { EDITABLE_FIELDS } from "@/lib/submissions/editable-fields";
 import { setApprovalStatus } from "@/lib/submissions/set-approval-status";
@@ -85,7 +85,25 @@ export async function applyEdit(
   }
 
   const previousStatus = (existing.approvalStatus as string | null) ?? null;
-  const status = await resolveApprovalStatus(type, userId, role, previousStatus);
+  let status = await resolveApprovalStatus(type, userId, role, previousStatus);
+
+  // A shul's manager correcting that shul's own LIVE event keeps it live.
+  //
+  // Everything else they touch about their shul — davening times, address,
+  // documents — goes live with no review, so having a typo fix take the shul's
+  // event off the calendar was the odd one out with nothing on screen
+  // explaining why.
+  //
+  // Narrow on purpose: only `approved → approved`. It cannot publish something
+  // awaiting review, because publishing an event emails every community-events
+  // subscriber, and there is no per-shul audience to send to instead.
+  if (
+    status === "pending_edit" &&
+    previousStatus === "approved" &&
+    (await managesRowShul(type, existing, userId, role))
+  ) {
+    status = "approved";
+  }
 
   // Only true when the edit actually took something off the site. An
   // auto-approver's content stays live, and telling them otherwise is a lie
