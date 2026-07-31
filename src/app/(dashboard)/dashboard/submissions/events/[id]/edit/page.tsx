@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { events } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { PublicEventForm } from "@/components/events/PublicEventForm";
+import { canEditRow } from "@/lib/submissions/ownership";
 import { toDateInputValue, toTimeInputValue } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
@@ -32,11 +33,17 @@ export default async function EditSubmittedEventPage({
 
   if (!event) notFound();
 
-  // Ownership is enforced again in the PATCH handler; this is so a stranger
-  // never even sees the form pre-filled with someone else's submission.
-  if (event.userId === null || event.userId !== parseInt(session.user.id)) {
-    notFound();
-  }
+  // The SAME rule the GET and PATCH run. An owner-only check here made the
+  // widening of those two inert: a shul manager was allowed to save the shul's
+  // event but could never reach the form to do it.
+  const mayEdit = await canEditRow(
+    "event",
+    event,
+    parseInt(session.user.id),
+    session.user.role
+  );
+
+  if (!mayEdit) notFound();
 
   return (
     <div className="max-w-3xl">
