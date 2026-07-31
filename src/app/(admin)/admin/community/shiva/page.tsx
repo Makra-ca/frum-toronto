@@ -70,6 +70,7 @@ interface ShivaEntry {
   donationInfo: string | null;
   contactPhone: string | null;
   approvalStatus: string;
+  rejectionReason: string | null;
   createdAt: string;
 }
 
@@ -119,6 +120,7 @@ export default function ShivaManagementPage() {
     donationInfo: "",
     contactPhone: "",
     approvalStatus: "pending" as "pending" | "pending_edit" | "approved" | "rejected",
+    rejectionReason: "",
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -187,6 +189,9 @@ export default function ShivaManagementPage() {
       donationInfo: entry.donationInfo || "",
       contactPhone: entry.contactPhone || "",
       approvalStatus: (entry.approvalStatus as "pending" | "pending_edit" | "approved" | "rejected") || "pending",
+      // Prefilled so an admin correcting the wording sees what they wrote
+      // before, rather than an empty box that would blank it on save.
+      rejectionReason: entry.rejectionReason || "",
     });
   };
 
@@ -247,7 +252,15 @@ export default function ShivaManagementPage() {
         contactPhone: editForm.contactPhone || null,
       };
       // PATCH allows changing the status; POST is admin-created → auto-approved.
-      if (!isCreating) payload.approvalStatus = editForm.approvalStatus;
+      if (!isCreating) {
+        payload.approvalStatus = editForm.approvalStatus;
+        // Optional by decision: blank is a real answer, and the submitter's
+        // email then writes considered fallback copy rather than nothing.
+        payload.rejectionReason =
+          editForm.approvalStatus === "rejected"
+            ? editForm.rejectionReason.trim() || null
+            : null;
+      }
 
       const res = await fetch(
         isCreating ? "/api/admin/shiva" : `/api/admin/shiva/${editEntry!.id}`,
@@ -291,6 +304,7 @@ export default function ShivaManagementPage() {
     donationInfo: "",
     contactPhone: "",
     approvalStatus: "approved" as "pending" | "pending_edit" | "approved" | "rejected",
+    rejectionReason: "",
   };
 
   const startCreate = () => {
@@ -812,6 +826,30 @@ export default function ShivaManagementPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Only when it applies. The submitter sees this, so it is worth
+                writing here rather than in a browser prompt — a prompt is easy
+                to dismiss by reflex, and here you can read the notice while
+                you write. Blank is still a valid answer. */}
+            {editForm.approvalStatus === "rejected" && (
+              <div className="space-y-2">
+                <Label htmlFor="rejectionReason">
+                  Why wasn&apos;t this approved?{" "}
+                  <span className="text-gray-400 font-normal">
+                    (optional — the submitter sees this)
+                  </span>
+                </Label>
+                <Textarea
+                  id="rejectionReason"
+                  rows={3}
+                  value={editForm.rejectionReason}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, rejectionReason: e.target.value })
+                  }
+                  placeholder="Leave blank and we'll ask them to reply to the email instead."
+                />
+              </div>
+            )}
           </div>
 
           <DialogFooter>
