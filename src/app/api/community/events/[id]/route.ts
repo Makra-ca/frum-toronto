@@ -11,6 +11,7 @@ import {
   notifyAdminOfTrustedEdit,
 } from "@/lib/notifications";
 import { applyEventEdit, EventEditError } from "@/lib/events/edit-submission";
+import { canEditRow } from "@/lib/submissions/ownership";
 import { formatInstant } from "@/lib/datetime";
 
 /** The submitter's own copy of an event, for populating the edit form. */
@@ -39,7 +40,16 @@ export async function GET(
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  if (event.userId === null || event.userId !== parseInt(session.user.id)) {
+  // The SAME check PATCH runs. An owner-only check here meant a shul manager
+  // was refused the form for an event they are allowed to save.
+  const mayEdit = await canEditRow(
+    "event",
+    event,
+    parseInt(session.user.id),
+    session.user.role
+  );
+
+  if (!mayEdit) {
     return NextResponse.json(
       { error: "You can only edit events you submitted" },
       { status: 403 }

@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
 import { events } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { resolveApprovalStatus } from "@/lib/submissions/auto-approve";
+import { canEditRow } from "@/lib/submissions/ownership";
 import type { ApprovalStatus } from "@/lib/submissions/statuses";
 
 /**
@@ -73,6 +74,7 @@ export async function applyEventEdit(
     .select({
       id: events.id,
       userId: events.userId,
+      shulId: events.shulId,
       approvalStatus: events.approvalStatus,
     })
     .from(events)
@@ -83,9 +85,10 @@ export async function applyEventEdit(
     throw new EventEditError("Event not found", 404);
   }
 
-  // An event with no userId came from the legacy import or an admin, so it has
-  // no submitter who could own it.
-  if (existing.userId === null || existing.userId !== userId) {
+  // Owner, OR whoever currently manages the linked shul. An event with no
+  // userId came from the legacy import or an admin and has no submitter who
+  // could own it, which canEditRow treats as editable by nobody.
+  if (!(await canEditRow("event", existing, userId, role))) {
     throw new EventEditError("You can only edit events you submitted", 403);
   }
 
@@ -117,7 +120,31 @@ export async function applyEventEdit(
 
   updates.approvalStatus = status;
 
-  await db.update(events).set(updates).where(eq(events.id, eventId));
+  // Conditional on the status we READ. An admin approving while the user is
+  // typing would otherwise be silently overwritten by whoever saved last —
+  // and the losing write can publish text nobody reviewed.
+  //
+  // approvalStatus is a nullable column, so a NULL has to be matched with
+  // IS NULL; eq(col, null) is never true in SQL and would 409 every time.
+  const written = await db
+    .update(events)
+    .set(updates)
+    .where(
+      and(
+        eq(events.id, eventId),
+        existing.approvalStatus === null
+          ? isNull(events.approvalStatus)
+          : eq(events.approvalStatus, existing.approvalStatus)
+      )
+    )
+    .returning({ id: events.id });
+
+  if (written.length === 0) {
+    throw new EventEditError(
+      "Someone reviewed this event while you were editing. Reload the page to see its current state, then try again.",
+      409
+    );
+  }
 
   return { id: eventId, status, wasUnpublished };
 }
