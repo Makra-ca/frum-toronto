@@ -10,6 +10,39 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-30-user-submissions-design.md` — read it first.
 
+> **Progress, end of 2026-07-30 (session 2).** Chunk 0 and **all of Chunk 1** are
+> done (tasks 1.1–1.8). Next task is **2.1**, the events auto-approve defect.
+> Branch `feature/submissions-impl` in the `../ft-subs` worktree; not merged,
+> not pushed. Decisions taken in Chunk 1 that later chunks depend on:
+>
+> - **The broadcast guard needs BOTH halves** — `broadcast_at IS NULL` *and*
+>   `previous !== "pending_edit"`. The shiva route-level test caught this: a
+>   correction whose stamp is missing (a row approved before the column
+>   existed) would otherwise re-announce a bereavement to the whole community.
+> - **A create that lands approved broadcasts AND stamps `broadcast_at`.** With
+>   the writer's gate that gives at most one broadcast per item, ever — which
+>   answers the plan's second open question in 1.7: an auto-approver's *edit*
+>   never re-announces. A user pressing Save cannot mass-email the community.
+> - **`resolveApprovalStatus` treats an admin as an auto-approver on every
+>   type.** This changed behaviour for `community/shiva` and
+>   `community/tehillim`, which omitted the `role === "admin"` arm that the
+>   other five create routes had.
+> - **The kosher-alert broadcast is now `sendKosherAlertBroadcast`** in
+>   `lib/email/send.ts`, and `SUBMISSION_TYPES.kosherAlert.broadcast` points at
+>   it. Its explicit "Save & Notify" is suppressed when the approval in the same
+>   request already announced.
+> - **Chunk 0 missed `ApprovalCard.tsx:102`** — the Approve/Reject buttons were
+>   still gated on the literal `"pending"`, so a corrected item rendered with no
+>   actions. Fixed in 1.8. Worth assuming other Chunk 0 misses exist.
+>
+> **Not mine, but blocking a clean suite:** `tests/homepage-ads.test.ts >
+> rejects a business-linked ad with no business` fails. Verified at the database
+> level: **both** primary and the test branch carry the loose version of
+> `homepage_ads_link_target_check`, while `migrations/2026-07-30-homepage-ads.sql`
+> on disk requires `business_id IS NOT NULL`. So production currently accepts a
+> business-linked ad with no business, which renders a dead click. The ads
+> session owns this.
+
 **Revision 3.** The first draft was reviewed and found unexecutable: it introduced `pending_edit` without widening the ~53 places that read `"pending"`, so edited items would have vanished from every admin queue. That, and five other critical defects, are fixed here. Where a step exists because a review caught something, the reason is stated inline — do not "simplify" those away.
 
 ---
