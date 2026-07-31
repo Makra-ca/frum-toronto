@@ -80,10 +80,19 @@ function basisDay(value: unknown, kind: "instant" | "date"): string | null {
 /**
  * Is this over?
  *
- * Answered at DAY granularity, in Toronto, deliberately. An event running
- * today is not past at 12:01 in the afternoon — and an all-day event is stored
- * at noon Toronto, so an instant comparison marked it finished halfway through
- * the day it was running and took the submitter's Edit button with it.
+ * Two rules, because the types are two different kinds of thing:
+ *
+ *   things that HAPPEN — events, shiva — are over at MIDNIGHT, Toronto. An
+ *   all-day event is stored at noon, so an instant comparison marked it
+ *   finished at 12:01 on the day it was running and took the submitter's Edit
+ *   button with it.
+ *
+ *   things that EXPIRE — classifieds, alerts — are over the MOMENT expires_at
+ *   passes, because a chosen expiry time is the whole point of the column.
+ *
+ * Tehillim is nominally an expiry, but its column is a DATE and cannot express
+ * a moment, so it is judged by the day. That is the column's limit, not a
+ * decision.
  */
 export function isRowPast(
   config: SubmissionTypeConfig,
@@ -100,7 +109,14 @@ export function isRowPast(
   // First non-NULL column wins: an event with an endTime is judged on when it
   // finishes, and falls back to when it starts.
   for (const column of config.pastBasis) {
-    const day = basisDay(row[column], config.pastKind);
+    const value = row[column];
+    if (value == null) continue;
+
+    if (config.pastPrecision === "instant" && value instanceof Date) {
+      return value.getTime() < now.getTime();
+    }
+
+    const day = basisDay(value, config.pastKind);
     if (day) return day < toDateInputValue(now);
   }
 

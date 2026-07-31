@@ -74,6 +74,16 @@ export interface SubmissionTypeConfig {
    * against the real column type.
    */
   pastKind: "instant" | "date";
+  /**
+   * How precisely "is it over" is asked.
+   *
+   *   "day"     — not past until its DAY is over, in Toronto. For things that
+   *               HAPPEN: an all-day event is stored at noon, so an instant
+   *               comparison marks it finished at 12:01 on the day it runs.
+   *   "instant" — past the moment the timestamp passes. For things that
+   *               EXPIRE, where the moment is the whole point of the column.
+   */
+  pastPrecision: "day" | "instant";
   /** A row where this boolean is true is never past, whatever the date says. */
   pastExemptField?: string;
   /** null ⇒ approving this type announces to nobody. */
@@ -97,6 +107,7 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     // finished at 12:01 on the day it is running.
     pastBasis: ["endTime", "startTime"],
     pastKind: "instant",
+    pastPrecision: "day",
     broadcast: async () =>
       (await import("@/lib/email/send")).sendEventLiveEmail as never,
     editPath: (id) => `/dashboard/submissions/events/${id}/edit`,
@@ -113,6 +124,7 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     autoApproveField: "canAutoApproveSimchas",
     pastBasis: null,
     pastKind: "date",
+    pastPrecision: "day",
     broadcast: null,
     editPath: (id) => `/dashboard/submissions/simchas/${id}/edit`,
     publicPath: (row: never) => `/simchas/${(row as { id: number }).id}`,
@@ -127,6 +139,7 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     autoApproveField: "canAutoApproveClassifieds",
     pastBasis: ["expiresAt"],
     pastKind: "instant",
+    pastPrecision: "instant",
     broadcast: null,
     editPath: (id) => `/dashboard/submissions/classifieds/${id}/edit`,
     publicPath: (row: never) => `/classifieds/${(row as { id: number }).id}`,
@@ -141,6 +154,7 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     autoApproveField: "canAutoApproveKosherAlerts",
     pastBasis: null,
     pastKind: "date",
+    pastPrecision: "day",
     broadcast: async () =>
       (await import("@/lib/email/send")).sendKosherAlertBroadcast as never,
     editPath: (id) => `/dashboard/submissions/kosher-alerts/${id}/edit`,
@@ -156,6 +170,7 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     autoApproveField: "canAutoApproveAlerts",
     pastBasis: ["expiresAt"],
     pastKind: "instant",
+    pastPrecision: "instant",
     broadcast: null,
     editPath: (id) => `/dashboard/submissions/alerts/${id}/edit`,
     publicPath: null,
@@ -170,6 +185,7 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     autoApproveField: "canAutoApproveShiva",
     pastBasis: ["shivaEnd"],
     pastKind: "date",
+    pastPrecision: "day",
     broadcast: async () =>
       (await import("@/lib/email/send")).sendShivaNoticeEmail as never,
     editPath: (id) => `/dashboard/submissions/shiva/${id}/edit`,
@@ -185,6 +201,8 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     autoApproveField: "canAutoApproveTehillim",
     pastBasis: ["expiresAt"],
     pastKind: "date",
+    // A DATE column cannot express a moment, so day is the only honest answer.
+    pastPrecision: "day",
     // A permanent entry never expires, so it is never past however old it is.
     pastExemptField: "isPermanent",
     broadcast: null,
@@ -201,6 +219,7 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     autoApproveField: "canAutoApproveBlog",
     pastBasis: null,
     pastKind: "instant",
+    pastPrecision: "day",
     broadcast: null,
     editPath: (id) => `/dashboard/blog/${id}/edit`,
     publicPath: (row: never) => `/blog/${(row as { slug: string }).slug}`,

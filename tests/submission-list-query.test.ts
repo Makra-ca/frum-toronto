@@ -260,6 +260,45 @@ describe("isRowPast", () => {
     );
   });
 
+  it("expires a classified at the MOMENT, not at midnight", () => {
+    // A chosen expiry time is the point of the column, so 09:00 means 09:00.
+    // now is 2026-07-30T12:00Z.
+    expect(
+      isRowPast(
+        SUBMISSION_TYPES.classified,
+        { expiresAt: new Date("2026-07-30T09:00:00.000Z") },
+        now
+      )
+    ).toBe(true);
+    expect(
+      isRowPast(
+        SUBMISSION_TYPES.classified,
+        { expiresAt: new Date("2026-07-30T15:00:00.000Z") },
+        now
+      )
+    ).toBe(false);
+  });
+
+  it("expires an alert at the moment too", () => {
+    expect(
+      isRowPast(
+        SUBMISSION_TYPES.alert,
+        { expiresAt: new Date("2026-07-30T09:00:00.000Z") },
+        now
+      )
+    ).toBe(true);
+  });
+
+  it("keeps a tehillim name for the whole of its last day", () => {
+    // Its column is a DATE, so there is no moment to expire at.
+    expect(
+      isRowPast(SUBMISSION_TYPES.tehillim, { expiresAt: "2026-07-30" }, now)
+    ).toBe(false);
+    expect(
+      isRowPast(SUBMISSION_TYPES.tehillim, { expiresAt: "2026-07-29" }, now)
+    ).toBe(true);
+  });
+
   it("treats a NULL expiry as not past", () => {
     expect(isRowPast(SUBMISSION_TYPES.classified, { expiresAt: null }, now)).toBe(
       false
