@@ -5,6 +5,9 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-07-31 | Three dead permission toggles kept for now; the real gap is business owners cannot edit their listing | [business-owners-cannot-edit-their-listing](2026-07-31-business-owners-cannot-edit-their-listing.md) |
+| 2026-07-31 | Missing permission controls are added to the admin panel, not granted by direct SQL | [grant-permissions-through-the-ui-not-sql](2026-07-31-grant-permissions-through-the-ui-not-sql.md) |
+| 2026-07-31 | Rejection reason is an inline box in a dialog, a prompt only in a list | [rejection-reason-inline-not-prompt](2026-07-31-rejection-reason-inline-not-prompt.md) |
 | 2026-07-31 | Admins auto-approve on every type, not five | [admins-auto-approve-every-type](2026-07-31-admins-auto-approve-every-type.md) |
 | 2026-07-31 | Auto-approved kosher alerts announce on create | [kosher-alerts-announce-on-create](2026-07-31-kosher-alerts-announce-on-create.md) |
 | 2026-07-31 | One config-driven edit form, not six hand-built pages *(provisional — unseen)* | [one-config-driven-edit-form](2026-07-31-one-config-driven-edit-form.md) |
