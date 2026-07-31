@@ -54,10 +54,14 @@ describe("SUBMISSION_TYPES", () => {
 
   it("records which types announce to subscribers, so 'none' is a decision not an omission", () => {
     const announcing = entries.filter(([, c]) => c.broadcast).map(([n]) => n);
-    // kosherAlert also announces, but via an inline resend.batch in its admin
-    // route rather than a shared helper — it is wired there until that route
-    // moves onto setApprovalStatus.
-    expect(announcing.sort()).toEqual(["event", "shiva"]);
+    // The three types that email the subscriber list on approval. kosherAlert
+    // joined them when its admin route moved onto setApprovalStatus — its
+    // announcement used to be an inline resend.batch duplicated across two
+    // routes, which is exactly the kind of thing this config exists to name.
+    //
+    // The other five announce to nobody, and that is a decision: a simcha or a
+    // classified going live is not something the community is emailed about.
+    expect(announcing.sort()).toEqual(["event", "kosherAlert", "shiva"]);
   });
 
   it("excludes types with no owner or no submission path", () => {
