@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { shivaNotifications, users } from "@/lib/db/schema";
+import { shivaNotifications } from "@/lib/db/schema";
 import { eq, and, gte } from "drizzle-orm";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { sendShivaNoticeEmail } from "@/lib/email/send";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import { resolveApprovalStatus } from "@/lib/submissions/auto-approve";
 
 // GET - Fetch all approved, active shiva notices
 export async function GET() {
@@ -84,15 +85,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if user has auto-approve permission for shiva
-    const [user] = await db
-      .select({ canAutoApproveShiva: users.canAutoApproveShiva })
-      .from(users)
-      .where(eq(users.id, parseInt(session.user.id)))
-      .limit(1);
-
-    const canAutoApprove = user?.canAutoApproveShiva ?? false;
-    const approvalStatus = canAutoApprove ? "approved" : "pending";
+    // Shared with the edit path and with every other type. Note this now also
+    // treats an admin as an auto-approver, which this route did NOT: five of
+    // the seven create routes checked role === "admin" and shiva and tehillim
+    // did not, so an admin posting through the public form landed in the queue.
+    const approvalStatus = await resolveApprovalStatus(
+      "shiva",
+      parseInt(session.user.id),
+      session.user.role,
+      null
+    );
+    const canAutoApprove = approvalStatus === "approved";
 
     // Validate mourner names array
     const validMournerNames = Array.isArray(mournerNames)
@@ -149,6 +152,11 @@ export async function POST(request: Request) {
     if (approvalStatus === "approved") {
       try {
         await sendShivaNoticeEmail(newNotice);
+        // Stamped so a later correction cannot re-announce a bereavement.
+        await db
+          .update(shivaNotifications)
+          .set({ broadcastAt: new Date() })
+          .where(eq(shivaNotifications.id, newNotice.id));
       } catch (err) {
         console.error("[SHIVA] Failed to send as-posted broadcast:", err);
       }

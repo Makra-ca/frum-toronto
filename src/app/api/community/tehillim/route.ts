@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { tehillimList, users } from "@/lib/db/schema";
+import { tehillimList } from "@/lib/db/schema";
 import { eq, and, or, gt, isNull } from "drizzle-orm";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import { resolveApprovalStatus } from "@/lib/submissions/auto-approve";
 
 // GET - Fetch all approved, active, non-expired tehillim names
 export async function GET() {
@@ -66,15 +67,15 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if user has auto-approve permission for tehillim
-    const [user] = await db
-      .select({ canAutoApproveTehillim: users.canAutoApproveTehillim })
-      .from(users)
-      .where(eq(users.id, parseInt(session.user.id)))
-      .limit(1);
-
-    const canAutoApprove = user?.canAutoApproveTehillim ?? false;
-    const approvalStatus = canAutoApprove ? "approved" : "pending";
+    // Also treats an admin as an auto-approver, which this route did not —
+    // see the note on the shiva create route.
+    const approvalStatus = await resolveApprovalStatus(
+      "tehillim",
+      parseInt(session.user.id),
+      session.user.role,
+      null
+    );
+    const canAutoApprove = approvalStatus === "approved";
 
     // Calculate expiration date (default 14 days if not specified, max 30)
     const days = Math.min(Math.max(parseInt(durationDays) || 14, 1), 30);

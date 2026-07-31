@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { kosherAlerts, users } from "@/lib/db/schema";
+import { kosherAlerts } from "@/lib/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import { resolveApprovalStatus } from "@/lib/submissions/auto-approve";
 
 const submissionSchema = z.object({
   productName: z.string().min(1, "Product name is required").max(200),
@@ -71,17 +72,13 @@ export async function POST(request: NextRequest) {
 
     const userId = parseInt(session.user.id);
 
-    // Check if user has auto-approve permission
-    const [user] = await db
-      .select({
-        canAutoApproveKosherAlerts: users.canAutoApproveKosherAlerts,
-        role: users.role,
-      })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    const autoApprove = user?.role === "admin" || user?.canAutoApproveKosherAlerts === true;
+    const autoApprove =
+      (await resolveApprovalStatus(
+        "kosherAlert",
+        userId,
+        session.user.role,
+        null
+      )) === "approved";
 
     const [newAlert] = await db
       .insert(kosherAlerts)

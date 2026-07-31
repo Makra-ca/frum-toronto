@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { alerts, users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { alerts } from "@/lib/db/schema";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import { resolveApprovalStatus } from "@/lib/submissions/auto-approve";
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,8 +41,9 @@ export async function POST(request: NextRequest) {
 
     // Check auto-approve permission
     const userId = parseInt(session.user.id);
-    const [dbUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const autoApprove = dbUser?.canAutoApproveAlerts || session.user.role === "admin";
+    const autoApprove =
+      (await resolveApprovalStatus("alert", userId, session.user.role, null)) ===
+      "approved";
 
     const [created] = await db
       .insert(alerts)

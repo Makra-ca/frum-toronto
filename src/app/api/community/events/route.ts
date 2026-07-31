@@ -6,6 +6,7 @@ import { publicEventSchema } from "@/lib/validations/content";
 import { and, eq, sql } from "drizzle-orm";
 import { canUserManageShul } from "@/lib/auth/permissions";
 import { sendEventLiveEmail, sendEventConflictNotificationEmail } from "@/lib/email/send";
+import { resolveApprovalStatus } from "@/lib/submissions/auto-approve";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
 
@@ -81,16 +82,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Determine approval status
-    const [dbUser] = await db
-      .select({ canAutoApproveEvents: users.canAutoApproveEvents })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    const isAdmin = userRole === "admin";
-    const canAutoApprove = isAdmin || (dbUser?.canAutoApproveEvents ?? false);
-    const approvalStatus = canAutoApprove ? "approved" : "pending";
+    // Determine approval status. Shared with the EDIT path on purpose: this
+    // route had the rule right and the edit path did not, which is how a
+    // trusted user editing their own live event self-unpublished it.
+    const approvalStatus = await resolveApprovalStatus(
+      "event",
+      userId,
+      userRole,
+      null
+    );
 
     // Insert event
     const [newEvent] = await db
@@ -132,9 +132,18 @@ export async function POST(request: NextRequest) {
 
     // If event is approved, send subscriber broadcast and conflict notifications
     if (approvalStatus === "approved") {
-      // Send broadcast email to communityEvents subscribers
+      // Send broadcast email to communityEvents subscribers.
+      //
+      // broadcast_at is stamped so this counts as THE announcement for this
+      // event. Without it a later correction — edit, pending_edit, admin
+      // re-approves — would look like a first approval and email everyone a
+      // second time.
       try {
         await sendEventLiveEmail(newEvent);
+        await db
+          .update(events)
+          .set({ broadcastAt: new Date() })
+          .where(eq(events.id, newEvent.id));
       } catch (emailError) {
         console.error("[EVENTS] Failed to send event live broadcast email:", emailError);
       }
@@ -184,7 +193,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const message = canAutoApprove
+    const wasPublished = approvalStatus === "approved";
+    const message = wasPublished
       ? "Your event has been published."
       : "Your event has been submitted for review.";
 
@@ -192,7 +202,7 @@ export async function POST(request: NextRequest) {
       {
         event: { id: newEvent.id },
         message,
-        autoApproved: canAutoApprove,
+        autoApproved: wasPublished,
       },
       { status: 201 }
     );
