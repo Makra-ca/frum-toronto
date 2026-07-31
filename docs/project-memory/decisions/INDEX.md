@@ -5,6 +5,7 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-07-31 | Business self-editing blocked by ownership, not by a missing route | [business-claim-is-the-missing-step](2026-07-31-business-claim-is-the-missing-step.md) |
 | 2026-07-31 | Three dead permission toggles kept for now; the real gap is business owners cannot edit their listing | [business-owners-cannot-edit-their-listing](2026-07-31-business-owners-cannot-edit-their-listing.md) |
 | 2026-07-31 | Missing permission controls are added to the admin panel, not granted by direct SQL | [grant-permissions-through-the-ui-not-sql](2026-07-31-grant-permissions-through-the-ui-not-sql.md) |
 | 2026-07-31 | Rejection reason is an inline box in a dialog, a prompt only in a list | [rejection-reason-inline-not-prompt](2026-07-31-rejection-reason-inline-not-prompt.md) |
