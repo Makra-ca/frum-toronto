@@ -7,7 +7,7 @@ config({ path: path.resolve(process.cwd(), '.env.test') });
 // Ensure we're using the dedicated test database branch — never production.
 // This guard is the last line of defense: the integration tests run destructive
 // cleanup (DELETE of [TEST]% rows), so they must NEVER point at production.
-const TEST_DB_ENDPOINT = 'ep-curly-union-ah4r8uel';
+const TEST_DB_ENDPOINT = 'ep-still-block-ahs6wvfm';
 if (!process.env.DATABASE_URL?.includes(TEST_DB_ENDPOINT)) {
   throw new Error(
     `Tests must use the test database branch (${TEST_DB_ENDPOINT})! Check .env.test`
