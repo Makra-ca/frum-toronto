@@ -3,6 +3,7 @@ import { notifications, users, formEmailRecipients } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { resend, EMAIL_FROM } from "@/lib/email/resend";
 import { getAdminNotificationEmailHtml } from "@/lib/email/templates";
+import { sendSubmissionOutcomeEmail } from "@/lib/email/send";
 import {
   getPusherServer,
   ADMIN_NOTIFICATIONS_CHANNEL,
@@ -192,5 +193,115 @@ export async function notifyAdminOfSubmission(
   } catch (error) {
     // Absolute backstop — notification failures never propagate to the caller.
     console.error("[NOTIFY] notifyAdminOfSubmission failed:", error);
+  }
+}
+
+// ============================================
+// SUBMITTER NOTIFICATIONS
+// ============================================
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+interface SubmitterNotificationParams {
+  userId: number;
+  approved: boolean;
+  /** Human label for the type, e.g. "Event". */
+  typeLabel: string;
+  itemTitle: string;
+  /**
+   * Already formatted by the caller. A `date` column must render through
+   * formatDateOnly and a `timestamp` column through formatInstant; nothing
+   * down here knows which the value came from, and guessing shifts every
+   * date-only value back a day.
+   */
+  detail?: string | null;
+  reason?: string | null;
+  /** Where the live item lives, when there is a public page for it. */
+  publicHref?: string | null;
+}
+
+/**
+ * Tells a submitter what an admin decided about their submission.
+ *
+ * In-app record plus a transactional email. The user is told about the
+ * ADMIN'S actions only — never about their own edit.
+ *
+ * Entirely non-fatal, like notifyAdminOfSubmission: a failed email must never
+ * fail an approval. An admin pressing Approve and getting a 500 because Resend
+ * was down would be a worse bug than a missed notification.
+ */
+export async function notifySubmitter(
+  params: SubmitterNotificationParams
+): Promise<void> {
+  try {
+    const { userId, approved, typeLabel, itemTitle, detail, reason, publicHref } =
+      params;
+
+    const dashboardHref = "/dashboard/submissions";
+    const linkUrl = approved ? publicHref || dashboardHref : dashboardHref;
+
+    try {
+      await createNotification({
+        userId,
+        // These exact strings are switched on by dashboard/notifications;
+        // anything else falls through to a plain grey bell.
+        type: approved ? "content_approved" : "content_rejected",
+        title: approved
+          ? `Your ${typeLabel.toLowerCase()} is live`
+          : `Your ${typeLabel.toLowerCase()} wasn't approved`,
+        body: itemTitle,
+        linkUrl,
+      });
+    } catch (error) {
+      console.error("[NOTIFY] Failed to create submitter notification:", error);
+    }
+
+    try {
+      const [user] = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (user?.email) {
+        await sendSubmissionOutcomeEmail(user.email, {
+          approved,
+          typeLabel,
+          itemTitle,
+          detail,
+          reason,
+          actionUrl: linkUrl.startsWith("http") ? linkUrl : `${APP_URL}${linkUrl}`,
+        });
+      }
+    } catch (error) {
+      console.error("[NOTIFY] Failed to email the submitter:", error);
+    }
+  } catch (error) {
+    console.error("[NOTIFY] notifySubmitter failed:", error);
+  }
+}
+
+/**
+ * Records that an auto-approver edited already-public content.
+ *
+ * The spec's sole mitigation for letting their edits stay live: someone with
+ * canAutoApprove* could publish something innocuous and later edit it to
+ * anything, unreviewed. In-app only, no email — a trail without inbox noise.
+ */
+export async function notifyAdminOfTrustedEdit(params: {
+  typeLabel: string;
+  itemTitle: string;
+  editorName: string;
+  linkUrl: string;
+}): Promise<void> {
+  try {
+    await createAdminNotification({
+      type: "trusted_user_posted",
+      title: `${params.typeLabel} edited while live`,
+      body: `${params.itemTitle} — edited by ${params.editorName}. It stayed on the site.`,
+      linkUrl: params.linkUrl,
+    });
+  } catch (error) {
+    console.error("[NOTIFY] Failed to record a trusted edit:", error);
   }
 }

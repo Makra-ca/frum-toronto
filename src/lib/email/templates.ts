@@ -501,3 +501,116 @@ export function generateAtrAnswerNotificationEmail(params: {
 </html>
   `.trim();
 }
+
+/**
+ * What a submitter is told when an admin rejects without writing a reason.
+ *
+ * The reason is optional by decision, so blank is the path a busy admin will
+ * take. Exported so the test pins the copy rather than a paraphrase of it.
+ */
+export const REJECTION_FALLBACK =
+  "Your submission wasn't approved for the community calendar. Reply to this email and we'll explain what needs changing.";
+
+/**
+ * Told to a submitter when an admin approves or rejects their submission.
+ *
+ * Transactional: standard footer identification, no unsubscribe link. Under
+ * CASL consent is not required for a message about the recipient's own
+ * submission, but identification still is.
+ */
+export function getSubmissionOutcomeEmailHtml(params: {
+  approved: boolean;
+  typeLabel: string;
+  itemTitle: string;
+  /** Already formatted by the caller — a date column and a timestamp column
+   *  need different formatters, and this template cannot know which. */
+  detail?: string | null;
+  reason?: string | null;
+  actionUrl: string;
+  actionLabel?: string;
+}): string {
+  const { approved, typeLabel, itemTitle, detail, reason, actionUrl } = params;
+  const year = new Date().getFullYear();
+
+  const safeType = escapeHtml(typeLabel);
+  const safeTitle = escapeHtml(itemTitle);
+  const safeDetail = detail ? escapeHtml(detail) : null;
+  const heading = approved
+    ? `Your ${typeLabel.toLowerCase()} is live`
+    : `Your ${typeLabel.toLowerCase()} wasn't approved`;
+  const safeHeading = escapeHtml(heading);
+  const actionLabel = escapeHtml(
+    params.actionLabel || (approved ? "View it on the site" : "Edit and resubmit")
+  );
+
+  const message = approved
+    ? `Thanks for your submission — it's now on FrumToronto.`
+    : escapeHtml(reason?.trim() ? reason.trim() : REJECTION_FALLBACK);
+
+  const accent = approved ? "#059669" : "#b45309";
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${safeHeading}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f5;">
+  <table role="presentation" style="width: 100%; border-collapse: collapse;">
+    <tr>
+      <td align="center" style="padding: 40px 0;">
+        <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="padding: 40px 40px 20px; text-align: center; background-color: #1e3a8a; border-radius: 8px 8px 0 0;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">
+                Frum<span style="color: #60a5fa;">Toronto</span>
+              </h1>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="margin: 0 0 20px; color: #1e3a8a; font-size: 22px;">${safeHeading}</h2>
+
+              <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f9fafb; border-left: 4px solid ${accent}; border-radius: 4px; margin-bottom: 24px;">
+                <tr>
+                  <td style="padding: 16px 20px;">
+                    <p style="margin: 0 0 4px; color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;">${safeType}</p>
+                    <p style="margin: 0; color: #111827; font-size: 17px; font-weight: 600;">${safeTitle}</p>
+                    ${safeDetail ? `<p style="margin: 6px 0 0; color: #4b5563; font-size: 14px;">${safeDetail}</p>` : ""}
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 0 0 24px; color: #374151; font-size: 15px; line-height: 1.6;">${message}</p>
+
+              <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td align="center" style="padding: 8px 0;">
+                    <a href="${actionUrl}" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600;">
+                      ${actionLabel}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 20px 40px; background-color: #f9fafb; border-radius: 0 0 8px 8px; text-align: center;">
+              <p style="margin: 0; color: #9ca3af; font-size: 12px; line-height: 1.6;">
+                You're receiving this because you submitted this to FrumToronto.<br>
+                &copy; ${year} FrumToronto. The Toronto Jewish Orthodox Community Gateway.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}

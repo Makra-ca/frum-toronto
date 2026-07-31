@@ -1,5 +1,9 @@
 import { resend, EMAIL_FROM } from "./resend";
-import { getVerificationEmailHtml, getPasswordResetEmailHtml } from "./templates";
+import {
+  getVerificationEmailHtml,
+  getPasswordResetEmailHtml,
+  getSubmissionOutcomeEmailHtml,
+} from "./templates";
 import { db } from "@/lib/db";
 import { emailSubscribers } from "@/lib/db/schema";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
@@ -526,4 +530,45 @@ export async function sendEventConflictNotificationEmail(
   });
 
   console.log(`[EVENTS] Sent conflict notification to ${recipientEmail} for event "${newEvent.title}"`);
+}
+
+/**
+ * Tells a submitter that an admin approved or rejected their submission.
+ *
+ * Transactional and one-to-one — NOT a broadcast. The broadcasters in this
+ * file (sendEventLiveEmail, sendShivaNoticeEmail) go to the whole subscriber
+ * list; this goes to one person about their own item, so it has no opt-out
+ * and no subscriber query.
+ */
+export async function sendSubmissionOutcomeEmail(
+  to: string,
+  params: Parameters<typeof getSubmissionOutcomeEmailHtml>[0]
+): Promise<boolean> {
+  if (!resend) {
+    console.error("[NOTIFY] Resend client not initialized - cannot send submission outcome email");
+    return false;
+  }
+
+  const subject = params.approved
+    ? `Your ${params.typeLabel.toLowerCase()} is live on FrumToronto`
+    : `About your ${params.typeLabel.toLowerCase()} submission`;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: EMAIL_FROM,
+      to,
+      subject,
+      html: getSubmissionOutcomeEmailHtml(params),
+    });
+
+    if (error) {
+      console.error("[NOTIFY] Failed to send submission outcome email:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("[NOTIFY] Error sending submission outcome email:", error);
+    return false;
+  }
 }
