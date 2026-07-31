@@ -1,5 +1,6 @@
 import { and, desc, eq, getTableColumns } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
+import type { ApprovalStatus } from "@/lib/submissions/statuses";
 import { db } from "@/lib/db";
 import { toDateInputValue } from "@/lib/datetime";
 import { canEditRow } from "@/lib/submissions/ownership";
@@ -33,7 +34,7 @@ export interface Submission {
   /** Raw value; the page formats it according to detailKind. */
   detail: string | null;
   detailKind: "instant" | "date";
-  approvalStatus: string;
+  approvalStatus: ApprovalStatus;
   rejectionReason: string | null;
   isPast: boolean;
   canEdit: boolean;
@@ -156,7 +157,11 @@ async function loadType(
   return Promise.all(
     rows.map(async (row) => {
       const isPast = isRowPast(config, row, now);
-      const approvalStatus = (row.approvalStatus as string | null) ?? "pending";
+      // Typed as the union rather than string, so the page's status handling
+      // stays exhaustive. A legacy row with an unrecognised value falls back
+      // to pending, which is the safe direction — it shows as awaiting review
+      // rather than as live.
+      const approvalStatus = (row.approvalStatus as ApprovalStatus | null) ?? "pending";
 
       // Owner OR current shul manager, and not past. The list only ever holds
       // the caller's own rows, so canEditRow answers from the owner branch

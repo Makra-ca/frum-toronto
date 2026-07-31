@@ -62,6 +62,7 @@ interface Alert {
   isPinned: boolean | null;
   expiresAt: string | null;
   isActive: boolean | null;
+  approvalStatus: string | null;
   createdAt: string;
   createdByEmail: string | null;
   createdByName: string | null;
@@ -254,6 +255,44 @@ export default function AlertsManagementPage() {
     }
   };
 
+  // A member-submitted alert lands `pending` and the public page shows only
+  // approved ones, so without this an admin had no way to see or act on it.
+  const approveOrReject = async (id: number, next: "approved" | "rejected") => {
+    let rejectionReason: string | null = null;
+    if (next === "rejected") {
+      const answer = window.prompt(
+        "Why wasn't this approved? (optional — the submitter sees this)"
+      );
+      if (answer === null) return;
+      rejectionReason = answer.trim() || null;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/alerts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approvalStatus: next, rejectionReason }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(next === "approved" ? "Alert approved" : "Alert rejected");
+      fetchAlerts();
+    } catch {
+      toast.error("Could not update this alert");
+    }
+  };
+
+  const getStatusBadge = (status: string | null) => {
+    if (!status || status === "approved") return null;
+    if (status === "rejected") {
+      return <Badge className="bg-red-100 text-red-800">Not approved</Badge>;
+    }
+    return (
+      <Badge className="bg-amber-100 text-amber-900">
+        {status === "pending_edit" ? "Correction" : "Pending"}
+      </Badge>
+    );
+  };
+
   const getUrgencyBadge = (urgency: string | null) => {
     const opt = URGENCY_OPTIONS.find((o) => o.value === urgency) || URGENCY_OPTIONS[0];
     return <Badge className={opt.color}>{opt.label}</Badge>;
@@ -366,6 +405,7 @@ export default function AlertsManagementPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           {getUrgencyBadge(alert.urgency)}
+                          {getStatusBadge(alert.approvalStatus)}
                           {alert.isPinned && (
                             <Badge variant="secondary" className="gap-1">
                               <Pin className="h-3 w-3" />
@@ -402,6 +442,27 @@ export default function AlertsManagementPage() {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
+                      {(alert.approvalStatus === "pending" ||
+                        alert.approvalStatus === "pending_edit") && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => approveOrReject(alert.id, "approved")}
+                            className="text-green-700 hover:bg-green-50"
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => approveOrReject(alert.id, "rejected")}
+                            className="text-red-700 hover:bg-red-50"
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      )}
                       <Button
                         size="sm"
                         variant="ghost"

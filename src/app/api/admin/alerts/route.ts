@@ -67,6 +67,11 @@ export async function GET(request: NextRequest) {
         isPinned: alerts.isPinned,
         expiresAt: alerts.expiresAt,
         isActive: alerts.isActive,
+        // A member can submit an alert, so the admin has to be able to SEE
+        // its status — this column was not selected at all, which is why the
+        // page had no badge and no approve control.
+        approvalStatus: alerts.approvalStatus,
+        rejectionReason: alerts.rejectionReason,
         createdAt: alerts.createdAt,
         createdByEmail: users.email,
         createdByName: users.firstName,
@@ -74,7 +79,8 @@ export async function GET(request: NextRequest) {
       .from(alerts)
       .leftJoin(users, eq(alerts.userId, users.id))
       .where(whereClause)
-      .orderBy(desc(alerts.isPinned), desc(alerts.createdAt))
+      // updated_at so a correction resurfaces; pinned still leads.
+      .orderBy(desc(alerts.isPinned), desc(alerts.updatedAt), desc(alerts.id))
       .limit(limit)
       .offset(offset);
 

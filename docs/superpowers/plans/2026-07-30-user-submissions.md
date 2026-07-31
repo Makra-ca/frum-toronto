@@ -10,38 +10,49 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-30-user-submissions-design.md` — read it first.
 
-> **Progress, end of 2026-07-30 (session 2).** Chunk 0 and **all of Chunk 1** are
-> done (tasks 1.1–1.8). Next task is **2.1**, the events auto-approve defect.
-> Branch `feature/submissions-impl` in the `../ft-subs` worktree; not merged,
-> not pushed. Decisions taken in Chunk 1 that later chunks depend on:
+> **Progress, end of 2026-07-30 (session 2).** Chunks 0 through 4 are built —
+> every task, all eight types. Branch `feature/submissions-impl` in the
+> `../ft-subs` worktree: ~35 commits, **not merged, not pushed**. Migration
+> verified applied to primary AND the test branch. 518 unit + 382 integration
+> tests, `tsc` clean, eslint unchanged at the 49-error baseline, and
+> `next build` compiles (needs `cp -al` over the symlinked node_modules —
+> Turbopack rejects the symlink).
 >
-> - **The broadcast guard needs BOTH halves** — `broadcast_at IS NULL` *and*
->   `previous !== "pending_edit"`. The shiva route-level test caught this: a
->   correction whose stamp is missing (a row approved before the column
->   existed) would otherwise re-announce a bereavement to the whole community.
-> - **A create that lands approved broadcasts AND stamps `broadcast_at`.** With
->   the writer's gate that gives at most one broadcast per item, ever — which
->   answers the plan's second open question in 1.7: an auto-approver's *edit*
->   never re-announces. A user pressing Save cannot mass-email the community.
-> - **`resolveApprovalStatus` treats an admin as an auto-approver on every
->   type.** This changed behaviour for `community/shiva` and
->   `community/tehillim`, which omitted the `role === "admin"` arm that the
->   other five create routes had.
-> - **The kosher-alert broadcast is now `sendKosherAlertBroadcast`** in
->   `lib/email/send.ts`, and `SUBMISSION_TYPES.kosherAlert.broadcast` points at
->   it. Its explicit "Save & Notify" is suppressed when the approval in the same
->   request already announced.
-> - **Chunk 0 missed `ApprovalCard.tsx:102`** — the Approve/Reject buttons were
->   still gated on the literal `"pending"`, so a corrected item rendered with no
->   actions. Fixed in 1.8. Worth assuming other Chunk 0 misses exist.
+> **A correction to an earlier note in this file:** a previous revision of this
+> block claimed all of Chunk 1 was done. Task **1.8 was not** — only
+> `/admin/approvals` ordered by `updated_at` while all six per-type admin
+> queues still ordered by `created_at`, which is the plan's own headline
+> justification. Found by an audit against this document, now fixed.
 >
-> **Not mine, but blocking a clean suite:** `tests/homepage-ads.test.ts >
-> rejects a business-linked ad with no business` fails. Verified at the database
-> level: **both** primary and the test branch carry the loose version of
-> `homepage_ads_link_target_check`, while `migrations/2026-07-30-homepage-ads.sql`
-> on disk requires `business_id IS NOT NULL`. So production currently accepts a
-> business-linked ad with no business, which renders a dead click. The ads
-> session owns this.
+> **Decisions later work depends on:**
+>
+> - **The broadcast guard needs three parts**: `broadcast_at IS NULL`,
+>   `previous !== "pending_edit"`, and `previous !== next`. The third closes a
+>   real hole — five admin CREATE routes insert `approved` without stamping, so
+>   pressing Approve on an already-live row from a stale queue tab announced it
+>   again.
+> - **`setApprovalStatus` is the only writer**, and the edit path hands its
+>   transition to it. Writing the status inside `applyEdit` skipped the
+>   announcement and left `broadcast_at` unarmed on a live item.
+> - **A create that lands approved broadcasts AND stamps `broadcast_at`** — at
+>   most one announcement per item, ever. An auto-approver's later edit never
+>   re-announces.
+> - **`isPast` is answered at Toronto DAY granularity**, and events read
+>   `endTime ?? startTime`. An all-day event is stored at noon, so an instant
+>   comparison marked it finished at 12:01 on the day it ran.
+> - **`pastKind` is declared, not inferred.** `typeof value === "string"`
+>   identifies a DATE column only because `drizzle-orm/neon-http` installs a raw
+>   parser for oid 1082 — the only driver that does.
+> - **One generic `applyEdit` + one described form**, not six modules and six
+>   pages. The plan's sizing warning about lifting four modals is moot.
+>
+> **Known and deliberately not done** — see the judgment-call list in the
+> session summary: shul managers can edit a shul's event but it does not appear
+> in *their* submissions list; the Select-driven admin edit dialogs can reject
+> without offering a reason; the 409 catches double-writes rather than the
+> form-open race (that needs the client to echo a version); and `applyEdit` +
+> `setApprovalStatus` are two round trips with no transaction, because
+> `neon-http` has none.
 
 **Revision 3.** The first draft was reviewed and found unexecutable: it introduced `pending_edit` without widening the ~53 places that read `"pending"`, so edited items would have vanished from every admin queue. That, and five other critical defects, are fixed here. Where a step exists because a review caught something, the reason is stated inline — do not "simplify" those away.
 
