@@ -20,12 +20,13 @@ export default async function ApprovalsPage() {
         announcement: simchas.announcement,
         approvalStatus: simchas.approvalStatus,
         createdAt: simchas.createdAt,
+        updatedAt: simchas.updatedAt,
         typeName: simchaTypes.name,
       })
       .from(simchas)
       .leftJoin(simchaTypes, eq(simchas.typeId, simchaTypes.id))
       .where(inArray(simchas.approvalStatus, PENDING_STATUSES))
-      .orderBy(desc(simchas.createdAt)),
+      .orderBy(desc(simchas.updatedAt), desc(simchas.id)),
 
     db
       .select({
@@ -35,12 +36,13 @@ export default async function ApprovalsPage() {
         price: classifieds.price,
         approvalStatus: classifieds.approvalStatus,
         createdAt: classifieds.createdAt,
+        updatedAt: classifieds.updatedAt,
         categoryName: classifiedCategories.name,
       })
       .from(classifieds)
       .leftJoin(classifiedCategories, eq(classifieds.categoryId, classifiedCategories.id))
       .where(inArray(classifieds.approvalStatus, PENDING_STATUSES))
-      .orderBy(desc(classifieds.createdAt)),
+      .orderBy(desc(classifieds.updatedAt), desc(classifieds.id)),
 
     db
       .select({
@@ -52,10 +54,11 @@ export default async function ApprovalsPage() {
         approvalStatus: tehillimList.approvalStatus,
         expiresAt: tehillimList.expiresAt,
         createdAt: tehillimList.createdAt,
+        updatedAt: tehillimList.updatedAt,
       })
       .from(tehillimList)
       .where(inArray(tehillimList.approvalStatus, PENDING_STATUSES))
-      .orderBy(desc(tehillimList.createdAt)),
+      .orderBy(desc(tehillimList.updatedAt), desc(tehillimList.id)),
   ]);
 
   const counts = {

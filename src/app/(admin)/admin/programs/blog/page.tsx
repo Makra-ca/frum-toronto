@@ -408,6 +408,7 @@ export default function AdminBlogPage() {
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="pending_edit">Awaiting re-approval</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>

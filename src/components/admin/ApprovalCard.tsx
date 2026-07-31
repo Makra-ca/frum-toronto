@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { isPending } from "@/lib/submissions/statuses";
 import { Check, X, Loader2, Infinity } from "lucide-react";
 import { formatInstant, formatDateOnly } from "@/lib/datetime";
 
@@ -63,8 +64,18 @@ export function ApprovalCard({
 
   const statusColors: Record<string, string> = {
     pending: "bg-yellow-100 text-yellow-800",
+    // A correction to something that was already live, so it reads
+    // differently from a brand-new submission an admin has never seen.
+    pending_edit: "bg-amber-100 text-amber-900",
     approved: "bg-green-100 text-green-800",
     rejected: "bg-red-100 text-red-800",
+  };
+
+  const statusLabels: Record<string, string> = {
+    pending: "pending",
+    pending_edit: "correction",
+    approved: "approved",
+    rejected: "rejected",
   };
 
   return (
@@ -78,7 +89,7 @@ export function ApprovalCard({
             )}
           </div>
           <Badge className={statusColors[currentStatus] || statusColors.pending}>
-            {currentStatus}
+            {statusLabels[currentStatus] || currentStatus}
           </Badge>
         </div>
       </CardHeader>
@@ -99,7 +110,7 @@ export function ApprovalCard({
             {createdAt ? formatInstant(createdAt, { month: "numeric", day: "numeric", year: "numeric" }) : "N/A"}
           </span>
 
-          {currentStatus === "pending" && (
+          {isPending(currentStatus) && (
             <div className="flex flex-col items-end gap-2">
               {/* Make Permanent checkbox for tehillim */}
               {type === "tehillim" && (

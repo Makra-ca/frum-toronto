@@ -1,6 +1,10 @@
 // User types
 export type UserRole = "admin" | "shul" | "business" | "content_contributor" | "member";
-export type ApprovalStatus = "pending" | "approved" | "rejected";
+// Re-exported, NOT redeclared. This union predates `pending_edit`; a second
+// three-member copy of it would let a corrected item be typed out of existence
+// at every call site that imports from here.
+import type { ApprovalStatus } from "@/lib/submissions/statuses";
+export type { ApprovalStatus };
 export type SubscriptionStatus = "active" | "cancelled" | "past_due" | "trialing";
 
 export interface User {

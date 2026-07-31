@@ -118,7 +118,7 @@ export default function ShivaManagementPage() {
     mealInfo: "",
     donationInfo: "",
     contactPhone: "",
-    approvalStatus: "pending" as "pending" | "approved" | "rejected",
+    approvalStatus: "pending" as "pending" | "pending_edit" | "approved" | "rejected",
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -186,7 +186,7 @@ export default function ShivaManagementPage() {
       mealInfo: entry.mealInfo || "",
       donationInfo: entry.donationInfo || "",
       contactPhone: entry.contactPhone || "",
-      approvalStatus: (entry.approvalStatus as "pending" | "approved" | "rejected") || "pending",
+      approvalStatus: (entry.approvalStatus as "pending" | "pending_edit" | "approved" | "rejected") || "pending",
     });
   };
 
@@ -290,7 +290,7 @@ export default function ShivaManagementPage() {
     mealInfo: "",
     donationInfo: "",
     contactPhone: "",
-    approvalStatus: "approved" as "pending" | "approved" | "rejected",
+    approvalStatus: "approved" as "pending" | "pending_edit" | "approved" | "rejected",
   };
 
   const startCreate = () => {
@@ -408,6 +408,7 @@ export default function ShivaManagementPage() {
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="pending_edit">Awaiting re-approval</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
@@ -790,7 +791,7 @@ export default function ShivaManagementPage() {
               <Label htmlFor="approvalStatus">Status</Label>
               <Select
                 value={editForm.approvalStatus}
-                onValueChange={(v: "pending" | "approved" | "rejected") =>
+                onValueChange={(v: "pending" | "pending_edit" | "approved" | "rejected") =>
                   setEditForm({ ...editForm, approvalStatus: v })
                 }
               >
@@ -799,6 +800,7 @@ export default function ShivaManagementPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="pending_edit">Awaiting re-approval</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
