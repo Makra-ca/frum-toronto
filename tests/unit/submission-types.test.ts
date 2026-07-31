@@ -17,7 +17,7 @@ describe("SUBMISSION_TYPES", () => {
       cfg.titleColumn,
       cfg.detailColumn,
       ...(cfg.shulColumn ? [cfg.shulColumn] : []),
-      ...(cfg.pastBasis ? [cfg.pastBasis] : []),
+      ...(cfg.pastBasis ?? []),
       ...(cfg.pastExemptField ? [cfg.pastExemptField] : []),
     ]) {
       expect(columns[key], `${name}.${key} does not exist`).toBeDefined();
@@ -37,6 +37,19 @@ describe("SUBMISSION_TYPES", () => {
         cfg.detailKind,
         `${name}.${cfg.detailColumn} is ${column.columnType}`
       ).toBe(expected);
+    }
+  );
+
+  it.each(entries)(
+    "%s: pastKind matches the real column type, so 'is it over' reads the right thing",
+    (name, cfg) => {
+      for (const column of cfg.pastBasis ?? []) {
+        const col = getTableColumns(cfg.table)[column] as unknown as {
+          columnType: string;
+        };
+        const expected = col.columnType.startsWith("PgDate") ? "date" : "instant";
+        expect(cfg.pastKind, `${name}.${column} is ${col.columnType}`).toBe(expected);
+      }
     }
   );
 

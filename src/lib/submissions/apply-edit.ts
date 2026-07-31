@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { canEditRow } from "@/lib/submissions/ownership";
 import { resolveApprovalStatus } from "@/lib/submissions/auto-approve";
 import { EDITABLE_FIELDS } from "@/lib/submissions/editable-fields";
+import { setApprovalStatus } from "@/lib/submissions/set-approval-status";
 import type { ApprovalStatus } from "@/lib/submissions/statuses";
 import { SUBMISSION_TYPES, type SubmissionType } from "@/lib/submissions/types";
 
@@ -91,14 +92,27 @@ export async function applyEdit(
   // the UI then repeats back to them.
   const wasUnpublished = previousStatus === "approved" && status !== "approved";
 
-  updates.approvalStatus = status;
-
-  // Conditional on the status that was READ. An admin approving while the user
-  // is typing would otherwise be silently overwritten by whoever saved last,
-  // and the losing write can publish text nobody reviewed.
+  // The status is NOT written here. setApprovalStatus owns every transition,
+  // and an edit can be a real publication: an auto-approver editing their own
+  // pending item resolves to `approved`. Writing that directly skipped the
+  // announcement, skipped stamping broadcast_at — leaving a live item with the
+  // once-only guard unarmed, so a later approve/reject toggle mass-emailed
+  // subscribers about something that had been public for weeks — and left a
+  // stale rejection_reason on the row.
   //
-  // approvalStatus is a nullable column and `eq(col, null)` is never true in
-  // SQL, so a NULL has to be matched with IS NULL or every legacy row 409s.
+  // The content write is conditional on the status read a few lines above.
+  //
+  // Be precise about what that does and does not buy. Both happen inside one
+  // request, so it does NOT catch an admin who approves while the user has the
+  // form open — that decision is already visible by the time we read, and the
+  // edit proceeds against it, which is the behaviour we want anyway. What it
+  // does catch is two writes racing each other: a double submit, two tabs, or
+  // a retry after a client timeout where the first request actually landed.
+  // Catching the form-open case needs the client to echo the version it
+  // loaded; nothing sends one today.
+  //
+  // approvalStatus is nullable and `eq(col, null)` is never true in SQL, so a
+  // NULL has to be matched with IS NULL or every legacy row 409s.
   const written = await db
     .update(table)
     .set(updates)
@@ -117,6 +131,12 @@ export async function applyEdit(
       "Someone reviewed this while you were editing. Reload the page to see its current state, then try again.",
       409
     );
+  }
+
+  // Content first, then the status, so anything the transition announces or
+  // quotes carries the corrected text.
+  if (status !== previousStatus) {
+    await setApprovalStatus({ type, id, next: status });
   }
 
   return { id, status, wasUnpublished };

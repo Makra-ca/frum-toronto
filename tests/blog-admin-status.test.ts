@@ -118,6 +118,50 @@ describe("admin blog status writes", () => {
     expect(row.publishedAt).not.toBeNull();
   });
 
+  it("takes a LIVE post off the site when it is rejected", async () => {
+    // The operationally important case, and the one the broken route made
+    // impossible: rejecting something currently public. All the other status
+    // tests start from pending, where nothing is at stake.
+    const id = await makePost("approved", new Date("2020-01-01T00:00:00.000Z"));
+
+    const res = await patch(id, {
+      approvalStatus: "rejected",
+      rejectionReason: "Copyright complaint",
+    });
+
+    expect(res.status).toBe(200);
+    const [row] = await db.select().from(blogPosts).where(eq(blogPosts.id, id));
+    expect(row.approvalStatus).toBe("rejected");
+    expect(row.rejectionReason).toBe("Copyright complaint");
+    // publishedAt is history, not visibility — it must not be wiped.
+    expect(row.publishedAt).not.toBeNull();
+  });
+
+  it("clears the reason when a rejected post is later approved", async () => {
+    const id = await makePost("pending", null);
+    await patch(id, { approvalStatus: "rejected", rejectionReason: "Fix the title" });
+
+    await patch(id, { approvalStatus: "approved" });
+
+    const [row] = await db.select().from(blogPosts).where(eq(blogPosts.id, id));
+    // Otherwise a live post carries the reason it was once turned down, and
+    // the dashboard shows it to the author forever.
+    expect(row.rejectionReason).toBeNull();
+  });
+
+  it("records a corrected reason even when the status does not change", async () => {
+    const id = await makePost("rejected", null);
+
+    const res = await patch(id, {
+      approvalStatus: "rejected",
+      rejectionReason: "Clearer explanation",
+    });
+
+    expect(res.status).toBe(200);
+    const [row] = await db.select().from(blogPosts).where(eq(blogPosts.id, id));
+    expect(row.rejectionReason).toBe("Clearer explanation");
+  });
+
   it("still saves ordinary content edits", async () => {
     // Positive control: an implementation that ignores the body entirely would
     // pass the assertions above if they only checked the status.
@@ -127,7 +171,7 @@ describe("admin blog status writes", () => {
 
     const [row] = await db.select().from(blogPosts).where(eq(blogPosts.id, id));
     expect(row.title).toBe("[TEST] retitled");
-    expect(row.approvalStatus).toBe("pending");
+    expect(row.content).toBe("<p>new</p>");
   });
 
   it("refuses a status the system does not use", async () => {

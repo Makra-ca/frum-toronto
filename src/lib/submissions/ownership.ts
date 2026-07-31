@@ -15,9 +15,12 @@ import { SUBMISSION_TYPES, type SubmissionType } from "@/lib/submissions/types";
  * A NULL owner is never editable by anyone. Every legacy-imported row has one,
  * and they have no submitter who could own them.
  *
- * Note this deliberately does NOT hand admins a blanket pass on unlinked rows.
- * It guards the user-facing PATCH routes; admins act through the admin routes,
- * which have their own authorisation.
+ * On admins: there is no blanket pass for rows with NO shul link — an admin
+ * editing someone else's simcha through the user-facing route is refused, and
+ * acts through the admin routes instead. Rows that ARE shul-linked are a
+ * different matter: canUserManageShul returns true for any admin on any shul,
+ * so an admin can edit those here. That is intentional in that helper and not
+ * worth diverging from, but it is not the same as "admins get nothing".
  */
 export async function canEditRow(
   type: SubmissionType,

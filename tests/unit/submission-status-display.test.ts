@@ -14,10 +14,14 @@ describe("STATUS_STYLES", () => {
   });
 
   it("does not show a user the database's words", () => {
+    // Every label has to be prose. Comparing each to its own key catches a
+    // future status styled as `foo: { label: "foo" }`, which the old version
+    // of this test — `not.toContain("pending_edit")` — could not.
+    for (const [status, style] of Object.entries(STATUS_STYLES)) {
+      expect(style.label, `${status} shows its raw status`).not.toBe(status);
+      expect(style.label.length, `${status} has no label`).toBeGreaterThan(0);
+    }
     expect(STATUS_STYLES.pending_edit.label).toBe("Awaiting re-approval");
-    expect(Object.values(STATUS_STYLES).map((s) => s.label)).not.toContain(
-      "pending_edit"
-    );
   });
 
   it("falls back rather than crashing on an unknown status", () => {
@@ -44,11 +48,15 @@ describe("formatSubmissionDetail", () => {
     expect(formatSubmissionDetail("", "date")).toBeNull();
   });
 
-  it("shows a date-only value the same regardless of the viewer's clock", () => {
-    // The same stored day, formatted twice, must not depend on when it is run.
-    const a = formatSubmissionDetail("2027-01-01", "date");
-    const b = formatSubmissionDetail("2027-01-01", "date");
-    expect(a).toBe(b);
-    expect(a).toContain("Jan 1, 2027");
+  it("renders the SAME stored value differently by kind", () => {
+    // The discriminator has to change the output, or it is decoration. A
+    // midnight-UTC value is the case that separates them: as a date it is the
+    // 1st, as an instant it is the previous evening in Toronto.
+    const asDate = formatSubmissionDetail("2027-01-01", "date");
+    const asInstant = formatSubmissionDetail("2027-01-01T00:00:00.000Z", "instant");
+
+    expect(asDate).toContain("Jan 1, 2027");
+    expect(asInstant).toContain("Dec 31, 2026");
+    expect(asDate).not.toBe(asInstant);
   });
 });

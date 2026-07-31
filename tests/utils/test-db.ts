@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
-import { like, sql } from 'drizzle-orm';
+import { inArray, like, sql } from 'drizzle-orm';
 import * as schema from '@/lib/db/schema';
 
 // Create a test database connection
@@ -75,11 +75,52 @@ export async function createTestUser(userData: Partial<typeof schema.users.$infe
   return user;
 }
 
-// Helper to clean up test data
+/**
+ * Deletes every test user — and, first, the content rows that point at them.
+ *
+ * The content tables reference users.id with NO `ON DELETE`, so a single
+ * leftover row makes this throw a foreign-key error. That matters because this
+ * helper is blanket (`test-%@frumtoronto.test`, not the calling file's own
+ * ids) and nearly every integration file calls it: one file whose afterAll
+ * was cut short — a thrown test, or the Neon branch dropping a connection —
+ * leaves a mine that detonates in whichever file runs next, taking a whole
+ * file's tests with it.
+ *
+ * Observed exactly that: community-alerts.test.ts failed in beforeAll with
+ * `alerts_user_id_users_id_fk`, skipping 9 tests and preventing 60 more from
+ * running, because an earlier file had left a user behind.
+ *
+ * Vitest orders integration files by SIZE, so which file gets hit changes as
+ * files grow. Clearing children here makes the helper safe to call in any
+ * order.
+ */
 export async function cleanupTestUsers() {
-  await testDb
-    .delete(schema.users)
+  const testUsers = await testDb
+    .select({ id: schema.users.id })
+    .from(schema.users)
     .where(like(schema.users.email, 'test-%@frumtoronto.test'));
+
+  if (testUsers.length === 0) return;
+
+  const ids = testUsers.map((u) => u.id);
+
+  // Every table with a user reference that an integration test can create.
+  // Deleting by user id (not by a "[TEST]" title convention) catches rows a
+  // half-finished afterAll left behind whatever they were called.
+  await testDb.delete(schema.events).where(inArray(schema.events.userId, ids));
+  await testDb.delete(schema.simchas).where(inArray(schema.simchas.userId, ids));
+  await testDb.delete(schema.classifieds).where(inArray(schema.classifieds.userId, ids));
+  await testDb.delete(schema.kosherAlerts).where(inArray(schema.kosherAlerts.userId, ids));
+  await testDb.delete(schema.alerts).where(inArray(schema.alerts.userId, ids));
+  await testDb.delete(schema.tehillimList).where(inArray(schema.tehillimList.userId, ids));
+  await testDb
+    .delete(schema.shivaNotifications)
+    .where(inArray(schema.shivaNotifications.userId, ids));
+  await testDb.delete(schema.blogPosts).where(inArray(schema.blogPosts.authorId, ids));
+  await testDb.delete(schema.notifications).where(inArray(schema.notifications.userId, ids));
+  await testDb.delete(schema.userShuls).where(inArray(schema.userShuls.userId, ids));
+
+  await testDb.delete(schema.users).where(inArray(schema.users.id, ids));
 }
 
 export async function cleanupTestKosherAlerts() {

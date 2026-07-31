@@ -1,60 +1,29 @@
-import { db } from "@/lib/db";
-import { events } from "@/lib/db/schema";
-import { and, eq, isNull } from "drizzle-orm";
-import { resolveApprovalStatus } from "@/lib/submissions/auto-approve";
-import { canEditRow } from "@/lib/submissions/ownership";
+import { applyEdit, SubmissionEditError } from "@/lib/submissions/apply-edit";
 import type { ApprovalStatus } from "@/lib/submissions/statuses";
 
 /**
  * Editing an event you submitted yourself.
  *
- * Policy: an edit to an already-approved event unpublishes it for re-review —
- * as `pending_edit`, never `pending`. Every broadcast guard fires on
- * `pending → approved`, so `pending` would mean a corrected typo re-emails the
- * entire subscriber list the moment an admin re-approves.
+ * A thin wrapper over the generic `applyEdit`, kept only because the events
+ * route and its tests were written against this name.
  *
- * An auto-approver's edit stays live. The status is resolved by the SAME helper
- * the create path uses, because this function used to set `pending`
- * unconditionally without ever loading the user row — so an admin or trusted
- * user editing their own live event self-unpublished it and had to ask someone
- * else to restore it. The permission means "your posts go live without review";
- * the edit path was silently revoking it.
+ * It used to hold its own copy of the rules, and that copy drifted twice:
  *
- * Kept out of the route handler so the ownership and re-approval rules can be
- * tested without going through HTTP or next-auth.
+ *  - it set `pending` unconditionally, silently revoking auto-approve and
+ *    making a later re-approval look like a FIRST approval to every broadcast
+ *    guard; and
+ *  - it wrote `approval_status` directly, so an auto-approver's edit could
+ *    publish an event without announcing it and without stamping
+ *    `broadcast_at` — leaving the once-only guard unarmed on a live item, so a
+ *    later approve/reject toggle would mass-email subscribers about something
+ *    that had been public for weeks.
+ *
+ * Both are the same lesson: a second copy of this logic is a copy that drifts.
  */
 
-export class EventEditError extends Error {
-  constructor(
-    message: string,
-    readonly status: number
-  ) {
-    super(message);
-    this.name = "EventEditError";
-  }
-}
+export { SubmissionEditError as EventEditError };
 
-/** Fields a submitter is allowed to change. Anything else is ignored. */
-const EDITABLE_FIELDS = [
-  "title",
-  "description",
-  "location",
-  "startTime",
-  "endTime",
-  "isAllDay",
-  "eventType",
-  "contactName",
-  "contactEmail",
-  "contactPhone",
-  "cost",
-  "organization",
-  "websiteUrl",
-  "flyerUrl",
-  "imageUrl",
-] as const;
-
-type EditableField = (typeof EDITABLE_FIELDS)[number];
-export type EventEditInput = Partial<Record<EditableField, unknown>>;
+export type EventEditInput = Record<string, unknown>;
 
 export interface EventEditResult {
   id: number;
@@ -70,81 +39,5 @@ export async function applyEventEdit(
   input: EventEditInput,
   role?: string
 ): Promise<EventEditResult> {
-  const [existing] = await db
-    .select({
-      id: events.id,
-      userId: events.userId,
-      shulId: events.shulId,
-      approvalStatus: events.approvalStatus,
-    })
-    .from(events)
-    .where(eq(events.id, eventId))
-    .limit(1);
-
-  if (!existing) {
-    throw new EventEditError("Event not found", 404);
-  }
-
-  // Owner, OR whoever currently manages the linked shul. An event with no
-  // userId came from the legacy import or an admin and has no submitter who
-  // could own it, which canEditRow treats as editable by nobody.
-  if (!(await canEditRow("event", existing, userId, role))) {
-    throw new EventEditError("You can only edit events you submitted", 403);
-  }
-
-  // Whitelist, so a hostile client cannot reassign userId or self-approve by
-  // posting extra keys.
-  const updates: Record<string, unknown> = {};
-  for (const field of EDITABLE_FIELDS) {
-    if (field in input && input[field] !== undefined) {
-      updates[field] = input[field];
-    }
-  }
-
-  if (Object.keys(updates).length === 0) {
-    throw new EventEditError("No editable fields supplied", 400);
-  }
-
-  const status = await resolveApprovalStatus(
-    "event",
-    userId,
-    role,
-    existing.approvalStatus
-  );
-
-  // Only true when the edit actually took something off the calendar. An
-  // auto-approver's event stays live, and telling them otherwise would be a
-  // lie the UI then repeats back to them.
-  const wasUnpublished =
-    existing.approvalStatus === "approved" && status !== "approved";
-
-  updates.approvalStatus = status;
-
-  // Conditional on the status we READ. An admin approving while the user is
-  // typing would otherwise be silently overwritten by whoever saved last —
-  // and the losing write can publish text nobody reviewed.
-  //
-  // approvalStatus is a nullable column, so a NULL has to be matched with
-  // IS NULL; eq(col, null) is never true in SQL and would 409 every time.
-  const written = await db
-    .update(events)
-    .set(updates)
-    .where(
-      and(
-        eq(events.id, eventId),
-        existing.approvalStatus === null
-          ? isNull(events.approvalStatus)
-          : eq(events.approvalStatus, existing.approvalStatus)
-      )
-    )
-    .returning({ id: events.id });
-
-  if (written.length === 0) {
-    throw new EventEditError(
-      "Someone reviewed this event while you were editing. Reload the page to see its current state, then try again.",
-      409
-    );
-  }
-
-  return { id: eventId, status, wasUnpublished };
+  return applyEdit("event", eventId, userId, input, role);
 }

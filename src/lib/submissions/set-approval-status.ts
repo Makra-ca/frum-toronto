@@ -83,8 +83,16 @@ export async function setApprovalStatus(
   //                               stamp were somehow missing (a row approved
   //                               before broadcast_at existed, a hand-edited
   //                               status) it must not announce.
+  //   previous !== next        — no transition, no announcement. Several admin
+  //                              CREATE routes insert approvalStatus:"approved"
+  //                              without stamping broadcast_at, so without this
+  //                              an admin pressing Approve on an already-live
+  //                              row (a stale queue tab, an approve/reject
+  //                              toggle) would mass-email subscribers about
+  //                              something that has been public for weeks.
   const shouldBroadcast =
     next === "approved" &&
+    previous !== next &&
     current.broadcastAt == null &&
     previous !== "pending_edit" &&
     config.broadcast !== null;

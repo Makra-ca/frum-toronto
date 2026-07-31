@@ -1,6 +1,7 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, getTableColumns } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
+import { toDateInputValue } from "@/lib/datetime";
 import { canEditRow } from "@/lib/submissions/ownership";
 import {
   SUBMISSION_TYPES,
@@ -44,22 +45,45 @@ export interface Submission {
 type AnyTable = PgTable & Record<string, PgColumn>;
 
 /**
- * Today, where the SITE is — never where the server is.
- *
- * A `date` column holds a calendar day with no timezone, so "is it past" has to
- * be asked against Toronto's day. On a UTC server (what Vercel runs) a
- * comparison against the process clock flips over at 7 or 8pm Toronto time and
- * marks today's shiva notice as finished.
+ * Per type, per user. Someone with more than this has a bulk-import history
+ * rather than a submissions list, and the page is not the tool for it.
  */
-function torontoToday(now: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Toronto",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
+const MAX_ROWS_PER_TYPE = 200;
+
+/**
+ * The Toronto calendar day a basis value falls on, as "YYYY-MM-DD".
+ *
+ * Read by the DECLARED kind, never by the runtime type — see `pastKind`.
+ *
+ * A `date` column is a calendar day with no timezone, so it must be taken
+ * verbatim; converting it through a timezone is what shifts it. A `timestamp`
+ * is a real instant, so it converts to Toronto's day via the hardened helper
+ * in datetime.ts (which builds the string from formatToParts rather than
+ * trusting a locale's format pattern).
+ */
+function basisDay(value: unknown, kind: "instant" | "date"): string | null {
+  if (value == null) return null;
+
+  if (kind === "date") {
+    // Under drizzle-orm/neon-http this is already "YYYY-MM-DD". Under a driver
+    // that parses DATE into a Date, take the UTC parts — the driver builds it
+    // from the stored y/m/d, so those parts are the stored day.
+    if (typeof value === "string") return value.slice(0, 10);
+    return value instanceof Date ? value.toISOString().slice(0, 10) : null;
+  }
+
+  if (value instanceof Date) return toDateInputValue(value);
+  return typeof value === "string" ? toDateInputValue(value) : null;
 }
 
+/**
+ * Is this over?
+ *
+ * Answered at DAY granularity, in Toronto, deliberately. An event running
+ * today is not past at 12:01 in the afternoon — and an all-day event is stored
+ * at noon Toronto, so an instant comparison marked it finished halfway through
+ * the day it was running and took the submitter's Edit button with it.
+ */
 export function isRowPast(
   config: SubmissionTypeConfig,
   row: Record<string, unknown>,
@@ -72,17 +96,14 @@ export function isRowPast(
   // A permanent tehillim entry never expires, however old it is.
   if (config.pastExemptField && row[config.pastExemptField] === true) return false;
 
-  const value = row[config.pastBasis];
-  if (value == null) return false;
-
-  if (typeof value === "string") {
-    // A DATE column, which Drizzle hands back as "YYYY-MM-DD". Lexicographic
-    // comparison is correct for that format and avoids parsing it into an
-    // instant, which is what shifts it a day.
-    return value < torontoToday(now);
+  // First non-NULL column wins: an event with an endTime is judged on when it
+  // finishes, and falls back to when it starts.
+  for (const column of config.pastBasis) {
+    const day = basisDay(row[column], config.pastKind);
+    if (day) return day < toDateInputValue(now);
   }
 
-  return value instanceof Date ? value.getTime() < now.getTime() : false;
+  return false;
 }
 
 async function loadType(
@@ -94,11 +115,43 @@ async function loadType(
   const config = SUBMISSION_TYPES[type];
   const table = config.table as AnyTable;
 
+  // Only the columns this list needs. A plain select() pulled every column of
+  // every row, which for a legacy blog author (1,395 posts on one account)
+  // means serialising the full HTML body of each post into a dashboard
+  // response — multiple megabytes to render a list of titles.
+  const columns = getTableColumns(table) as Record<string, PgColumn>;
+  const wanted: Record<string, PgColumn> = {
+    id: columns.id,
+    approvalStatus: columns.approvalStatus,
+    rejectionReason: columns.rejectionReason,
+    createdAt: columns.createdAt,
+    [config.titleColumn]: columns[config.titleColumn],
+    [config.detailColumn]: columns[config.detailColumn],
+    ...(config.shulColumn ? { [config.shulColumn]: columns[config.shulColumn] } : {}),
+    ...(config.pastExemptField
+      ? { [config.pastExemptField]: columns[config.pastExemptField] }
+      : {}),
+    // canEditRow reads the owner, and publicPath may read a slug.
+    [config.ownerColumn]: columns[config.ownerColumn],
+    ...(columns.slug ? { slug: columns.slug } : {}),
+  };
+  for (const column of config.pastBasis ?? []) {
+    wanted[column] = columns[column];
+  }
+
+  // A soft-deleted row is off the site, so listing it as "Live" with a link to
+  // a page that 404s is worse than not listing it. shiva_notifications has no
+  // isActive column, hence the guard rather than a blanket filter.
+  const visible = columns.isActive
+    ? and(eq(table[config.ownerColumn], userId), eq(columns.isActive, true))
+    : eq(table[config.ownerColumn], userId);
+
   const rows = (await db
-    .select()
+    .select(wanted)
     .from(table)
-    .where(eq(table[config.ownerColumn], userId))
-    .orderBy(desc(table.id))) as unknown as Record<string, unknown>[];
+    .where(visible)
+    .orderBy(desc(table.id))
+    .limit(MAX_ROWS_PER_TYPE)) as unknown as Record<string, unknown>[];
 
   return Promise.all(
     rows.map(async (row) => {

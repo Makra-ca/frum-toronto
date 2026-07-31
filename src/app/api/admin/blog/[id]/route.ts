@@ -167,6 +167,22 @@ export async function PATCH(
     }
 
     const { approvalStatus, rejectionReason } = statusResult.data;
+
+    // A reason with no status change still has to land: an admin correcting
+    // the wording on an already-rejected post would otherwise get a 200 and a
+    // toast while nothing was written — the same silent no-op this route was
+    // just fixed for.
+    if (
+      approvalStatus === existing.approvalStatus &&
+      rejectionReason !== undefined &&
+      approvalStatus === "rejected"
+    ) {
+      await db
+        .update(blogPosts)
+        .set({ rejectionReason: rejectionReason || null })
+        .where(eq(blogPosts.id, postId));
+    }
+
     if (approvalStatus && approvalStatus !== existing.approvalStatus) {
       await setApprovalStatus({
         type: "blog",

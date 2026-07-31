@@ -164,7 +164,11 @@ describe("listSubmissions", () => {
     expect(titles).not.toContain("[TEST] someone else's event");
     // Assert on the id created here, not a count — other files share these
     // tables.
-    expect(mine.some((s) => s.id === created.events[2])).toBe(false);
+    // With the type: `id` is a per-table serial, so a simcha can legitimately
+    // carry the same integer as someone else's event.
+    expect(
+      mine.some((s) => s.type === "event" && s.id === created.events[2])
+    ).toBe(false);
   });
 
   it("spans types, not just events", async () => {
@@ -285,12 +289,47 @@ describe("isRowPast", () => {
     ).toBe(true);
   });
 
-  it("compares an instant column against the actual moment", () => {
+  it("does not call something past on the day it is happening", () => {
+    // Day granularity, not instant. An all-day event is STORED at noon
+    // Toronto (see PublicEventForm), so an instant comparison marked it
+    // finished at 12:01 on the day it was running — and took the submitter's
+    // Edit button with it.
     expect(
       isRowPast(SUBMISSION_TYPES.event, { startTime: new Date("2026-07-30T11:00:00Z") }, now)
-    ).toBe(true);
-    expect(
-      isRowPast(SUBMISSION_TYPES.event, { startTime: new Date("2026-07-30T13:00:00Z") }, now)
     ).toBe(false);
+    expect(
+      isRowPast(SUBMISSION_TYPES.event, { startTime: new Date("2026-07-30T16:00:00Z") }, now)
+    ).toBe(false);
+  });
+
+  it("calls something past once its day is over", () => {
+    expect(
+      isRowPast(SUBMISSION_TYPES.event, { startTime: new Date("2026-07-29T23:00:00Z") }, now)
+    ).toBe(true);
+  });
+
+  it("judges a multi-day event on when it FINISHES", () => {
+    // A three-day event read from startTime alone counts as over on its
+    // opening night, with two days still to run.
+    expect(
+      isRowPast(
+        SUBMISSION_TYPES.event,
+        {
+          startTime: new Date("2026-07-28T23:30:00Z"),
+          endTime: new Date("2026-08-02T23:00:00Z"),
+        },
+        now
+      )
+    ).toBe(false);
+  });
+
+  it("falls back to the start when there is no end", () => {
+    expect(
+      isRowPast(
+        SUBMISSION_TYPES.event,
+        { startTime: new Date("2026-07-01T12:00:00Z"), endTime: null },
+        now
+      )
+    ).toBe(true);
   });
 });

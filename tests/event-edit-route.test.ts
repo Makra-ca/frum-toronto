@@ -187,6 +187,9 @@ describe("PATCH /api/community/events/[id]", () => {
     const res = await patch(id, "[TEST] fixing before review");
     const body = await res.json();
 
+    // Asserted like the other three: without it, an auth or validation failure
+    // returns {error} and the assertions below fail for the wrong reason.
+    expect(res.status).toBe(200);
     expect(body.status).toBe("pending");
     expect(body.message).toContain("awaiting approval");
   });

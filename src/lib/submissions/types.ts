@@ -55,8 +55,25 @@ export interface SubmissionTypeConfig {
   detailKind: "instant" | "date";
   /** Typed, so a typo fails to compile rather than silently never auto-approving. */
   autoApproveField: keyof typeof users.$inferSelect;
-  /** null ⇒ the type has no expiry concept and is never "past". */
-  pastBasis: string | null;
+  /**
+   * Columns deciding whether this is over, tried in order — the first
+   * non-NULL one wins. null ⇒ no expiry concept, so never "past".
+   *
+   * Events list endTime first: a three-day event read from startTime alone
+   * counts as finished on its opening night.
+   */
+  pastBasis: readonly string[] | null;
+  /**
+   * How to read pastBasis. DECLARED rather than inferred from the runtime
+   * value: `typeof value === "string"` happens to identify a DATE column
+   * today only because drizzle-orm/neon-http installs a raw parser for oid
+   * 1082. It is the only driver that does — swap to neon-serverless (which
+   * this project's own rules require the moment db.transaction() is needed)
+   * and DATE columns arrive as Dates at LOCAL midnight, so a shiva notice
+   * sitting today would read "past" before dawn. The test cross-checks this
+   * against the real column type.
+   */
+  pastKind: "instant" | "date";
   /** A row where this boolean is true is never past, whatever the date says. */
   pastExemptField?: string;
   /** null ⇒ approving this type announces to nobody. */
@@ -75,7 +92,11 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     detailColumn: "startTime",
     detailKind: "instant",
     autoApproveField: "canAutoApproveEvents",
-    pastBasis: "startTime",
+    // endTime first: a multi-day event is not over on its opening night, and
+    // an all-day event is stored at noon, so reading startTime alone marks it
+    // finished at 12:01 on the day it is running.
+    pastBasis: ["endTime", "startTime"],
+    pastKind: "instant",
     broadcast: async () =>
       (await import("@/lib/email/send")).sendEventLiveEmail as never,
     editPath: (id) => `/dashboard/submissions/events/${id}/edit`,
@@ -91,6 +112,7 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     detailKind: "date",
     autoApproveField: "canAutoApproveSimchas",
     pastBasis: null,
+    pastKind: "date",
     broadcast: null,
     editPath: (id) => `/dashboard/submissions/simchas/${id}/edit`,
     publicPath: (row: never) => `/simchas/${(row as { id: number }).id}`,
@@ -103,7 +125,8 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     detailColumn: "expiresAt",
     detailKind: "instant",
     autoApproveField: "canAutoApproveClassifieds",
-    pastBasis: "expiresAt",
+    pastBasis: ["expiresAt"],
+    pastKind: "instant",
     broadcast: null,
     editPath: (id) => `/dashboard/submissions/classifieds/${id}/edit`,
     publicPath: (row: never) => `/classifieds/${(row as { id: number }).id}`,
@@ -117,6 +140,7 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     detailKind: "date",
     autoApproveField: "canAutoApproveKosherAlerts",
     pastBasis: null,
+    pastKind: "date",
     broadcast: async () =>
       (await import("@/lib/email/send")).sendKosherAlertBroadcast as never,
     editPath: (id) => `/dashboard/submissions/kosher-alerts/${id}/edit`,
@@ -130,7 +154,8 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     detailColumn: "expiresAt",
     detailKind: "instant",
     autoApproveField: "canAutoApproveAlerts",
-    pastBasis: "expiresAt",
+    pastBasis: ["expiresAt"],
+    pastKind: "instant",
     broadcast: null,
     editPath: (id) => `/dashboard/submissions/alerts/${id}/edit`,
     publicPath: null,
@@ -143,7 +168,8 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     detailColumn: "shivaEnd",
     detailKind: "date",
     autoApproveField: "canAutoApproveShiva",
-    pastBasis: "shivaEnd",
+    pastBasis: ["shivaEnd"],
+    pastKind: "date",
     broadcast: async () =>
       (await import("@/lib/email/send")).sendShivaNoticeEmail as never,
     editPath: (id) => `/dashboard/submissions/shiva/${id}/edit`,
@@ -157,7 +183,8 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     detailColumn: "expiresAt",
     detailKind: "date",
     autoApproveField: "canAutoApproveTehillim",
-    pastBasis: "expiresAt",
+    pastBasis: ["expiresAt"],
+    pastKind: "date",
     // A permanent entry never expires, so it is never past however old it is.
     pastExemptField: "isPermanent",
     broadcast: null,
@@ -173,6 +200,7 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     detailKind: "instant",
     autoApproveField: "canAutoApproveBlog",
     pastBasis: null,
+    pastKind: "instant",
     broadcast: null,
     editPath: (id) => `/dashboard/blog/${id}/edit`,
     publicPath: (row: never) => `/blog/${(row as { slug: string }).slug}`,
