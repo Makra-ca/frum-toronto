@@ -5,6 +5,7 @@ import { alerts } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { APPROVAL_STATUSES } from "@/lib/submissions/statuses";
+import { setApprovalStatus } from "@/lib/submissions/set-approval-status";
 
 const updateSchema = z.object({
   alertType: z.string().min(1).optional(),
@@ -17,6 +18,7 @@ const updateSchema = z.object({
   // Absent until now, so a submitted alert could never be approved through any
   // admin surface — and the public page only shows approved ones.
   approvalStatus: z.enum(APPROVAL_STATUSES).optional(),
+  rejectionReason: z.string().max(2000).optional().nullable(),
 });
 
 // GET - Get single alert
@@ -70,19 +72,45 @@ export async function PATCH(
       return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
     }
 
-    const updateData: Record<string, unknown> = { ...result.data };
+    // approvalStatus is stripped out — setApprovalStatus owns every transition
+    // so the submitter notification cannot be forgotten here.
+    const { approvalStatus, rejectionReason, ...contentFields } = result.data;
+
+    const updateData: Record<string, unknown> = { ...contentFields };
     if (result.data.expiresAt !== undefined) {
       updateData.expiresAt = result.data.expiresAt ? new Date(result.data.expiresAt) : null;
     }
 
-    const [updated] = await db
-      .update(alerts)
-      .set(updateData)
+    const [prior] = await db
+      .select()
+      .from(alerts)
       .where(eq(alerts.id, alertId))
-      .returning();
+      .limit(1);
 
-    if (!updated) {
+    if (!prior) {
       return NextResponse.json({ error: "Alert not found" }, { status: 404 });
+    }
+
+    let [updated] = Object.keys(updateData).length
+      ? await db
+          .update(alerts)
+          .set(updateData)
+          .where(eq(alerts.id, alertId))
+          .returning()
+      : [prior];
+
+    if (approvalStatus !== undefined && approvalStatus !== prior.approvalStatus) {
+      await setApprovalStatus({
+        type: "alert",
+        id: alertId,
+        next: approvalStatus,
+        rejectionReason,
+      });
+      [updated] = await db
+        .select()
+        .from(alerts)
+        .where(eq(alerts.id, alertId))
+        .limit(1);
     }
 
     return NextResponse.json(updated);

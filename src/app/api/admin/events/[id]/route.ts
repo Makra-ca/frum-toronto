@@ -4,7 +4,9 @@ import { db } from "@/lib/db";
 import { events } from "@/lib/db/schema";
 import { eventSchema } from "@/lib/validations/content";
 import { eq } from "drizzle-orm";
-import { sendEventLiveEmail } from "@/lib/email/send";
+import { setApprovalStatus } from "@/lib/submissions/set-approval-status";
+import { APPROVAL_STATUSES } from "@/lib/submissions/statuses";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -84,30 +86,36 @@ async function handleUpdate(request: NextRequest, eventId: number) {
     organization: validatedData.organization,
   };
 
-  // If approvalStatus is provided, include it in the update
-  if (approvalStatus !== undefined) {
-    updateValues.approvalStatus = approvalStatus;
-  }
-
-  const [updatedEvent] = await db
+  // approvalStatus is NOT written here. setApprovalStatus owns it, so the
+  // broadcast decision and the submitter notification cannot be forgotten.
+  // It also arrives off the raw body rather than through eventSchema, so it is
+  // validated here instead of trusted.
+  let [updatedEvent] = await db
     .update(events)
     .set(updateValues)
     .where(eq(events.id, eventId))
     .returning();
 
-  // Trigger broadcast email when transitioning to "approved" for the first time
-  // Allowlist: only a FIRST approval broadcasts. "pending_edit" means the
-  // submitter corrected an already-published item, and re-announcing it would
-  // email the whole community a second time.
-  const wasNewSubmission = existingEvent.approvalStatus === "pending";
-  const isNowApproved = (approvalStatus ?? existingEvent.approvalStatus) === "approved";
-
-  if (wasNewSubmission && isNowApproved) {
-    try {
-      await sendEventLiveEmail(updatedEvent);
-    } catch (emailError) {
-      console.error("[EVENTS] Failed to send event live broadcast email on approval:", emailError);
+  // Content first, then the status, so the announcement quotes the saved text.
+  if (approvalStatus !== undefined && approvalStatus !== existingEvent.approvalStatus) {
+    const parsedStatus = z.enum(APPROVAL_STATUSES).safeParse(approvalStatus);
+    if (!parsedStatus.success) {
+      return NextResponse.json({ error: "Invalid approval status" }, { status: 400 });
     }
+
+    await setApprovalStatus({
+      type: "event",
+      id: eventId,
+      next: parsedStatus.data,
+      rejectionReason:
+        typeof body.rejectionReason === "string" ? body.rejectionReason : null,
+    });
+
+    [updatedEvent] = await db
+      .select()
+      .from(events)
+      .where(eq(events.id, eventId))
+      .limit(1);
   }
 
   return NextResponse.json(updatedEvent);

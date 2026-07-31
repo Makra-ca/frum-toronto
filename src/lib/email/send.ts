@@ -572,3 +572,154 @@ export async function sendSubmissionOutcomeEmail(
     return false;
   }
 }
+
+// ============================================
+// KOSHER ALERT BROADCAST
+// ============================================
+
+export interface KosherAlertRow {
+  productName: string;
+  brand: string | null;
+  alertType: string | null;
+  description: string;
+  certifyingAgency: string | null;
+  effectiveDate: string | null;
+}
+
+function getKosherAlertEmailHtml(
+  alert: KosherAlertRow,
+  firstName: string | null
+): string {
+  const alertTypeLabel =
+    alert.alertType === "recall"
+      ? "RECALL"
+      : alert.alertType === "status_change"
+        ? "Status Change"
+        : alert.alertType === "warning"
+          ? "Warning"
+          : "Update";
+
+  const alertColor =
+    alert.alertType === "recall"
+      ? "#DC2626"
+      : alert.alertType === "warning"
+        ? "#F59E0B"
+        : "#3B82F6";
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 0; background-color: #f3f4f6;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
+        <tr>
+          <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+              <tr>
+                <td style="background-color: ${alertColor}; padding: 24px; text-align: center;">
+                  <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Kosher Alert: ${alertTypeLabel}</h1>
+                </td>
+              </tr>
+
+              <tr>
+                <td style="padding: 32px;">
+                  <p style="margin: 0 0 16px 0; color: #6b7280;">
+                    ${firstName ? `Hi ${firstName},` : "Hi,"}
+                  </p>
+
+                  <p style="margin: 0 0 24px 0; color: #374151;">
+                    This is an important kosher alert from FrumToronto:
+                  </p>
+
+                  <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 0 0 24px 0;">
+                    <h2 style="margin: 0 0 12px 0; color: #111827; font-size: 20px;">
+                      ${alert.productName}
+                    </h2>
+                    ${alert.brand ? `<p style="margin: 0 0 8px 0; color: #6b7280;"><strong>Brand:</strong> ${alert.brand}</p>` : ""}
+                    ${alert.certifyingAgency ? `<p style="margin: 0 0 8px 0; color: #6b7280;"><strong>Certifying Agency:</strong> ${alert.certifyingAgency}</p>` : ""}
+                    ${alert.effectiveDate ? `<p style="margin: 0 0 8px 0; color: #6b7280;"><strong>Effective Date:</strong> ${alert.effectiveDate}</p>` : ""}
+                    <p style="margin: 16px 0 0 0; color: #374151; white-space: pre-wrap;">${alert.description}</p>
+                  </div>
+
+                  <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                    Please consult your Rabbi for any halachic questions.
+                  </p>
+                </td>
+              </tr>
+
+              <tr>
+                <td style="background-color: #f9fafb; padding: 24px; text-align: center; border-top: 1px solid #e5e7eb;">
+                  <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                    FrumToronto Community
+                  </p>
+                  <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 12px;">
+                    You can update your notification preferences in your account settings.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * Announces a kosher alert to every subscriber who asked for them.
+ *
+ * Lifted out of two routes that each carried their own copy of the template
+ * and the batching loop. It is a BROADCAST — setApprovalStatus is the only
+ * thing that may fire it on approval, gated on broadcast_at, so an alert can
+ * never be announced twice. Calling it directly is for the admin's explicit
+ * "Save & Notify", which is a deliberate re-send.
+ *
+ * Returns how many subscribers it reached.
+ */
+export async function sendKosherAlertBroadcast(
+  alert: KosherAlertRow
+): Promise<number> {
+  if (!resend) {
+    console.error("[NOTIFY] Resend client not initialized - cannot broadcast kosher alert");
+    return 0;
+  }
+
+  const subscribers = await db
+    .select({
+      email: emailSubscribers.email,
+      firstName: emailSubscribers.firstName,
+    })
+    .from(emailSubscribers)
+    .where(
+      and(
+        eq(emailSubscribers.kosherAlerts, true),
+        eq(emailSubscribers.isActive, true),
+        isNotNull(emailSubscribers.userId)
+      )
+    );
+
+  if (subscribers.length === 0) return 0;
+
+  const batchSize = 50;
+  for (let i = 0; i < subscribers.length; i += batchSize) {
+    const batch = subscribers.slice(i, i + batchSize);
+    try {
+      await resend.batch.send(
+        batch.map((sub) => ({
+          from: EMAIL_FROM,
+          to: sub.email,
+          subject: `Kosher Alert: ${alert.productName} - FrumToronto`,
+          html: getKosherAlertEmailHtml(alert, sub.firstName),
+        }))
+      );
+    } catch (emailError) {
+      console.error("[NOTIFY] Error sending kosher alert emails:", emailError);
+    }
+  }
+
+  return subscribers.length;
+}

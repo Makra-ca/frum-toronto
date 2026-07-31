@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { simchas } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { setApprovalStatus } from "@/lib/submissions/set-approval-status";
+import { APPROVAL_STATUSES } from "@/lib/submissions/statuses";
 import { revalidatePath } from "next/cache";
 
 const updateSchema = z.object({
@@ -14,7 +16,8 @@ const updateSchema = z.object({
   photoUrl: z.string().max(500).optional().nullable(),
   typeId: z.number().optional().nullable(),
   isActive: z.boolean().optional(),
-  approvalStatus: z.enum(["pending", "approved", "rejected"]).optional(),
+  approvalStatus: z.enum(APPROVAL_STATUSES).optional(),
+  rejectionReason: z.string().max(2000).optional().nullable(),
 });
 
 // GET - Get single simcha entry
@@ -102,18 +105,44 @@ export async function PATCH(
     if (result.data.isActive !== undefined) {
       updates.isActive = result.data.isActive;
     }
-    if (result.data.approvalStatus !== undefined) {
-      updates.approvalStatus = result.data.approvalStatus;
+    // approvalStatus is NOT written here. setApprovalStatus owns every
+    // transition, so the submitter notification cannot be forgotten on this
+    // route while working on the next one.
+
+    const [prior] = await db
+      .select()
+      .from(simchas)
+      .where(eq(simchas.id, simchaId))
+      .limit(1);
+
+    if (!prior) {
+      return NextResponse.json({ error: "Entry not found" }, { status: 404 });
     }
 
-    const [updated] = await db
-      .update(simchas)
-      .set(updates)
-      .where(eq(simchas.id, simchaId))
-      .returning();
+    // Content first, so a notification quotes the corrected text.
+    let [updated] = Object.keys(updates).length
+      ? await db
+          .update(simchas)
+          .set(updates)
+          .where(eq(simchas.id, simchaId))
+          .returning()
+      : [prior];
 
-    if (!updated) {
-      return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+    if (
+      result.data.approvalStatus !== undefined &&
+      result.data.approvalStatus !== prior.approvalStatus
+    ) {
+      await setApprovalStatus({
+        type: "simcha",
+        id: simchaId,
+        next: result.data.approvalStatus,
+        rejectionReason: result.data.rejectionReason,
+      });
+      [updated] = await db
+        .select()
+        .from(simchas)
+        .where(eq(simchas.id, simchaId))
+        .limit(1);
     }
 
     // Bust the /simchas cache so approvals/edits show up immediately.

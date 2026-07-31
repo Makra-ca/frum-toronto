@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
-import { db } from "@/lib/db";
-import { simchas, classifieds, events, tehillimList } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { sendEventLiveEmail } from "@/lib/email/send";
+import { setApprovalStatus } from "@/lib/submissions/set-approval-status";
+import type { SubmissionType } from "@/lib/submissions/types";
 
-const tableMap = {
-  simchas,
-  classifieds,
-  events,
-  tehillim: tehillimList,
-} as const;
+// The route's URL segment → the submission type. The segments are plural table
+// names for historical reasons and cannot change without breaking the admin UI.
+const typeMap: Record<string, SubmissionType> = {
+  simchas: "simcha",
+  classifieds: "classified",
+  events: "event",
+  tehillim: "tehillim",
+};
 
 export async function POST(
   request: Request,
@@ -26,65 +26,36 @@ export async function POST(
     const { type, id } = await params;
 
     // Parse request body for additional options (like isPermanent for tehillim)
-    let body = {};
+    let body: Record<string, unknown> = {};
     try {
       body = await request.json();
     } catch {
       // No body provided, which is fine
     }
 
-    const table = tableMap[type as keyof typeof tableMap];
-    if (!table) {
+    const submissionType = typeMap[type];
+    if (!submissionType) {
       return NextResponse.json({ error: "Invalid content type" }, { status: 400 });
     }
 
-    // For events: check previous approvalStatus so we can trigger email on transition
-    let previousApprovalStatus: string | null = null;
-    if (type === "events") {
-      const [existing] = await db
-        .select({ approvalStatus: events.approvalStatus })
-        .from(events)
-        .where(eq(events.id, parseInt(id)))
-        .limit(1);
-      previousApprovalStatus = existing?.approvalStatus ?? null;
-    }
-
-    // Base update object
-    const updateData: Record<string, unknown> = {
-      approvalStatus: "approved",
-    };
-
-    // For tehillim, handle isPermanent flag
-    if (type === "tehillim" && "isPermanent" in body) {
-      updateData.isPermanent = body.isPermanent;
+    const extraFields: Record<string, unknown> = {};
+    if (submissionType === "tehillim" && "isPermanent" in body) {
+      extraFields.isPermanent = body.isPermanent;
       // If making permanent, clear the expiration date
-      if (body.isPermanent) {
-        updateData.expiresAt = null;
-      }
+      if (body.isPermanent) extraFields.expiresAt = null;
     }
 
-    await db
-      .update(table)
-      .set(updateData)
-      .where(eq(table.id, parseInt(id)));
+    // The broadcast decision and the submitter notification both live in
+    // setApprovalStatus. Nothing here decides either — that is the point of it.
+    const result = await setApprovalStatus({
+      type: submissionType,
+      id: parseInt(id),
+      next: "approved",
+      extraFields,
+    });
 
-    // Trigger event live broadcast email when transitioning to approved
-    // Allowlist, not denylist: `!== "approved"` is also true for "pending_edit",
-    // so re-approving a corrected event would re-broadcast to every subscriber.
-    if (type === "events" && previousApprovalStatus === "pending") {
-      try {
-        const [approvedEvent] = await db
-          .select()
-          .from(events)
-          .where(eq(events.id, parseInt(id)))
-          .limit(1);
-
-        if (approvedEvent) {
-          await sendEventLiveEmail(approvedEvent);
-        }
-      } catch (emailError) {
-        console.error("[EVENTS] Failed to send event live broadcast email on approval:", emailError);
-      }
+    if (!result.changed) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     return NextResponse.json({ message: `${type} approved successfully` });

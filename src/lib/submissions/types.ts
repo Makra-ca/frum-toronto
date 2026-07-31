@@ -117,10 +117,8 @@ export const SUBMISSION_TYPES: Record<SubmissionType, SubmissionTypeConfig> = {
     detailKind: "date",
     autoApproveField: "canAutoApproveKosherAlerts",
     pastBasis: null,
-    // Sent as an inline resend.batch in admin/kosher-alerts/[id], not via a
-    // shared helper. Wired there rather than here until that route is
-    // refactored onto setApprovalStatus.
-    broadcast: null,
+    broadcast: async () =>
+      (await import("@/lib/email/send")).sendKosherAlertBroadcast as never,
     editPath: (id) => `/dashboard/submissions/kosher-alerts/${id}/edit`,
     publicPath: null,
   },

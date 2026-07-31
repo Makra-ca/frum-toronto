@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import { shivaNotifications } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { sendShivaNoticeEmail } from "@/lib/email/send";
+import { setApprovalStatus } from "@/lib/submissions/set-approval-status";
+import { APPROVAL_STATUSES } from "@/lib/submissions/statuses";
 
 const updateSchema = z.object({
   niftarName: z.string().max(200).optional(),
@@ -22,7 +23,8 @@ const updateSchema = z.object({
   mealInfo: z.string().optional().nullable(),
   donationInfo: z.string().optional().nullable(),
   contactPhone: z.string().max(40).optional().nullable(),
-  approvalStatus: z.enum(["pending", "approved", "rejected"]).optional(),
+  approvalStatus: z.enum(APPROVAL_STATUSES).optional(),
+  rejectionReason: z.string().max(2000).optional().nullable(),
 });
 
 // GET - Get single shiva notice
@@ -142,34 +144,40 @@ export async function PATCH(
     if (result.data.contactPhone !== undefined) {
       updates.contactPhone = result.data.contactPhone?.trim() || null;
     }
-    if (result.data.approvalStatus !== undefined) {
-      updates.approvalStatus = result.data.approvalStatus;
-    }
+    // approvalStatus is deliberately NOT copied into `updates`. It is written
+    // by setApprovalStatus and nowhere else, so the broadcast decision cannot
+    // be forgotten here — for shiva that decision is re-announcing a
+    // bereavement to the whole community.
 
-    const [updated] = await db
-      .update(shivaNotifications)
-      .set(updates)
-      .where(eq(shivaNotifications.id, shivaId))
-      .returning();
+    let [updated] = Object.keys(updates).length
+      ? await db
+          .update(shivaNotifications)
+          .set(updates)
+          .where(eq(shivaNotifications.id, shivaId))
+          .returning()
+      : [prior];
 
     if (!updated) {
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
     }
 
-    // As-posted broadcast: only when transitioning INTO approved (not on edits
-    // of an already-approved notice). Non-fatal.
-    // Allowlist: a "pending_edit" notice was already broadcast once. Re-sending
-    // it because someone corrected an address would re-announce a bereavement
-    // to the entire community.
+    // Content first, then the status, so the notice that goes out quotes the
+    // corrected text rather than what was there before this request.
     if (
-      prior?.approvalStatus === "pending" &&
-      updated.approvalStatus === "approved"
+      result.data.approvalStatus !== undefined &&
+      result.data.approvalStatus !== prior?.approvalStatus
     ) {
-      try {
-        await sendShivaNoticeEmail(updated);
-      } catch (err) {
-        console.error("[SHIVA] Failed to send as-posted broadcast on approval:", err);
-      }
+      await setApprovalStatus({
+        type: "shiva",
+        id: shivaId,
+        next: result.data.approvalStatus,
+        rejectionReason: result.data.rejectionReason,
+      });
+      [updated] = await db
+        .select()
+        .from(shivaNotifications)
+        .where(eq(shivaNotifications.id, shivaId))
+        .limit(1);
     }
 
     return NextResponse.json(updated);

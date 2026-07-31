@@ -146,6 +146,17 @@ describe("setApprovalStatus", () => {
     expect(mocks.sendEventLiveEmail).not.toHaveBeenCalled();
   });
 
+  it("does not broadcast a correction even if its stamp is missing", async () => {
+    // Defence in depth. A pending_edit row IS a correction to something already
+    // published, so it must not announce even when broadcast_at is NULL — a row
+    // approved before that column existed, or a status edited by hand.
+    const id = await makeEvent("pending_edit", { broadcastAt: null });
+
+    await setApprovalStatus({ type: "event", id, next: "approved" });
+
+    expect(mocks.sendEventLiveEmail).not.toHaveBeenCalled();
+  });
+
   it("never broadcasts for a type that announces to nobody", async () => {
     const id = await makeSimcha("pending");
 

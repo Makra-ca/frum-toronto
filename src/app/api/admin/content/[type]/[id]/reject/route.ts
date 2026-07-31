@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
-import { db } from "@/lib/db";
-import { simchas, classifieds, events, tehillimList } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { setApprovalStatus } from "@/lib/submissions/set-approval-status";
+import type { SubmissionType } from "@/lib/submissions/types";
 
-const tableMap = {
-  simchas,
-  classifieds,
-  events,
-  tehillim: tehillimList,
-} as const;
+const typeMap: Record<string, SubmissionType> = {
+  simchas: "simcha",
+  classifieds: "classified",
+  events: "event",
+  tehillim: "tehillim",
+};
 
 export async function POST(
   request: Request,
@@ -24,17 +23,35 @@ export async function POST(
 
     const { type, id } = await params;
 
-    const table = tableMap[type as keyof typeof tableMap];
-    if (!table) {
+    // The reason is optional by decision. Blank is a supported answer, not a
+    // missing one — the email then writes a considered fallback rather than
+    // leaving the submitter with a bare "not approved".
+    let body: Record<string, unknown> = {};
+    try {
+      body = await request.json();
+    } catch {
+      // No body provided, which is fine
+    }
+    const reason =
+      typeof body.rejectionReason === "string" && body.rejectionReason.trim()
+        ? body.rejectionReason.trim()
+        : null;
+
+    const submissionType = typeMap[type];
+    if (!submissionType) {
       return NextResponse.json({ error: "Invalid content type" }, { status: 400 });
     }
 
-    await db
-      .update(table)
-      .set({
-        approvalStatus: "rejected",
-      })
-      .where(eq(table.id, parseInt(id)));
+    const result = await setApprovalStatus({
+      type: submissionType,
+      id: parseInt(id),
+      next: "rejected",
+      rejectionReason: reason,
+    });
+
+    if (!result.changed) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
     return NextResponse.json({ message: `${type} rejected` });
   } catch (error) {

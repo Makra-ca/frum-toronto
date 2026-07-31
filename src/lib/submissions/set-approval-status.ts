@@ -14,8 +14,9 @@ import { SUBMISSION_TYPES, type SubmissionType } from "@/lib/submissions/types";
  * Anything left off it silently notifies nobody, or silently re-broadcasts to
  * thousands.
  *
- * The broadcast rule is `next === "approved" && row.broadcastAt === null` —
- * at most one broadcast per item, ever. A transition-only rule
+ * The broadcast rule is `next === "approved" && row.broadcastAt === null &&
+ * previous !== "pending_edit"` — at most one broadcast per item, ever. The
+ * stamp is the load-bearing half, because a transition-only rule
  * (`pending → approved`) is defeated by:
  *
  *     approved (broadcast) → edit → pending_edit → rejected → edit → pending → approve
@@ -71,8 +72,22 @@ export async function setApprovalStatus(
 
   const current = row as Record<string, unknown>;
   const previous = (current.approvalStatus as string | null) ?? null;
+
+  // BOTH halves, deliberately:
+  //
+  //   broadcastAt == null       — publication is a fact about the row, which
+  //                               survives a trip through `rejected`.
+  //   previous !== pending_edit — the transition rule, kept as defence in
+  //                               depth. A pending_edit row IS a correction to
+  //                               something already published, so even if its
+  //                               stamp were somehow missing (a row approved
+  //                               before broadcast_at existed, a hand-edited
+  //                               status) it must not announce.
   const shouldBroadcast =
-    next === "approved" && current.broadcastAt == null && config.broadcast !== null;
+    next === "approved" &&
+    current.broadcastAt == null &&
+    previous !== "pending_edit" &&
+    config.broadcast !== null;
 
   const updates: Record<string, unknown> = {
     approvalStatus: next,
