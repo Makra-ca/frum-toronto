@@ -91,8 +91,12 @@ export async function PATCH(
 
     // Capture prior status so we can detect a transition into "approved"
     // and broadcast the notice once (as-posted).
+    // The FULL row, not just the status: it is also the response body when a
+    // request changes nothing (the quick-approve button sends only
+    // approvalStatus), and a partial row would return a one-field object where
+    // the admin UI expects a notice.
     const [prior] = await db
-      .select({ approvalStatus: shivaNotifications.approvalStatus })
+      .select()
       .from(shivaNotifications)
       .where(eq(shivaNotifications.id, shivaId))
       .limit(1);

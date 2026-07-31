@@ -210,6 +210,37 @@ describe("setApprovalStatus", () => {
     expect(mocks.sendSubmissionOutcomeEmail).toHaveBeenCalledTimes(2);
   });
 
+  it("does not notify twice when an admin presses Approve twice", async () => {
+    // Approve is a button in the admin queue. A double-click, a retry, or a
+    // saved edit dialog that re-sends the unchanged status must not send the
+    // submitter a second "your event is live" email.
+    const id = await makeEvent("pending");
+
+    await setApprovalStatus({ type: "event", id, next: "approved" });
+    await setApprovalStatus({ type: "event", id, next: "approved" });
+
+    expect(await notificationsFor(ownerId)).toHaveLength(1);
+    expect(mocks.sendSubmissionOutcomeEmail).toHaveBeenCalledTimes(1);
+    expect(mocks.sendEventLiveEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses to let extraFields overwrite the status it owns", async () => {
+    // A caller reaching in with { approvalStatus } would otherwise route
+    // around the single writer while appearing to use it.
+    const id = await makeEvent("pending");
+
+    await setApprovalStatus({
+      type: "event",
+      id,
+      next: "rejected",
+      extraFields: { approvalStatus: "approved", rejectionReason: "smuggled" },
+    });
+
+    const [row] = await db.select().from(events).where(eq(events.id, id));
+    expect(row.approvalStatus).toBe("rejected");
+    expect(row.rejectionReason).toBeNull();
+  });
+
   it("does not notify anyone about a move back into review", async () => {
     // The submitter hears about the ADMIN's decisions, never about their own
     // edit landing in the queue.

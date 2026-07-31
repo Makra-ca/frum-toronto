@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { notifySubmitter } from "@/lib/notifications";
@@ -90,22 +90,49 @@ export async function setApprovalStatus(
     config.broadcast !== null;
 
   const updates: Record<string, unknown> = {
+    // extraFields FIRST, so it can never override the two fields this helper
+    // exists to own. A caller reaching in with { approvalStatus } would
+    // otherwise route around the single writer while appearing to use it.
+    ...extraFields,
     approvalStatus: next,
     // Cleared on any other transition, so an approved item never carries the
     // reason it was once turned down.
     rejectionReason: next === "rejected" ? rejectionReason ?? null : null,
-    ...extraFields,
   };
 
-  // Stamped in the same write as the status, BEFORE the send. If the send then
-  // fails the announcement is lost, which is the safe direction: the opposite
-  // ordering risks a crash between send and stamp re-emailing everyone on the
-  // next approval.
-  if (shouldBroadcast) updates.broadcastAt = new Date();
-
-  await db.update(table).set(updates).where(eq(table.id, id));
+  let didBroadcast = false;
 
   if (shouldBroadcast) {
+    // The stamp is CLAIMED atomically: the write only lands where broadcast_at
+    // is still NULL. Two admins pressing Approve at the same moment both read
+    // NULL a moment earlier, so a read-then-write would let both send — and
+    // what they are sending is an email to the entire subscriber list.
+    //
+    // Claiming before the send also means a crash mid-send loses the
+    // announcement rather than repeating it, which is the safe direction.
+    //
+    // NOT covered by a test, deliberately: a Promise.all of two approvals
+    // passes against the read-then-write version too, because neon-http sends
+    // each query as its own round trip and the first finishes writing before
+    // the second reads. A test that cannot fail on the broken code is worse
+    // than none, so this guard rests on the SQL, which is where it belongs.
+    const claimed = await db
+      .update(table)
+      .set({ ...updates, broadcastAt: new Date() })
+      .where(and(eq(table.id, id), isNull(table.broadcastAt)))
+      .returning();
+
+    didBroadcast = claimed.length > 0;
+
+    if (!didBroadcast) {
+      // Lost the race. Still apply the status; just do not announce.
+      await db.update(table).set(updates).where(eq(table.id, id));
+    }
+  } else {
+    await db.update(table).set(updates).where(eq(table.id, id));
+  }
+
+  if (didBroadcast) {
     try {
       const [fresh] = await db.select().from(table).where(eq(table.id, id)).limit(1);
       const broadcaster = await config.broadcast!();
@@ -117,8 +144,15 @@ export async function setApprovalStatus(
 
   // The submitter hears about the ADMIN's decisions only — never about their
   // own edit landing back in the queue.
+  // `previous !== next` matters: the approve route is a button an admin can
+  // press twice, and without this the submitter gets a second "your event is
+  // live" email for a decision that did not change.
   const ownerId = current[config.ownerColumn];
-  if ((next === "approved" || next === "rejected") && typeof ownerId === "number") {
+  if (
+    previous !== next &&
+    (next === "approved" || next === "rejected") &&
+    typeof ownerId === "number"
+  ) {
     await notifySubmitter({
       userId: ownerId,
       approved: next === "approved",
@@ -130,7 +164,7 @@ export async function setApprovalStatus(
     });
   }
 
-  return { changed: true, previous, broadcast: shouldBroadcast };
+  return { changed: true, previous, broadcast: didBroadcast };
 }
 
 /**
