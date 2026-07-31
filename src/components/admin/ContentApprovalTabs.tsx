@@ -62,6 +62,18 @@ export function ContentApprovalTabs({
     id: number,
     action: "approve" | "reject"
   ) => {
+    // Optional by decision: a blank answer still rejects, and the submitter's
+    // email writes considered fallback copy. A cancelled prompt (null) is not
+    // an answer and must not reject anything.
+    let rejectionReason: string | null = null;
+    if (action === "reject") {
+      const answer = window.prompt(
+        "Why wasn't this approved? (optional — the submitter sees this)"
+      );
+      if (answer === null) return;
+      rejectionReason = answer.trim() || null;
+    }
+
     setLoading({ type, id, action });
 
     try {
@@ -70,7 +82,7 @@ export function ContentApprovalTabs({
       const response = await fetch(`/api/admin/content/${type}/${id}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isPermanent }),
+        body: JSON.stringify({ isPermanent, rejectionReason }),
       });
 
       if (response.ok) {

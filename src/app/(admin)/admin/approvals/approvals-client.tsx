@@ -70,6 +70,19 @@ export function ApprovalsClient({
     id: number,
     action: "approve" | "reject"
   ) => {
+    // The reason is optional by decision, so a blank answer is a real answer —
+    // the submitter's email then writes considered fallback copy rather than a
+    // bare "not approved". null means the admin cancelled the prompt, which is
+    // not the same thing and must not reject anything.
+    let rejectionReason: string | null = null;
+    if (action === "reject") {
+      const answer = window.prompt(
+        "Why wasn't this approved? (optional — the submitter sees this)"
+      );
+      if (answer === null) return;
+      rejectionReason = answer.trim() || null;
+    }
+
     setLoading({ type, id, action });
 
     try {
@@ -78,7 +91,7 @@ export function ApprovalsClient({
       const response = await fetch(`/api/admin/content/${type}/${id}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isPermanent }),
+        body: JSON.stringify({ isPermanent, rejectionReason }),
       });
 
       if (response.ok) {

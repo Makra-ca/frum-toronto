@@ -3,7 +3,10 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { blogPosts, blogCategories, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { blogPostSchema } from "@/lib/validations/blog";
+import { setApprovalStatus } from "@/lib/submissions/set-approval-status";
+import { APPROVAL_STATUSES } from "@/lib/submissions/statuses";
 
 function generateSlug(name: string): string {
   return name
@@ -119,13 +122,28 @@ export async function PATCH(
       updatedAt: new Date(),
     };
 
-    // If approving and not yet published, set publishedAt
-    if (
-      body.approvalStatus === "approved" &&
-      existing.publishedAt === null
-    ) {
-      updateData.approvalStatus = "approved";
-      updateData.publishedAt = new Date();
+    // approvalStatus is NOT part of blogPostSchema, and deliberately so: that
+    // schema is shared with the user-facing form, where letting a submitter
+    // send their own status would be self-approval. It is parsed separately
+    // here, on the admin route only.
+    //
+    // Until now it was not parsed at ALL, so `.partial()` stripped it and
+    // `{...result.data}` never carried it — the admin Reject button changed
+    // nothing while the toast said "Post rejected", and re-approving a post
+    // that already had publishedAt did nothing either, because the only line
+    // that set the status required publishedAt to be null.
+    const statusResult = z
+      .object({
+        approvalStatus: z.enum(APPROVAL_STATUSES).optional(),
+        rejectionReason: z.string().max(2000).optional().nullable(),
+      })
+      .safeParse(body);
+
+    if (!statusResult.success) {
+      return NextResponse.json(
+        { error: statusResult.error.issues[0].message },
+        { status: 400 }
+      );
     }
 
     // If title changed, regenerate slug
@@ -138,7 +156,7 @@ export async function PATCH(
     if (updateData.excerpt === "") updateData.excerpt = null;
     if (updateData.customCategory === "") updateData.customCategory = null;
 
-    const [updated] = await db
+    let [updated] = await db
       .update(blogPosts)
       .set(updateData)
       .where(eq(blogPosts.id, postId))
@@ -146,6 +164,28 @@ export async function PATCH(
 
     if (!updated) {
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
+    }
+
+    const { approvalStatus, rejectionReason } = statusResult.data;
+    if (approvalStatus && approvalStatus !== existing.approvalStatus) {
+      await setApprovalStatus({
+        type: "blog",
+        id: postId,
+        next: approvalStatus,
+        rejectionReason,
+        // First publication stamps publishedAt; a later re-approval must not
+        // move it, or a corrected post jumps to the top of the blog.
+        extraFields:
+          approvalStatus === "approved" && existing.publishedAt === null
+            ? { publishedAt: new Date() }
+            : {},
+      });
+
+      [updated] = await db
+        .select()
+        .from(blogPosts)
+        .where(eq(blogPosts.id, postId))
+        .limit(1);
     }
 
     return NextResponse.json(updated);

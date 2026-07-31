@@ -293,11 +293,18 @@ export default function KosherAlertsManagementPage() {
   };
 
   const handleQuickReject = async (alert: KosherAlert) => {
+    // Optional by decision, and a cancelled prompt is not a rejection.
+    const answer = window.prompt(
+      "Why wasn't this approved? (optional — the submitter sees this)"
+    );
+    if (answer === null) return;
+    const rejectionReason = answer.trim() || null;
+
     try {
       const res = await fetch(`/api/admin/kosher-alerts/${alert.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approvalStatus: "rejected" }),
+        body: JSON.stringify({ approvalStatus: "rejected", rejectionReason }),
       });
 
       if (res.ok) {
