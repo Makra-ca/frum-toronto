@@ -64,16 +64,8 @@ export default function EditBlogPostPage() {
 
       const data = await res.json();
 
-      if (
-        data.approvalStatus !== "pending" &&
-        data.approvalStatus !== "rejected"
-      ) {
-        setError(
-          "Only pending or rejected posts can be edited. Approved posts are locked."
-        );
-        return;
-      }
-
+      // No status gate. A published post is editable like anything else;
+      // saving takes it off the site until an admin approves the change.
       setPost(data);
     } catch {
       setError("Failed to load blog post");

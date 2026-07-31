@@ -94,5 +94,8 @@ export const EDITABLE_FIELDS: Record<SubmissionType, readonly string[]> = {
     "excerpt",
     "categoryId",
     "customCategory",
+    // The author's own choice on their own post; it overrides the site default
+    // for comments on that post only.
+    "commentModeration",
   ],
 };

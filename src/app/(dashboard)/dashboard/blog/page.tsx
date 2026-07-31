@@ -38,7 +38,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { isPending } from "@/lib/submissions/statuses";
 
 interface BlogPost {
   id: number;
@@ -136,10 +135,6 @@ export default function MyBlogPostsPage() {
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
-  };
-
-  const isEditable = (status: string) => {
-    return isPending(status) || status === "rejected";
   };
 
   if (status === "loading" || isLoading) {
@@ -279,18 +274,21 @@ export default function MyBlogPostsPage() {
                           </Button>
                         </Link>
                       )}
-                      {isEditable(post.approvalStatus) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            router.push(`/dashboard/blog/${post.id}/edit`)
-                          }
-                          className="text-gray-600 hover:text-gray-700 hover:bg-gray-100"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      )}
+                      {/* Every status is editable. Blog follows the same rule
+                          as the rest of the site: editing a published post
+                          unpublishes it until an admin approves the change.
+                          The old gate meant an author could never correct a
+                          typo in a live post. */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          router.push(`/dashboard/blog/${post.id}/edit`)
+                        }
+                        className="text-gray-600 hover:text-gray-700 hover:bg-gray-100"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"

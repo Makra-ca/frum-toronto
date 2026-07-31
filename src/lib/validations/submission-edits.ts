@@ -102,6 +102,7 @@ export const blogEditSchema = z.object({
   excerpt: optionalText(500),
   categoryId: z.number().int().positive().optional().nullable(),
   customCategory: optionalText(100),
+  commentModeration: z.enum(["open", "approved"]).optional().nullable(),
 });
 
 /** Events keep publicEventSchema, which the create path already uses. */

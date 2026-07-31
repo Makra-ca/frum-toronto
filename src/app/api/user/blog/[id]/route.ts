@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { blogPosts, users } from "@/lib/db/schema";
+import { blogPosts } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { blogPostSchema } from "@/lib/validations/blog";
+import { blogEditSchema } from "@/lib/validations/submission-edits";
+import { applyEdit, SubmissionEditError } from "@/lib/submissions/apply-edit";
+import { notifyAdminOfTrustedEdit } from "@/lib/notifications";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 
 function generateSlug(name: string): string {
@@ -95,7 +97,6 @@ export async function PATCH(
     const postId = parseInt(id);
     const userId = parseInt(session.user.id);
 
-    // Fetch the post and verify ownership
     const [post] = await db
       .select()
       .from(blogPosts)
@@ -103,29 +104,11 @@ export async function PATCH(
       .limit(1);
 
     if (!post) {
-      return NextResponse.json(
-        { error: "Blog post not found" },
-        { status: 404 }
-      );
-    }
-
-    if (post.authorId !== userId) {
-      return NextResponse.json(
-        { error: "You can only edit your own posts" },
-        { status: 403 }
-      );
-    }
-
-    // Only allow editing if pending or rejected
-    if (post.approvalStatus !== "pending" && post.approvalStatus !== "rejected") {
-      return NextResponse.json(
-        { error: "Only pending or rejected posts can be edited" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Blog post not found" }, { status: 404 });
     }
 
     const body = await request.json();
-    const result = blogPostSchema.safeParse(body);
+    const result = blogEditSchema.safeParse(body);
 
     if (!result.success) {
       return NextResponse.json(
@@ -134,56 +117,97 @@ export async function PATCH(
       );
     }
 
-    const { title, content, contentJson, coverImageUrl, excerpt, categoryId, customCategory, commentModeration } = result.data;
+    // Blog now follows the same rule as every other type. Its old rule was the
+    // opposite — "only pending or rejected posts can be edited" — which meant
+    // an author could never correct a typo in a published post at all. Editing
+    // a live post now unpublishes it as `pending_edit` until an admin approves.
+    //
+    // applyEdit owns ownership, the field whitelist, the shared status
+    // resolution and the conditional write; setApprovalStatus owns the
+    // transition. The old code wrote approvalStatus itself and set
+    // `publishedAt = canAutoApprove ? new Date() : null`, so an ordinary edit
+    // NULLED publishedAt — and /api/blog orders by publishedAt DESC, where
+    // Postgres puts NULLs first, so a corrected post jumped to the top of the
+    // blog. An auto-approver's edit moved it to now, with the same effect.
+    let edit;
+    try {
+      edit = await applyEdit(
+        "blog",
+        postId,
+        userId,
+        result.data as Record<string, unknown>,
+        session.user.role
+      );
+    } catch (error) {
+      if (error instanceof SubmissionEditError) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: error.status }
+        );
+      }
+      throw error;
+    }
 
-    // Check canAutoApproveBlog
-    const [user] = await db
-      .select({ canAutoApproveBlog: users.canAutoApproveBlog })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
+    // The slug follows the title, and is derived rather than submitted — so it
+    // is not in the editable whitelist and is written here.
+    const newTitle = result.data.title;
+    if (newTitle && newTitle !== post.title) {
+      await db
+        .update(blogPosts)
+        .set({ slug: await getUniqueSlug(newTitle, postId) })
+        .where(eq(blogPosts.id, postId));
+    }
 
-    const canAutoApprove = user?.canAutoApproveBlog === true || session.user.role === "admin";
-    const approvalStatus = canAutoApprove ? "approved" : "pending";
-    const publishedAt = canAutoApprove ? new Date() : null;
-
-    // Regenerate slug if title changed
-    let slug = post.slug;
-    if (title !== post.title) {
-      slug = await getUniqueSlug(title, postId);
+    // A first publication needs a date. Later ones must NOT move it.
+    if (edit.status === "approved" && post.publishedAt === null) {
+      await db
+        .update(blogPosts)
+        .set({ publishedAt: new Date() })
+        .where(eq(blogPosts.id, postId));
     }
 
     const [updatedPost] = await db
-      .update(blogPosts)
-      .set({
-        title,
-        slug,
-        content,
-        contentJson: contentJson || null,
-        coverImageUrl: coverImageUrl || null,
-        excerpt: excerpt || null,
-        categoryId: categoryId || null,
-        customCategory: customCategory || null,
-        commentModeration: commentModeration || null,
-        approvalStatus,
-        publishedAt,
-        updatedAt: new Date(),
-      })
+      .select()
+      .from(blogPosts)
       .where(eq(blogPosts.id, postId))
-      .returning();
+      .limit(1);
 
-    // Notify admins of the re-submission (Tier B: in-app only)
+    const stillLive = edit.status === "approved";
+
     await notifyAdminOfSubmission({
       contentType: "blog_post",
-      title: `Blog post re-submitted: ${title}`,
+      title: `Blog post edited: ${updatedPost.title}`,
       body:
-        `${title}\n` +
-        `Re-submitted by: ${session.user.name || session.user.email || "Unknown user"}`,
+        `${updatedPost.title}\n` +
+        `Edited by: ${session.user.name || session.user.email || "Unknown user"}\n` +
+        (edit.wasUnpublished
+          ? "This was live and has been taken off the site pending re-approval."
+          : stillLive
+            ? "This stayed live — the author has auto-approve for blog posts."
+            : "This was already awaiting approval."),
       linkUrl: "/admin/programs/blog",
-      status: canAutoApprove ? "auto_approved" : "pending",
+      status: stillLive ? "auto_approved" : "pending",
     });
 
-    return NextResponse.json(updatedPost);
+    if (stillLive) {
+      await notifyAdminOfTrustedEdit({
+        typeLabel: "Blog post",
+        itemTitle: updatedPost.title,
+        editorName: session.user.name || session.user.email || "Unknown user",
+        linkUrl: "/admin/programs/blog",
+      });
+    }
+
+    return NextResponse.json({
+      ...updatedPost,
+      status: edit.status,
+      wasUnpublished: edit.wasUnpublished,
+      message: edit.wasUnpublished
+        ? "Your changes were saved. The post has been taken off the site until an admin approves it."
+        : stillLive
+          ? "Your changes were saved and the post is still published."
+          : "Your changes were saved. The post is still awaiting approval.",
+    });
   } catch (error) {
     console.error("[API] Error updating blog post:", error);
     return NextResponse.json(
