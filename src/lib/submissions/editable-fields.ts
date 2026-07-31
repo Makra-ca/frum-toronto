@@ -94,8 +94,10 @@ export const EDITABLE_FIELDS: Record<SubmissionType, readonly string[]> = {
     "excerpt",
     "categoryId",
     "customCategory",
-    // The author's own choice on their own post; it overrides the site default
-    // for comments on that post only.
-    "commentModeration",
+    // NOT commentModeration. BlogPostEditor sends it as null for a non-admin,
+    // so allowing it here means an ordinary typo fix silently reverts a
+    // moderation setting an admin applied after comments turned abusive.
+    // Whether authors should control it at all is a product question; letting
+    // them do it by accident is not.
   ],
 };

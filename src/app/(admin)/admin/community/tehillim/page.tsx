@@ -269,6 +269,12 @@ export default function TehillimManagementPage() {
         return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
       case "pending":
         return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+      case "pending_edit":
+        // A correction to something that was already live. Without this case
+        // the badge falls through and prints the raw column value.
+        return (
+          <Badge className="bg-amber-100 text-amber-900">Correction</Badge>
+        );
       case "rejected":
         return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
       default:

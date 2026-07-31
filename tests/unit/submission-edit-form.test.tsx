@@ -41,6 +41,19 @@ beforeEach(() => {
 });
 
 describe("SubmissionEditForm", () => {
+  it("calls the endpoint its spec names", async () => {
+    // spec.folder is the only thing binding the form to its API route, and
+    // nothing asserted it — a form pointed at /api/community/wrong/1 passed
+    // every other test in this file.
+    mockApi({ approvalStatus: "pending", niftarName: "x", mournerNames: [] });
+
+    render(<SubmissionEditForm spec={EDIT_FORMS.shiva} id={42} />);
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith("/api/community/shiva/42")
+    );
+  });
+
   it("warns before saving when the item is live", async () => {
     mockApi({ approvalStatus: "approved", familyName: "Cohen", announcement: "x" });
 
@@ -94,9 +107,16 @@ describe("SubmissionEditForm", () => {
     await userEvent.clear(location);
     await userEvent.click(screen.getByRole("button", { name: /Save changes/ }));
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
-    const call = (global.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[1];
-    const sent = JSON.parse((call[1] as RequestInit).body as string);
+    // Found by method, not by index — the form also fetches lookup options,
+    // so the PATCH is not reliably the second call.
+    const patchCall = await waitFor(() => {
+      const found = (global.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+        (c) => (c[1] as RequestInit | undefined)?.method === "PATCH"
+      );
+      expect(found).toBeDefined();
+      return found!;
+    });
+    const sent = JSON.parse((patchCall[1] as RequestInit).body as string);
     // "" would store an empty string where the column means "not given".
     expect(sent.location).toBeNull();
   });

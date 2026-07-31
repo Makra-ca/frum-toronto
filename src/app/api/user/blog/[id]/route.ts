@@ -5,6 +5,7 @@ import { blogPosts } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { blogEditSchema } from "@/lib/validations/submission-edits";
 import { applyEdit, SubmissionEditError } from "@/lib/submissions/apply-edit";
+import { assertCanPost } from "@/lib/auth/require-verified";
 import { notifyAdminOfTrustedEdit } from "@/lib/notifications";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 
@@ -46,8 +47,19 @@ export async function GET(
       );
     }
 
+    // The same gate as every other edit route, and as creating a post. It was
+    // absent here, which mattered more once blog adopted the unpublish rule: a
+    // user whose account has been disabled — whose JWT outlives the block,
+    // which is the case this check exists for — could still rewrite the HTML of
+    // their live published post.
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
+
     const { id } = await params;
     const postId = parseInt(id);
+    if (Number.isNaN(postId)) {
+      return NextResponse.json({ error: "Invalid post id" }, { status: 400 });
+    }
     const userId = parseInt(session.user.id);
 
     const [post] = await db
@@ -129,6 +141,21 @@ export async function PATCH(
     // NULLED publishedAt — and /api/blog orders by publishedAt DESC, where
     // Postgres puts NULLs first, so a corrected post jumped to the top of the
     // blog. An auto-approver's edit moved it to now, with the same effect.
+    // The slug follows the title, and is derived rather than submitted — so it
+    // is not in the editable whitelist and is written here.
+    //
+    // BEFORE applyEdit, deliberately: approving inside applyEdit emails the
+    // submitter a link built from the row setApprovalStatus reads, and blog's
+    // public path is /blog/<slug>. Writing the slug afterwards sends a link to
+    // the old one, which 404s.
+    const newTitle = result.data.title;
+    if (newTitle && newTitle !== post.title) {
+      await db
+        .update(blogPosts)
+        .set({ slug: await getUniqueSlug(newTitle, postId) })
+        .where(eq(blogPosts.id, postId));
+    }
+
     let edit;
     try {
       edit = await applyEdit(
@@ -146,16 +173,6 @@ export async function PATCH(
         );
       }
       throw error;
-    }
-
-    // The slug follows the title, and is derived rather than submitted — so it
-    // is not in the editable whitelist and is written here.
-    const newTitle = result.data.title;
-    if (newTitle && newTitle !== post.title) {
-      await db
-        .update(blogPosts)
-        .set({ slug: await getUniqueSlug(newTitle, postId) })
-        .where(eq(blogPosts.id, postId));
     }
 
     // A first publication needs a date. Later ones must NOT move it.

@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Loader2, AlertCircle, Info } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Info, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -108,7 +108,11 @@ export default function EditBlogPostPage() {
         return;
       }
 
-      toast.success("Blog post updated and resubmitted for review");
+      toast.success(
+        post?.approvalStatus === "approved"
+          ? "Saved. Your post is off the site until a moderator approves the change."
+          : "Blog post updated and resubmitted for review"
+      );
       router.push("/dashboard/blog");
     } catch {
       toast.error("Failed to update blog post");
@@ -173,13 +177,28 @@ export default function EditBlogPostPage() {
           </Link>
         </div>
 
-        <Alert className="mb-6 border-blue-200 bg-blue-50">
-          <Info className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800">
-            Editing will resubmit your post for approval. It will be reviewed by
-            a moderator before being published.
-          </AlertDescription>
-        </Alert>
+        {/* The spec's sole mitigation for unpublishing on edit is warning
+            BEFORE the author commits — and the warning has to say what
+            actually happens to a LIVE post, which is that it comes down. The
+            old copy said "resubmit for approval", which is true of a pending
+            post and badly understates it for a published one. */}
+        {post.approvalStatus === "approved" ? (
+          <Alert className="mb-6 border-amber-200 bg-amber-50">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-900">
+              This post is published. Saving takes it off the site until a
+              moderator approves the change.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <Alert className="mb-6 border-blue-200 bg-blue-50">
+            <Info className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800">
+              Editing will resubmit your post for approval. It will be reviewed
+              by a moderator before being published.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Card>
           <CardHeader>

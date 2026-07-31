@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { EDIT_FORMS, liveWarningFor } from "@/lib/submissions/edit-form-fields";
 import { EDITABLE_FIELDS } from "@/lib/submissions/editable-fields";
+import { getTableColumns } from "drizzle-orm";
 import { SUBMISSION_TYPES, type SubmissionType } from "@/lib/submissions/types";
 
 describe("EDIT_FORMS", () => {
@@ -27,15 +28,21 @@ describe("EDIT_FORMS", () => {
     }
   });
 
-  it("binds every date column to a date control", () => {
-    // A date column rendered as a text input invites a free-form value; worse,
-    // rendering it as datetime would drag a calendar day through a timezone.
-    const dateFields = Object.values(EDIT_FORMS).flatMap((spec) =>
-      spec.fields.filter((f) => f.kind === "date").map((f) => f.name)
-    );
-    expect(dateFields).toContain("eventDate");
-    expect(dateFields).toContain("shivaStart");
-    expect(dateFields).toContain("shivaEnd");
+  it("binds every date column to a date control, and nothing else", () => {
+    // Derived from the real Drizzle column types, so it covers whichever date
+    // columns exist rather than the three the author happened to remember.
+    // Rendering a DATE as free text invites a value the column cannot hold.
+    for (const [type, spec] of Object.entries(EDIT_FORMS)) {
+      const columns = getTableColumns(SUBMISSION_TYPES[type as SubmissionType].table);
+      for (const field of spec.fields) {
+        const column = columns[field.name] as unknown as { columnType: string };
+        const isDateColumn = column.columnType.startsWith("PgDate");
+        expect(
+          field.kind === "date",
+          `${type}.${field.name} is ${column.columnType} but rendered as ${field.kind}`
+        ).toBe(isDateColumn);
+      }
+    }
   });
 
   it("gives shiva a stronger warning than the standard one", () => {
@@ -49,9 +56,17 @@ describe("EDIT_FORMS", () => {
     expect(shiva.toLowerCase()).toContain("shiva");
   });
 
-  it("warns on every type, so none can ship without one", () => {
+  it("tells every type's user that saving takes the item down", () => {
+    // A length check could not fail here — liveWarningFor falls back to an
+    // 89-character default, so every type passes whatever it declares. Assert
+    // the warning actually says what happens.
     for (const [type, spec] of Object.entries(EDIT_FORMS)) {
-      expect(liveWarningFor(spec).length, type).toBeGreaterThan(20);
+      const warning = liveWarningFor(spec).toLowerCase();
+      expect(
+        warning.includes("takes it down") || warning.includes("takes it down until") ||
+          warning.includes("off the site") || warning.includes("approves the change"),
+        `${type}: "${liveWarningFor(spec)}" does not say what saving does`
+      ).toBe(true);
     }
   });
 
@@ -62,16 +77,9 @@ describe("EDIT_FORMS", () => {
     );
   });
 
-  it("marks the columns the database requires as required", () => {
-    // A NOT NULL column left blank is a 500 from Postgres rather than a
-    // message the user can act on.
-    const required = (type: keyof typeof EDIT_FORMS) =>
-      EDIT_FORMS[type].fields.filter((f) => f.required).map((f) => f.name);
-
-    expect(required("classified")).toEqual(["title", "description"]);
-    expect(required("simcha")).toEqual(["familyName", "announcement"]);
-    expect(required("kosherAlert")).toEqual(["productName", "description"]);
-    expect(required("alert")).toEqual(["title", "content"]);
-    expect(required("shiva")).toEqual(["niftarName"]);
-  });
+  // "which fields must be required" is derived from the schema in
+  // tests/unit/edit-form-payload.test.ts rather than restated as a literal
+  // list here. A hardcoded list is written from the same assumption as the
+  // code, so it agreed with two real defects: a cleared shiva date (a 500 from
+  // a NOT NULL column) and a blank alert select (a 400 of raw Zod).
 });

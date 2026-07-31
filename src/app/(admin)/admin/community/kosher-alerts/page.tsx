@@ -99,6 +99,13 @@ const CERTIFYING_AGENCIES = [
 
 const STATUS_OPTIONS = [
   { value: "pending", label: "Pending", color: "bg-yellow-100 text-yellow-800" },
+  // Without this, a corrected alert cannot be filtered for at all and its edit
+  // dialog opens with a blank status.
+  {
+    value: "pending_edit",
+    label: "Correction",
+    color: "bg-amber-100 text-amber-900",
+  },
   { value: "approved", label: "Approved", color: "bg-green-100 text-green-800" },
   { value: "rejected", label: "Rejected", color: "bg-red-100 text-red-800" },
 ];

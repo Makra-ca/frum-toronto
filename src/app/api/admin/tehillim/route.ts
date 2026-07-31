@@ -65,7 +65,12 @@ export async function GET(request: NextRequest) {
       .select()
       .from(tehillimList)
       .where(whereClause)
-      .orderBy(desc(tehillimList.createdAt))
+      // updated_at, not created_at: a correction to an older item has to
+      // surface. Ordering by creation buries an edited 2023 simcha under
+      // 16,000 rows, which makes the feature unusable in the case it was
+      // built for. The id tiebreaker matters because imported content
+      // shares timestamps in bulk.
+      .orderBy(desc(tehillimList.updatedAt), desc(tehillimList.id))
       .limit(limit)
       .offset(offset);
 

@@ -33,6 +33,8 @@ function initialValue(spec: EditFieldSpec, raw: unknown): string | string[] {
     return Array.isArray(raw) ? (raw as string[]) : [];
   }
   if (raw == null) return "";
+  // A lookup holds an id; the select works in strings.
+  if (spec.kind === "lookup") return String(raw);
   // Date columns arrive as "YYYY-MM-DD"; slice defends against a driver that
   // ever hands back a full timestamp, without parsing it.
   if (spec.kind === "date") return String(raw).slice(0, 10);
@@ -46,6 +48,45 @@ export function SubmissionEditForm({ spec, id }: { spec: EditFormSpec; id: numbe
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  /** Options for `lookup` fields, keyed by field name. */
+  const [lookups, setLookups] = useState<
+    Record<string, { value: string; label: string }[]>
+  >({});
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const wanted = spec.fields.filter((f) => f.kind === "lookup" && f.optionsUrl);
+    if (wanted.length === 0) return;
+
+    Promise.all(
+      wanted.map(async (field) => {
+        try {
+          const res = await fetch(field.optionsUrl!);
+          if (!res.ok) return [field.name, []] as const;
+          const rows = await res.json();
+          const list = Array.isArray(rows) ? rows : (rows.data ?? rows.categories ?? []);
+          return [
+            field.name,
+            (list as { id: number; name: string }[]).map((row) => ({
+              value: String(row.id),
+              label: row.name,
+            })),
+          ] as const;
+        } catch {
+          // A failed lookup leaves the select empty rather than blocking the
+          // whole form — every other field is still editable.
+          return [field.name, []] as const;
+        }
+      })
+    ).then((entries) => {
+      if (!cancelled) setLookups(Object.fromEntries(entries));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [spec]);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +134,10 @@ export function SubmissionEditForm({ spec, id }: { spec: EditFormSpec; id: numbe
       const value = values[field.name];
       if (Array.isArray(value)) {
         payload[field.name] = value.filter((v) => v.trim());
+      } else if (field.kind === "lookup") {
+        // The column is an integer; sending "3" is a type error the schema
+        // rejects with a message about expecting a number.
+        payload[field.name] = value?.trim() ? Number(value) : null;
       } else {
         payload[field.name] = value?.trim() ? value.trim() : null;
       }
@@ -168,15 +213,18 @@ export function SubmissionEditForm({ spec, id }: { spec: EditFormSpec; id: numbe
                 rows={4}
                 required={field.required}
               />
-            ) : field.kind === "select" ? (
+            ) : field.kind === "select" || field.kind === "lookup" ? (
               <select
                 id={field.name}
                 value={typeof value === "string" ? value : ""}
                 onChange={(e) => setField(field.name, e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
               >
-                <option value="">—</option>
-                {field.options?.map((option) => (
+                {!field.noBlank && <option value="">—</option>}
+                {(field.kind === "lookup"
+                  ? (lookups[field.name] ?? [])
+                  : (field.options ?? [])
+                ).map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>

@@ -13,9 +13,25 @@ import type { SubmissionType } from "@/lib/submissions/types";
 export interface EditFieldSpec {
   name: string;
   label: string;
-  kind: "text" | "textarea" | "date" | "select" | "stringList" | "email" | "tel";
+  kind:
+    | "text"
+    | "textarea"
+    | "date"
+    | "select"
+    | "stringList"
+    | "email"
+    | "tel"
+    /** A select whose options are fetched, not hardcoded. */
+    | "lookup";
   required?: boolean;
+  /**
+   * A select over a NOT NULL column must not offer "—": choosing it sends
+   * null, which is a 400 the user cannot act on, or a 500 from Postgres.
+   */
+  noBlank?: boolean;
   options?: { value: string; label: string }[];
+  /** For `lookup`: the endpoint returning [{ id, name }]. */
+  optionsUrl?: string;
   help?: string;
   placeholder?: string;
 }
@@ -47,6 +63,12 @@ export const EDIT_FORMS: Record<
     fields: [
       { name: "title", label: "Title", kind: "text", required: true },
       { name: "description", label: "Description", kind: "textarea", required: true },
+      {
+        name: "categoryId",
+        label: "Category",
+        kind: "lookup",
+        optionsUrl: "/api/classifieds/categories",
+      },
       { name: "price", label: "Price", kind: "text", placeholder: "e.g. 50.00" },
       {
         name: "priceType",
@@ -70,6 +92,12 @@ export const EDIT_FORMS: Record<
     heading: "Edit your simcha announcement",
     fields: [
       { name: "familyName", label: "Family name", kind: "text", required: true },
+      {
+        name: "typeId",
+        label: "Type of simcha",
+        kind: "lookup",
+        optionsUrl: "/api/simcha-types",
+      },
       {
         name: "announcement",
         label: "Announcement",
@@ -120,6 +148,8 @@ export const EDIT_FORMS: Record<
         name: "alertType",
         label: "Type",
         kind: "select",
+        required: true,
+        noBlank: true,
         options: [
           { value: "general", label: "General" },
           { value: "bulletin", label: "Bulletin" },
@@ -131,6 +161,8 @@ export const EDIT_FORMS: Record<
         name: "urgency",
         label: "Urgency",
         kind: "select",
+        required: true,
+        noBlank: true,
         options: [
           { value: "normal", label: "Normal" },
           { value: "high", label: "High" },
@@ -159,8 +191,10 @@ export const EDIT_FORMS: Record<
       { name: "niftarNameHebrew", label: "Hebrew name", kind: "text" },
       { name: "mournerNames", label: "Mourners", kind: "stringList" },
       { name: "shivaAddress", label: "Address", kind: "textarea" },
-      { name: "shivaStart", label: "Shiva starts", kind: "date" },
-      { name: "shivaEnd", label: "Shiva ends", kind: "date" },
+      // NOT NULL columns: clearing either is a Postgres 23502 and a generic
+      // 500, so the form must not let it happen.
+      { name: "shivaStart", label: "Shiva starts", kind: "date", required: true },
+      { name: "shivaEnd", label: "Shiva ends", kind: "date", required: true },
       { name: "shivaHours", label: "Hours", kind: "text" },
       { name: "daveningTimes", label: "Davening times", kind: "textarea" },
       { name: "levayaInfo", label: "Levaya", kind: "textarea" },

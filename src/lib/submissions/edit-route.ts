@@ -54,7 +54,9 @@ const ROUTE_CONFIG: Record<Exclude<SubmissionType, "event" | "blog">, RouteConfi
   },
   tehillim: {
     contentType: "tehillim",
-    revalidate: () => ["/tehillim"],
+    // /community/tehillim, not /tehillim — the latter is not a route, and
+    // revalidatePath does not error on a path that matches nothing.
+    revalidate: () => ["/community/tehillim"],
   },
   shiva: {
     contentType: "shiva",
@@ -145,6 +147,13 @@ export async function handleSubmissionEdit(
     const config = SUBMISSION_TYPES[type];
     const routeConfig = ROUTE_CONFIG[type];
 
+    const table = SUBMISSION_TYPES[type].table as PgTable & Record<string, PgColumn>;
+    const [before] = (await db
+      .select()
+      .from(table)
+      .where(eq(table.id, rowId))
+      .limit(1)) as unknown as Record<string, unknown>[];
+
     const result = await applyEdit(
       type,
       rowId,
@@ -178,7 +187,9 @@ export async function handleSubmissionEdit(
     if (stillLive) {
       await notifyAdminOfTrustedEdit({
         typeLabel: config.label,
-        itemTitle: String(rowId),
+        // The row's own title. Passing the id made every trail entry read
+        // "Simcha edited while live — 4211", which tells an admin nothing.
+        itemTitle: String(before?.[config.titleColumn] ?? rowId),
         editorName,
         linkUrl: "/admin/approvals",
       });

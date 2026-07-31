@@ -93,6 +93,10 @@ export async function createTestUser(userData: Partial<typeof schema.users.$infe
  * Vitest orders integration files by SIZE, so which file gets hit changes as
  * files grow. Clearing children here makes the helper safe to call in any
  * order.
+ *
+ * It is safe to be blanket ONLY because the integration project runs with
+ * `fileParallelism: false` (vitest.config.mts). Turn that on and this would
+ * delete a concurrently-running file's users mid-test.
  */
 export async function cleanupTestUsers() {
   const testUsers = await testDb
@@ -119,6 +123,9 @@ export async function cleanupTestUsers() {
   await testDb.delete(schema.blogPosts).where(inArray(schema.blogPosts.authorId, ids));
   await testDb.delete(schema.notifications).where(inArray(schema.notifications.userId, ids));
   await testDb.delete(schema.userShuls).where(inArray(schema.userShuls.userId, ids));
+  // Also referenced with no ON DELETE, and integration tests create these.
+  await testDb.delete(schema.businesses).where(inArray(schema.businesses.userId, ids));
+
 
   await testDb.delete(schema.users).where(inArray(schema.users.id, ids));
 }

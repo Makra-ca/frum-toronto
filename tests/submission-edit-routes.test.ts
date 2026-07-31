@@ -112,8 +112,26 @@ const cases: Case[] = [
   },
 ];
 
+/**
+ * A static map, not a template-literal import.
+ *
+ * `import(`@/app/api/community/${folder}/[id]/route`)` cannot be statically
+ * analysed, so Vite warns and falls back to runtime resolution — which failed
+ * once in four full runs with "Cannot find package 'next/server'", taking all
+ * 54 tests in this file with it. A file that fails one run in four teaches
+ * people to re-run rather than to read.
+ */
+const ROUTES = {
+  classifieds: () => import("@/app/api/community/classifieds/[id]/route"),
+  simchas: () => import("@/app/api/community/simchas/[id]/route"),
+  "kosher-alerts": () => import("@/app/api/community/kosher-alerts/[id]/route"),
+  alerts: () => import("@/app/api/community/alerts/[id]/route"),
+  tehillim: () => import("@/app/api/community/tehillim/[id]/route"),
+  shiva: () => import("@/app/api/community/shiva/[id]/route"),
+} as const;
+
 async function loadRoute(folder: string) {
-  return import(`@/app/api/community/${folder}/[id]/route`);
+  return ROUTES[folder as keyof typeof ROUTES]();
 }
 
 async function makeRow(c: Case, userId: number | null, approvalStatus = "pending") {
@@ -237,6 +255,10 @@ describe.each(cases.map((c) => [c.name, c] as const))(
       const res = await patch(c, id, c.editBody);
 
       expect(res.status).toBe(403);
+      // Both gates return 403 with different bodies, and the UI switches on
+      // this code to offer "resend verification". Without it, swapping the two
+      // branches passes.
+      expect((await res.json()).code).toBe("email_unverified");
     });
 
     it("refuses a blocked account", async () => {

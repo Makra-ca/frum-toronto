@@ -66,7 +66,12 @@ export async function GET(request: NextRequest) {
       .from(classifieds)
       .leftJoin(classifiedCategories, eq(classifieds.categoryId, classifiedCategories.id))
       .where(whereClause)
-      .orderBy(desc(classifieds.createdAt))
+      // updated_at, not created_at: a correction to an older item has to
+      // surface. Ordering by creation buries an edited 2023 simcha under
+      // 16,000 rows, which makes the feature unusable in the case it was
+      // built for. The id tiebreaker matters because imported content
+      // shares timestamps in bulk.
+      .orderBy(desc(classifieds.updatedAt), desc(classifieds.id))
       .limit(limit)
       .offset(offset);
 

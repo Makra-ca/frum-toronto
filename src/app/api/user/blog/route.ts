@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { blogPosts, blogCategories, users } from "@/lib/db/schema";
+import { blogPosts, blogCategories } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { blogPostSchema } from "@/lib/validations/blog";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import { resolveApprovalStatus } from "@/lib/submissions/auto-approve";
 
 function generateSlug(name: string): string {
   return name
@@ -105,15 +106,17 @@ export async function POST(request: NextRequest) {
     const { title, content, contentJson, coverImageUrl, excerpt, categoryId, customCategory, commentModeration } = result.data;
     const userId = parseInt(session.user.id);
 
-    // Check canAutoApproveBlog
-    const [user] = await db
-      .select({ canAutoApproveBlog: users.canAutoApproveBlog })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    const canAutoApprove = user?.canAutoApproveBlog === true || session.user.role === "admin";
-    const approvalStatus = canAutoApprove ? "approved" : "pending";
+    // The same helper the edit path uses. This was the last create path still
+    // computing auto-approve itself, which is exactly the drift a shared helper
+    // exists to prevent — the events version of that duplicate logic had
+    // already gone wrong twice.
+    const approvalStatus = await resolveApprovalStatus(
+      "blog",
+      userId,
+      session.user.role,
+      null
+    );
+    const canAutoApprove = approvalStatus === "approved";
     const publishedAt = canAutoApprove ? new Date() : null;
 
     const slug = await getUniqueSlug(title);
