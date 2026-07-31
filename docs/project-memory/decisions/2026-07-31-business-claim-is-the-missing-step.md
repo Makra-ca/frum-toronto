@@ -37,4 +37,14 @@ The wider finding: a 1,633-listing directory that generates no revenue and that
 only the admin can maintain. Everything needed to change that is built except
 the claim.
 
+**Parked 2026-07-31** with the design roughly 60% done — claiming, verification,
+the two owner roles and the pending-change model are decided; what an owner may
+edit and how a pending change is stored are not. Written up in
+`docs/project-memory/TODO-business-claim-flow.md`.
+
+The decision worth carrying: **there are two owner roles, not one** — ordinary
+owners whose edits the admin confirms, and trusted owners whose edits go live.
+That is precisely what `canAutoApproveBusinesses` was meant to be, so the toggle
+we nearly deleted as dead becomes live the day this ships.
+
 Related: [[business-owners-cannot-edit-their-listing]]
