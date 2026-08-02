@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make a named newsletter series — "Israel News" — something you can link to, search for, and browse, and make one admin screen show everything that is on the public newsletters page.
+**Goal:** Make any newsletter series — "Israel News", or a shul's own — something you can link to, search for, and browse, and make one admin screen show everything that is on the public newsletters page.
 
-**Architecture:** All grouping, ordering and slug logic lives in one pure module with no database access, so the fiddly rules are unit-testable. The public page and the filtered view are the same Server Component reading a query param. Two tables stay separate; a new read-only route lets one admin screen see across both.
+**Architecture:** All grouping, ordering and slug logic lives in one pure module with no database access, so the fiddly rules are unit-testable. That module is **generic over the grouping key** — publisher for community newsletters, shul for shul newsletters — because both sides have the same findability problem and one implementation should answer both. The public page and both filtered views are the same Server Component reading a query param. Two tables stay separate; a new read-only route lets one admin screen see across both.
 
 **Tech Stack:** Next.js 16 App Router (Server Components), Drizzle ORM, Neon Postgres, Vitest.
 
@@ -37,8 +37,8 @@
 
 | File | Responsibility |
 |---|---|
-| `src/lib/newsletters/group-by-publisher.ts` | **New.** Pure: slugify, group, order, cap. No DB, no React |
-| `src/app/(public)/newsletters/page.tsx` | Grouping, `<details>`, `?publisher=` filter, query limits |
+| `src/lib/newsletters/group-series.ts` | **New.** Pure: slugify, group by any key, order, cap. No DB, no React |
+| `src/app/(public)/newsletters/page.tsx` | Grouping (both sides), `<details>`, `?publisher=` and `?shul=` filters, query limits |
 | `src/lib/search/types.ts` | Add `"newsletters"` to `SearchType` |
 | `src/lib/search/fuzzy-search.ts` | Add `searchNewsletters`, register in `searchAll` |
 | `src/app/api/search/suggestions/route.ts` | Register in the type map |
@@ -57,27 +57,27 @@ Everything hard is here, and none of it touches a database.
 
 ### Task 1.1: Slugify
 
-**Files:** Create `src/lib/newsletters/group-by-publisher.ts`; Test `tests/unit/newsletter-grouping.test.ts`
+**Files:** Create `src/lib/newsletters/group-series.ts`; Test `tests/unit/newsletter-grouping.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
 import { describe, it, expect } from "vitest";
-import { publisherSlug } from "@/lib/newsletters/group-by-publisher";
+import { seriesSlug } from "@/lib/newsletters/group-series";
 
-describe("publisherSlug", () => {
+describe("seriesSlug", () => {
   it("makes a URL-safe slug from a publisher name", () => {
-    expect(publisherSlug("Israel News")).toBe("israel-news");
-    expect(publisherSlug("BAYT")).toBe("bayt");
+    expect(seriesSlug("Israel News")).toBe("israel-news");
+    expect(seriesSlug("Clanton Park Synagogue")).toBe("clanton-park-synagogue");
   });
 
   it("matches regardless of spacing or case, so a link keeps working", () => {
-    expect(publisherSlug("  israel   NEWS ")).toBe("israel-news");
+    expect(seriesSlug("  israel   NEWS ")).toBe("israel-news");
   });
 
-  it("gives publisher-less newsletters a stable slug", () => {
-    expect(publisherSlug(null)).toBe("other");
-    expect(publisherSlug("")).toBe("other");
+  it("gives newsletters with no key a stable slug", () => {
+    expect(seriesSlug(null)).toBe("other");
+    expect(seriesSlug("")).toBe("other");
   });
 });
 ```
@@ -89,11 +89,12 @@ describe("publisherSlug", () => {
 - [ ] **Step 3: Implement**
 
 ```ts
-/** Publisher-less newsletters collect under this slug. */
+/** Newsletters with no grouping key collect under this slug. */
 export const OTHER_SLUG = "other";
 
-export function publisherSlug(publisher: string | null | undefined): string {
-  const trimmed = (publisher ?? "").trim().toLowerCase();
+/** Shared by publisher names and shul names — the same rules apply to both. */
+export function seriesSlug(key: string | null | undefined): string {
+  const trimmed = (key ?? "").trim().toLowerCase();
   if (!trimmed) return OTHER_SLUG;
   return trimmed.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || OTHER_SLUG;
 }
@@ -110,7 +111,7 @@ export function publisherSlug(publisher: string | null | undefined): string {
 - [ ] **Step 1: Write the failing tests**
 
 ```ts
-import { groupByPublisher } from "@/lib/newsletters/group-by-publisher";
+import { groupSeries } from "@/lib/newsletters/group-series";
 
 const row = (o: Partial<Row> & { id: number }) => ({
   publisher: "Israel News", title: "t", fileUrl: "u",
@@ -118,10 +119,10 @@ const row = (o: Partial<Row> & { id: number }) => ({
 });
 
 it("collects issues of one publisher into a series, newest first", () => {
-  const [series] = groupByPublisher([
+  const [series] = groupSeries([
     row({ id: 1, publishedAt: new Date("2026-07-27") }),
     row({ id: 2, publishedAt: new Date("2026-08-03") }),
-  ]);
+  ], byPublisher);
   expect(series.slug).toBe("israel-news");
   expect(series.latest.id).toBe(2);
   expect(series.past.map((r) => r.id)).toEqual([1]);
@@ -131,50 +132,67 @@ it("keeps Israel News and Israeli News as separate series", () => {
   // The datalist on the admin form is what prevents this in practice.
   // Pinned so nobody later 'fixes' it with fuzzy matching and merges two
   // genuinely different publishers.
-  const groups = groupByPublisher([
+  const groups = groupSeries([
     row({ id: 1, publisher: "Israel News" }),
     row({ id: 2, publisher: "Israeli News" }),
-  ]);
+  ], byPublisher);
   expect(groups).toHaveLength(2);
 });
 
 it("puts Other last, however recent its newest issue", () => {
-  const groups = groupByPublisher([
+  const groups = groupSeries([
     row({ id: 1, publisher: null, publishedAt: new Date("2026-08-10") }),
     row({ id: 2, publisher: "Israel News", publishedAt: new Date("2026-08-03") }),
-  ]);
+  ], byPublisher);
   expect(groups.map((g) => g.slug)).toEqual(["israel-news", "other"]);
 });
 
 it("sorts an undated newsletter last, not first", () => {
   // Postgres sorts NULLs FIRST under desc(), which would float a dateless
   // newsletter above the current week.
-  const [series] = groupByPublisher([
+  const [series] = groupSeries([
     row({ id: 1, publishedAt: null }),
     row({ id: 2, publishedAt: new Date("2026-08-03") }),
-  ]);
+  ], byPublisher);
   expect(series.latest.id).toBe(2);
 });
 
 it("breaks a tie on id, so a bulk upload has a stable order", () => {
   const same = new Date("2026-08-03");
-  const [series] = groupByPublisher([
+  const [series] = groupSeries([
     row({ id: 1, publishedAt: same }),
     row({ id: 2, publishedAt: same }),
-  ]);
+  ], byPublisher);
   expect(series.latest.id).toBe(2);
 });
 
 it("excludes inactive newsletters entirely", () => {
-  const groups = groupByPublisher([row({ id: 1, isActive: false })]);
+  const groups = groupSeries([row({ id: 1, isActive: false })], byPublisher);
   expect(groups).toHaveLength(0);
+});
+
+it("groups shul newsletters by shul with the same rules", () => {
+  // The whole reason the module takes a key function: a reader hunting their
+  // own shul's newsletter has exactly the problem the Israel News emails
+  // describe — six cards titled "Devarim" with the shul in small print.
+  const groups = groupSeries(
+    [
+      { id: 1, title: "Devarim", fileUrl: "u", publishedAt: new Date("2026-07-17"), isActive: true, shulName: "Ahavat Shalom" },
+      { id: 2, title: "Devarim", fileUrl: "u", publishedAt: new Date("2026-07-17"), isActive: true, shulName: "Bnai Torah Congregation" },
+    ],
+    byShul
+  );
+  expect(groups.map((g) => g.slug).sort()).toEqual([
+    "ahavat-shalom",
+    "bnai-torah-congregation",
+  ]);
 });
 
 it("caps past issues and reports the overflow", () => {
   const rows = Array.from({ length: 20 }, (_, i) =>
     row({ id: i + 1, publishedAt: new Date(2026, 0, i + 1) })
   );
-  const [series] = groupByPublisher(rows, { pastLimit: 12 });
+  const [series] = groupSeries(rows, byPublisher, { pastLimit: 12 });
   expect(series.past).toHaveLength(12);
   expect(series.hasMore).toBe(true);
 });
@@ -185,15 +203,25 @@ it("caps past issues and reports the overflow", () => {
 ```ts
 export interface Row {
   id: number;
-  publisher: string | null;
   title: string;
   fileUrl: string;
   publishedAt: Date | null;
   isActive: boolean | null;
+  /** Community newsletters group on this. */
+  publisher?: string | null;
+  /** Shul newsletters group on this. */
+  shulName?: string | null;
 }
 
+/** What a row is grouped by. Community newsletters use publisher, shul
+ *  newsletters use the shul name — same rules, different key. */
+export type SeriesKey = (row: Row) => string | null | undefined;
+
+export const byPublisher: SeriesKey = (r) => r.publisher;
+export const byShul: SeriesKey = (r) => r.shulName;
+
 export interface Series {
-  publisher: string;   // display name, from the newest issue
+  name: string;        // display name, from the newest issue
   slug: string;
   latest: Row;
   past: Row[];
@@ -209,8 +237,9 @@ function byNewest(a: Row, b: Row): number {
   return bt - at || b.id - a.id;
 }
 
-export function groupByPublisher(
+export function groupSeries(
   rows: Row[],
+  keyOf: SeriesKey,
   opts: { pastLimit?: number } = {}
 ): Series[] {
   const pastLimit = opts.pastLimit ?? DEFAULT_PAST_LIMIT;
@@ -218,7 +247,7 @@ export function groupByPublisher(
   const bySlug = new Map<string, Row[]>();
   for (const r of rows) {
     if (r.isActive === false) continue;
-    const slug = publisherSlug(r.publisher);
+    const slug = seriesSlug(keyOf(r));
     (bySlug.get(slug) ?? bySlug.set(slug, []).get(slug)!).push(r);
   }
 
@@ -227,7 +256,7 @@ export function groupByPublisher(
     group.sort(byNewest);
     const [latest, ...rest] = group;
     series.push({
-      publisher: latest.publisher?.trim() || "Other",
+      name: (keyOf(latest) ?? "").trim() || "Other",
       slug,
       latest,
       past: rest.slice(0, pastLimit),
@@ -254,7 +283,8 @@ export function groupByPublisher(
 
 **Files:** Modify `src/app/(public)/newsletters/page.tsx`
 
-- [ ] Pass the community rows through `groupByPublisher`, render one block per series: heading, latest card, and past issues inside `<details><summary>Past issues (n)</summary>`.
+- [ ] Pass community rows through `groupSeries(rows, byPublisher)` **and shul rows through `groupSeries(rows, byShul)`**, rendering one block per series: heading, latest card, past issues inside `<details><summary>Past issues (n)</summary>`.
+- [ ] The shul query must already select the shul name — it does, via the existing `leftJoin` at `(public)/newsletters/page.tsx:53`.
 
 > **Use `<details>`, not React state.** The page is an async Server Component with no `"use client"`. `<details>` needs no JavaScript, is keyboard accessible, and leaves the links in the DOM for search engines. A React toggle forces the page client-side for nothing.
 
@@ -272,7 +302,7 @@ export function groupByPublisher(
 
 ```ts
 it("selects one series by slug for the shareable link", () => {
-  const groups = groupByPublisher([row({ id: 1 }), row({ id: 2, publisher: "BAYT" })]);
+  const groups = groupSeries([row({ id: 1 }), row({ id: 2, publisher: "BAYT" })], byPublisher);
   expect(selectSeries(groups, "israel-news")).toHaveLength(1);
 });
 
@@ -282,8 +312,8 @@ it("returns nothing for an unknown publisher, so the page can offer the full lis
 ```
 
 - [ ] **Steps 2–4:** fail, implement, pass.
-- [ ] Read `searchParams.publisher` in the page and filter through `selectSeries`. **An unknown slug renders an empty state with a link to the full list — never a 404**, because this URL will be pasted into emails and outlive a publisher rename.
-- [ ] Verify by hand: `/newsletters?publisher=israel-news`.
+- [ ] Read `searchParams.publisher` **and `searchParams.shul`** and filter the matching side through `selectSeries`. `?publisher=` filters community newsletters; `?shul=` filters shul newsletters; neither filters both. **An unknown slug renders an empty state with a link to the full list — never a 404**, because these URLs will be pasted into emails and outlive a rename.
+- [ ] Verify by hand: `/newsletters?publisher=israel-news` and `/newsletters?shul=clanton-park-synagogue`.
 - [ ] Commit.
 
 ---
@@ -298,7 +328,7 @@ Without this, a reader still has to know the page exists.
 
 - [ ] Add `"newsletters"` to `SearchType`.
 - [ ] Write `searchNewsletters(query, limit)` modelled on `searchSimchas` (`fuzzy-search.ts:474`). It spans **both** tables — `community_newsletters` (title, publisher) and `shul_documents` (title, plus the shul name via join) — filtered to `type = 'newsletter'` and `isActive`.
-- [ ] Every suggestion's `url` is the filtered view: `/newsletters?publisher=<slug>` for a community series, `/newsletters` for a shul newsletter.
+- [ ] Every suggestion's `url` is a filtered view: `/newsletters?publisher=<slug>` for a community series, **`/newsletters?shul=<slug>`** for a shul newsletter. Neither resolves to the bare page — the point is landing on the series.
 - [ ] Tests: a community newsletter is found by **publisher** name; found by **title**; a shul newsletter is found by **shul name**; a **`tefillah` row is never returned**; an inactive row is never returned.
 - [ ] Commit.
 
@@ -391,6 +421,7 @@ it("refuses a caller who is not an admin", async () => { /* expect 401 */ });
 ## Definition of done
 
 - [ ] `/newsletters?publisher=israel-news` shows one series; an unknown slug shows an empty state, not a 404
+- [ ] `/newsletters?shul=clanton-park-synagogue` does the same for a shul, and a shul can link members straight to it
 - [ ] Site search for a publisher name returns the newsletter, labelled
 - [ ] "Other" sorts last; a lone "Other" group renders no headings
 - [ ] An undated newsletter sorts last, not first
@@ -398,7 +429,7 @@ it("refuses a caller who is not an admin", async () => { /* expect 401 */ });
 - [ ] The shul block lists no `tefillah`
 - [ ] An admin can set the publication date
 - [ ] `npx tsc --noEmit` clean; eslint adds nothing beyond the recorded baseline
-- [ ] The six shul newsletters still render exactly as they do today
+- [ ] The six shul newsletters still render, now grouped under their shul
 
 ## Not in scope
 
