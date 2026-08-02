@@ -2,7 +2,9 @@
 
 **Date:** 2026-08-02
 **Status:** approved after review; not implemented
-**Revision:** 2 — a review found the central requirement was missed. Three readers asked *where* to find Israel News, and revision 1 answered with a heading on a page they must already know to visit. There was still no link you could send them. See *Review findings*.
+**Revision:** 3 — the shul side is grouped too (owner's call): a reader hunting Clanton Park's newsletter faces exactly what the Israel News emails describe. The grouping module is generic over its key. Revision 2 note follows.
+
+**Revision 2 — a review found the central requirement was missed. Three readers asked *where* to find Israel News, and revision 1 answered with a heading on a page they must already know to visit. There was still no link you could send them. See *Review findings*.
 
 ## Problem
 
@@ -47,7 +49,7 @@ Two tables (`community_newsletters`, `shul_documents`) managed in two unrelated 
 
 ## 1 · Addressability — the part that answers the emails
 
-**A filtered view.** `/newsletters?publisher=israel-news` shows that series only, with a heading naming it. This is the link you reply to those three readers with. Slugified match so `Israel News` and `israel-news` resolve alike; an unknown publisher renders an empty state offering the full list rather than a 404.
+**A filtered view.** `/newsletters?publisher=israel-news` shows that series only — the shul section is hidden entirely, not left full, or the link renders Israel News plus six parsha sheets. `/newsletters?shul=<slug>` mirrors it, so a shul can point its own members at its own newsletters. Both slugs derive from `seriesSlug(name)`, never from the existing `shuls.slug` column. The view shows that series only, with a heading naming it. This is the link you reply to those three readers with. Slugified match so `Israel News` and `israel-news` resolve alike; an unknown publisher renders an empty state offering the full list rather than a 404.
 
 **Search coverage.** Add a `newsletters` `SearchType` spanning both tables — matching `title`, `publisher`, and the shul name for shul newsletters — resolving to the filtered view. Typing "Israel News" into the site search then finds it, which is the behaviour the emails describe wanting.
 
@@ -65,7 +67,10 @@ Israel News                                  ← the words readers used
   Past issues: Jul 27 · Jul 20 · Jul 13      ← <details>, capped at 12, then "see all"
 
 Shul Newsletters
-  … unchanged
+  Clanton Park Synagogue                     ← same treatment, different key
+    Parshas Shelach …
+  Ahavat Shalom
+    Devarim …
 ```
 
 Rules that are easy to get wrong and so are stated:
