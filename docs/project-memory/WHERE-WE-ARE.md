@@ -29,6 +29,11 @@ Neon test branch.
 3. A shul manager's correction keeps their shul's event live
 4. `canAutoApproveBlog` added to the admin permissions dialog and route
 
+> **All open threads across every topic are now listed in `OPEN-THREADS.md`,
+> including a verified defect found on 2026-08-02: rejecting a correction
+> destroys the approved version, because the edit overwrites the row in place
+> and there is nothing to revert to.**
+
 ### Still open on this thread
 
 - **Rochel's blog auto-approve** — the control now exists in the admin panel;
