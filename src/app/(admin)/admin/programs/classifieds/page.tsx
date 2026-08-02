@@ -41,6 +41,7 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  Plus,
   DollarSign,
   Eye,
   Star,
@@ -48,6 +49,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatInstant } from "@/lib/datetime";
+import { toDateInputValue } from "@/lib/datetime";
 
 interface ClassifiedEntry {
   id: number;
@@ -108,6 +110,8 @@ export default function ClassifiedsManagementPage() {
 
   // Edit dialog
   const [editEntry, setEditEntry] = useState<ClassifiedEntry | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [expiresAt, setExpiresAt] = useState("");
   const [editForm, setEditForm] = useState({
     title: "",
     description: "",
@@ -200,6 +204,7 @@ export default function ClassifiedsManagementPage() {
       isSpecial: entry.isSpecial || false,
       isActive: entry.isActive,
     });
+    setExpiresAt(entry.expiresAt ? toDateInputValue(entry.expiresAt) : "");
 
     // Fetch contact logs
     setContactLogs([]);
@@ -211,8 +216,31 @@ export default function ClassifiedsManagementPage() {
       .finally(() => setIsLoadingLogs(false));
   };
 
+  const startCreate = () => {
+    const in30Days = new Date(Date.now() + 30 * 86_400_000);
+    setEditForm({
+      title: "",
+      description: "",
+      price: "",
+      priceType: "",
+      contactName: "",
+      contactEmail: "",
+      contactPhone: "",
+      location: "",
+      imageUrl: "",
+      categoryId: "",
+      isSpecial: false,
+      isActive: true,
+    });
+    // Shown rather than applied silently: 1,663 approved listings are
+    // invisible today purely because their expiry passed.
+    setExpiresAt(toDateInputValue(in30Days));
+    setContactLogs([]);
+    setIsCreating(true);
+  };
+
   const handleSave = async () => {
-    if (!editEntry) return;
+    if (!editEntry && !isCreating) return;
 
     if (!editForm.title.trim()) {
       toast.error("Title is required");
@@ -221,19 +249,26 @@ export default function ClassifiedsManagementPage() {
 
     setIsSaving(true);
     try {
-      const res = await fetch(`/api/admin/classifieds/${editEntry.id}`, {
-        method: "PATCH",
+      const res = await fetch(
+        isCreating
+          ? "/api/admin/classifieds"
+          : `/api/admin/classifieds/${editEntry!.id}`,
+        {
+        method: isCreating ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...editForm,
           categoryId: editForm.categoryId ? parseInt(editForm.categoryId) : null,
           price: editForm.price || null,
+          expiresAt: expiresAt || null,
         }),
-      });
+      }
+      );
 
       if (res.ok) {
-        toast.success("Classified updated");
+        toast.success(isCreating ? "Classified created" : "Classified updated");
         setEditEntry(null);
+        setIsCreating(false);
         fetchEntries();
       } else {
         const data = await res.json();
@@ -300,7 +335,15 @@ export default function ClassifiedsManagementPage() {
     <div className="space-y-6">
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
+        {/* Header action — matches simchas, shiva and tehillim */}
+      <div className="flex justify-end">
+        <Button onClick={startCreate}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Classified
+        </Button>
+      </div>
+
+      <CardContent className="pt-6">
           <div className="flex flex-wrap gap-4 items-end">
             <div className="flex-1 min-w-[200px]">
               <Label htmlFor="search">Search</Label>
@@ -460,10 +503,18 @@ export default function ClassifiedsManagementPage() {
       )}
 
       {/* Edit Dialog */}
-      <Dialog open={!!editEntry} onOpenChange={() => setEditEntry(null)}>
+      <Dialog
+        open={!!editEntry || isCreating}
+        onOpenChange={() => {
+          setEditEntry(null);
+          setIsCreating(false);
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit Classified</DialogTitle>
+            <DialogTitle>
+              {isCreating ? "New Classified" : "Edit Classified"}
+            </DialogTitle>
             <DialogDescription>Update the details for this classified</DialogDescription>
           </DialogHeader>
 
@@ -477,6 +528,18 @@ export default function ClassifiedsManagementPage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="expiresAt">Expires</Label>
+              <Input
+                id="expiresAt"
+                type="date"
+                value={expiresAt}
+                onChange={(e) => setExpiresAt(e.target.value)}
+              />
+              <p className="text-xs text-gray-500">
+                The listing disappears from the public page after this date.
+              </p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="categoryId">Category</Label>
               <Select
