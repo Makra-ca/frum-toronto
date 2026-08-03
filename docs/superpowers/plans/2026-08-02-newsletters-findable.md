@@ -8,46 +8,66 @@
 
 **Tech Stack:** Next.js 16 App Router (Server Components), Drizzle ORM, Neon Postgres, Vitest.
 
-> ## PROGRESS — end of 2026-08-02
+> ## PROGRESS — COMPLETE, 2026-08-02
 >
-> **Done and committed on `main` (unpushed):** Chunk 1, Chunk 2, Task 4.1.
+> **Every chunk and task is done and committed on `main` (still unpushed).**
 >
 > | | |
 > |---|---|
-> | `1a318fa` | `src/lib/newsletters/group-series.ts` + 23 unit tests |
-> | `88fa1b6` | issue date on the admin form and both API routes + 6 integration tests |
-> | `1077fe9` | public page: grouping, `?publisher=`, `?shul=`, empty states |
+> | `1a318fa` | Chunk 1 — `src/lib/newsletters/group-series.ts` + unit tests |
+> | `88fa1b6` | 4.1 — issue date on the form and both API routes |
+> | `1077fe9` | Chunk 2 — public page grouping, `?publisher=`, `?shul=` |
 > | `645e8c9` | `shouldGroup` tightened to a majority |
+> | `41dd6ed` | Chunk 2 fix — the `<h1>` named the wrong series |
+> | `552f9ac` | Chunk 3 — `searchNewsletters`, registered on both surfaces |
+> | `5eabeec` | 4.2 + 4.3 — publisher datalist, active/inactive toggle |
+> | `deb9327` | 4.5 — `/admin/shuls?docs=<id>` |
+> | `fce75d1` | 4.4 — read-only shul block + `shul-list` route |
+> | `713b12f` | 4.6 — Email Campaigns renames |
+> | `14d23b5` | Chunk 2 fix — the flat grid was dropping every back catalogue |
 >
-> **Remaining: Chunk 3 (search) and Tasks 4.2–4.6 (admin).** Both are accurate as
-> written — four review passes — but read the two lessons below first.
+> **Not done, deliberately:** no trigram index on either table (0 community rows,
+> 7 shul documents). Add one the moment either is non-trivial, and apply it to
+> **primary and `--test`**.
 >
-> ### Two bugs the tooling could not catch, both found only by rendering
+> ### The lessons held — and each one caught something again
 >
-> 1. **Injected JSX closed the wrong `<div>`**, leaving a field without its
->    `space-y-2`. `tsc` clean, eslint clean, every test green. Valid JSX that
->    renders wrong. **After any JSX edit, `curl` the page and read the output.**
-> 2. **`shouldGroup` was written to prevent a layout and then produced it.** The
->    rule was "any series has a back catalogue"; live data is one shul with two
->    newsletters and four with one each, so one qualifying series switched
->    grouping on for the whole section — five headings over lone cards. The test
->    passed because it asserted *the rule I wrote* rather than *the outcome I
->    wanted*. It is now a majority test. **Assert outcomes, not restatements.**
+> **1. After any JSX edit, `curl` the page and read the output.** Three defects
+> this session were invisible to `tsc`, eslint and a green suite:
 >
-> ### Verifying anything on this page needs data
+> - The filtered view's `<h1>` named the wrong series. `selectSeries(s, undefined)`
+>   returns *everything*, so on `?shul=…` the community list was still full and
+>   `communitySeries[0] ?? shulSeries[0]` picked from the wrong side. The
+>   shareable link — the entire point of the feature — was headlined with an
+>   unrelated newsletter, and the not-found page with a series it had not matched.
+> - **The flat grid rendered `series.latest`, one card per series.** `shouldGroup`
+>   is a majority rule, so the live shul side (one shul with two newsletters,
+>   four with one each) renders ungrouped — and silently dropped a newsletter.
+>   Six active rows, five cards, no heading or count to hint at the loss. Fixed
+>   with `flattenSeries`.
+> - Both were found by diffing rendered card titles against a `SELECT`. Do that,
+>   not a glance at the page.
 >
-> `community_newsletters` has **zero rows**, and an unfiltered page looks
-> identical to a correctly filtered one when there is nothing to filter. Seed
-> `[TEST]`-prefixed rows with distinct `published_at` values, verify, then delete
-> them in the same session — do not leave it to a later step.
+> **2. Assert the outcome, not the rule.** Every non-trivial test written here
+> was re-run with the fix reverted to confirm it goes red. Two would otherwise
+> have shipped worthless: the "dialog stays closed" test passed without the ref
+> guard, because nothing in it triggered the refetch that re-opens the dialog —
+> it now drives a real delete. And the tefillah filter test passes against an
+> empty result set unless it also asserts a positive control.
 >
-> ### Live bug found on the way, unrelated and unfixed
+> ### Seeding, as prescribed
 >
-> `(public)/search/page.tsx:21` has a **second** label map falling back to
-> `typeConfig.businesses`. `blog`, `simchas` and `kosher-alerts` render as
-> **"Business"** in production today — 3 of 9 search types. Task 3.2 must add
-> `newsletters` there as well as to `UniversalSearch.tsx:52`, and fixing the
-> other three is a free win.
+> 18 `[TEST]` rows were inserted into `community_newsletters` on primary, used to
+> verify grouping, both filters, the unknown-slug empty state, the 12-issue cap,
+> the uncapped filtered view and search, then **deleted in the same session**.
+> Verified back to 0 rows. The two rendering bugs above were only reachable with
+> that data present.
+>
+> ### The free win, taken
+>
+> `(public)/search/page.tsx:21` fell back to `typeConfig.businesses`, so `blog`,
+> `simchas` and `kosher-alerts` rendered as **"Business"** with a building icon
+> in production. All three fixed alongside `newsletters` in `552f9ac`.
 
 **Spec:** `docs/superpowers/specs/2026-08-02-newsletters-findable-design.md` — read it first, especially *Addressability*, which is the requirement revision 1 missed.
 
