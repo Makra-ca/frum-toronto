@@ -138,14 +138,19 @@ function SeriesBlock<T extends CardRow & NewsletterRow>({
   series,
   seeAllHref,
   renderCard,
+  showHeading = true,
 }: {
   series: Series<T>;
   seeAllHref: string;
   renderCard: (row: T) => React.ReactNode;
+  /** False on a filtered view, where the page's own <h1> already names it. */
+  showHeading?: boolean;
 }) {
   return (
     <div className="space-y-3">
-      <h3 className="text-lg font-semibold text-gray-800">{series.name}</h3>
+      {showHeading && (
+        <h3 className="text-lg font-semibold text-gray-800">{series.name}</h3>
+      )}
       <div className={CARD_GRID}>{renderCard(series.latest)}</div>
 
       {series.past.length > 0 && (
@@ -204,7 +209,15 @@ export default async function NewslettersPage({
   const showShul = shulSeries.length > 0 && !publisherFilter;
   const nothingToShow = !showCommunity && !showShul;
 
-  const seriesName = communitySeries[0]?.name ?? shulSeries[0]?.name;
+  // From the side actually being filtered. A blank param is no filter, so the
+  // OTHER side is still the full list — reading whichever is non-empty headed
+  // ?shul=ahavat-shalom with the name of an unrelated community series, and
+  // headed a not-found page with the name of a series it had not matched.
+  const seriesName = publisherFilter
+    ? communitySeries[0]?.name
+    : shulFilter
+      ? shulSeries[0]?.name
+      : undefined;
 
   const communityCard = (n: CommunityRow) => (
     <NewsletterCard
@@ -292,6 +305,7 @@ export default async function NewslettersPage({
                     series={s}
                     seeAllHref={`/newsletters?publisher=${s.slug}`}
                     renderCard={communityCard}
+                    showHeading={!isFiltered}
                   />
                 ))}
               </div>
@@ -318,6 +332,7 @@ export default async function NewslettersPage({
                     series={s}
                     seeAllHref={`/newsletters?shul=${s.slug}`}
                     renderCard={shulCard}
+                    showHeading={!isFiltered}
                   />
                 ))}
               </div>
