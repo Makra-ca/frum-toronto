@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
       { label: "Tehillim names", count: Number(tehillimCount?.count || 0), path: "/admin/community/tehillim" },
       { label: "Blog posts", count: Number(blogPostsCount?.count || 0), path: "/admin/programs/blog" },
       { label: "Blog comments", count: Number(blogCommentsCount?.count || 0), path: "/admin/programs/blog/comments" },
-      { label: "Ask the Rabbi comments", count: Number(atrCommentsCount?.count || 0), path: "/admin/programs/rabbi/comments" },
+      { label: "Ask the Rabbi comments", count: Number(atrCommentsCount?.count || 0), path: "/admin/programs/rabbi?tab=comments" },
       { label: "Specials", count: Number(specialsCount?.count || 0), path: "/admin/programs/specials" },
       { label: "Community alerts", count: Number(alertsCount?.count || 0), path: "/admin/community/alerts" },
       { label: "Business videos", count: Number(videosCount?.count || 0), path: "/admin/businesses/video-review" },

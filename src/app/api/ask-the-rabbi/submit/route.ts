@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         `Submission ID: #${submission.id}\n\n` +
         `${question}` +
         (imageUrl ? `\n\nImage attached: ${imageUrl}` : ""),
-      linkUrl: "/admin/programs/rabbi",
+      linkUrl: "/admin/programs/rabbi?tab=submissions",
       status: "pending",
       replyTo: email,
     });
