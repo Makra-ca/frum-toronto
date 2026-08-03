@@ -259,7 +259,7 @@ export default function EditNewsletterPage({
             </Link>
           </Button>
           <h1 className="text-lg font-semibold text-gray-900">
-            {title || "Edit Newsletter"}
+            {title || "Edit Campaign"}
           </h1>
         </div>
 

@@ -280,7 +280,7 @@ export function NewsletterForm({ newsletter, isNew = false }: NewsletterFormProp
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              {isNew ? "New Newsletter" : title || "Edit Newsletter"}
+              {isNew ? "New Campaign" : title || "Edit Campaign"}
             </h1>
           </div>
         </div>

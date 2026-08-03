@@ -130,8 +130,11 @@ export default function NewslettersPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Newsletters</h1>
-            <p className="text-gray-600 mt-1">Create and manage email newsletters</p>
+            <h1 className="text-3xl font-bold text-gray-900">Email Campaigns</h1>
+            <p className="text-gray-600 mt-1">
+              Emails sent to the subscriber list. For the public newsletters
+              page, use Community &rarr; Newsletters.
+            </p>
           </div>
         </div>
         <div className="flex items-center justify-center py-12">
@@ -146,8 +149,11 @@ export default function NewslettersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Newsletters</h1>
-          <p className="text-gray-600 mt-1">Create and manage email newsletters</p>
+          <h1 className="text-3xl font-bold text-gray-900">Email Campaigns</h1>
+          <p className="text-gray-600 mt-1">
+            Emails sent to the subscriber list. For the public newsletters page,
+            use Community &rarr; Newsletters.
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
@@ -165,7 +171,7 @@ export default function NewslettersPage() {
           <Button asChild>
             <Link href="/admin/newsletters/new">
               <Plus className="h-4 w-4 mr-2" />
-              New Newsletter
+              New Campaign
             </Link>
           </Button>
         </div>

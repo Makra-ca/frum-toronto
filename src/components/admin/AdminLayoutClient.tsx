@@ -39,7 +39,7 @@ const navItems = [
   { href: "/admin/community", label: "Community", icon: Heart },
   { href: "/admin/approvals", label: "Approvals", icon: CheckCircle },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart2 },
-  { href: "/admin/newsletters", label: "Newsletters", icon: Mail },
+  { href: "/admin/newsletters", label: "Email Campaigns", icon: Mail },
   { href: "/admin/contacts", label: "Contact Messages", icon: MessageSquare },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
