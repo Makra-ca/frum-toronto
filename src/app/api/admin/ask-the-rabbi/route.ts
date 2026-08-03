@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { canManageAtr } from "@/lib/auth/atr-permissions";
+import { fromDateTimeInputs } from "@/lib/datetime";
 import { db } from "@/lib/db";
 import { askTheRabbi, askTheRabbiComments } from "@/lib/db/schema";
 import { eq, desc, sql, and, ilike, or } from "drizzle-orm";
@@ -97,7 +98,14 @@ const patchSchema = z.object({
   answer: z.string().trim().optional().nullable(),
   answeredBy: z.string().trim().max(200).optional().nullable(),
   isPublished: z.boolean().optional(),
-  publishedAt: z.string().optional().nullable(),
+  // Constrained so a malformed value cannot become an Invalid Date in the
+  // update below. See the same shape in quick-post/route.ts.
+  publishedAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected yyyy-mm-dd")
+    .refine((v) => fromDateTimeInputs(v).slice(0, 10) === v, "Not a real calendar date")
+    .optional()
+    .nullable(),
 });
 
 // PATCH /api/admin/ask-the-rabbi (with ?id=xxx)
@@ -133,12 +141,23 @@ export async function PATCH(request: NextRequest) {
     if (result.data.answeredBy !== undefined) updates.answeredBy = result.data.answeredBy;
     if (result.data.isPublished !== undefined) {
       updates.isPublished = result.data.isPublished;
-      if (result.data.isPublished && !result.data.publishedAt) {
-        updates.publishedAt = new Date();
-      }
     }
+
+    // Parsed as a Toronto day. new Date("2026-05-02") is UTC midnight, which
+    // renders as 5/1/2026 in America/Toronto — the whole date lands a day early.
     if (result.data.publishedAt !== undefined) {
-      updates.publishedAt = result.data.publishedAt ? new Date(result.data.publishedAt) : null;
+      updates.publishedAt = result.data.publishedAt
+        ? new Date(fromDateTimeInputs(result.data.publishedAt))
+        : null;
+    }
+
+    // "Publish with no date" means publish now. This must come AFTER the
+    // explicit value above: the two used to run in the opposite order, so the
+    // null branch overwrote the timestamp this one had just set, and the edit
+    // dialog sends `publishedAt: publishedAt || null` — meaning publishing with
+    // the date box empty stored NULL every time.
+    if (result.data.isPublished && !updates.publishedAt) {
+      updates.publishedAt = new Date();
     }
 
     if (Object.keys(updates).length === 0) {
