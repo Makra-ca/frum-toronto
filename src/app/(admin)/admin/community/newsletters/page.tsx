@@ -19,6 +19,7 @@ import {
 import { FileText, Loader2, Trash2, Pencil, Download, Newspaper, X } from "lucide-react";
 import { toast } from "sonner";
 import { uploadFile } from "@/lib/upload-client";
+import { toDateInputValue } from "@/lib/datetime";
 
 interface CommunityNewsletter {
   id: number;
@@ -46,6 +47,7 @@ export default function CommunityNewslettersPage() {
   const [title, setTitle] = useState("");
   const [publisher, setPublisher] = useState("");
   const [description, setDescription] = useState("");
+  const [publishedAt, setPublishedAt] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [existingFileUrl, setExistingFileUrl] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -74,6 +76,7 @@ export default function CommunityNewslettersPage() {
     setTitle("");
     setPublisher("");
     setDescription("");
+    setPublishedAt("");
     setSelectedFile(null);
     setExistingFileUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -84,6 +87,7 @@ export default function CommunityNewslettersPage() {
     setTitle(n.title);
     setPublisher(n.publisher || "");
     setDescription(n.description || "");
+    setPublishedAt(n.publishedAt ? toDateInputValue(n.publishedAt) : "");
     setSelectedFile(null);
     setExistingFileUrl(n.fileUrl);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -115,6 +119,7 @@ export default function CommunityNewslettersPage() {
           title: title.trim(),
           publisher: publisher.trim() || null,
           description: description.trim() || null,
+          publishedAt,
         };
         if (selectedFile) {
           body.fileUrl = fileUrl;
@@ -137,6 +142,7 @@ export default function CommunityNewslettersPage() {
             fileUrl,
             fileSize,
             description: description.trim() || null,
+            publishedAt,
           }),
         });
         if (!res.ok) throw new Error("Failed to create");
@@ -208,6 +214,19 @@ export default function CommunityNewslettersPage() {
                 placeholder="e.g., Israeli News"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="publishedAt">Published</Label>
+            <Input
+              id="publishedAt"
+              type="date"
+              value={publishedAt}
+              onChange={(e) => setPublishedAt(e.target.value)}
+            />
+            <p className="text-xs text-gray-500">
+              The issue date. Leave blank for today.
+            </p>
           </div>
 
           <div className="space-y-2">

@@ -4,6 +4,20 @@ import { db } from "@/lib/db";
 import { communityNewsletters } from "@/lib/db/schema";
 import { desc } from "drizzle-orm";
 import { z } from "zod";
+import { fromDateTimeInputs } from "@/lib/datetime";
+
+/**
+ * A YYYY-MM-DD issue date to an instant, or undefined for "not supplied".
+ * Noon Toronto, because this is a calendar day rather than a moment — midnight
+ * would land on the previous day in UTC for half the year.
+ */
+function issueDate(value: string | null | undefined): Date | undefined {
+  if (!value || !value.trim()) return undefined;
+  const iso = fromDateTimeInputs(value, "12:00");
+  if (!iso) return undefined;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +27,8 @@ const createSchema = z.object({
   fileUrl: z.string().url("Valid file URL is required"),
   fileSize: z.number().int().optional().nullable(),
   description: z.string().trim().optional().nullable(),
+  /** Issue date as YYYY-MM-DD. Omit or send "" for "today". */
+  publishedAt: z.string().optional().nullable(),
 });
 
 // GET - all community newsletters (admin)
@@ -56,6 +72,9 @@ export async function POST(request: NextRequest) {
         fileUrl: result.data.fileUrl,
         fileSize: result.data.fileSize ?? null,
         description: result.data.description?.trim() || null,
+        // undefined lets the column take its defaultNow(); an explicit date
+        // is read as noon Toronto so it lands on the right calendar day.
+        publishedAt: issueDate(result.data.publishedAt),
         uploadedBy: parseInt(session.user.id),
       })
       .returning();

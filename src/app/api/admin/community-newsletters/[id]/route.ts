@@ -4,6 +4,16 @@ import { db } from "@/lib/db";
 import { communityNewsletters } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { fromDateTimeInputs } from "@/lib/datetime";
+
+/** YYYY-MM-DD to an instant at noon Toronto; undefined when blank. */
+function issueDate(value: string | null | undefined): Date | undefined {
+  if (!value || !value.trim()) return undefined;
+  const iso = fromDateTimeInputs(value, "12:00");
+  if (!iso) return undefined;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +24,8 @@ const updateSchema = z.object({
   fileSize: z.number().int().optional().nullable(),
   description: z.string().trim().optional().nullable(),
   isActive: z.boolean().optional(),
+  /** YYYY-MM-DD, or "" to clear it. */
+  publishedAt: z.string().optional().nullable(),
 });
 
 export async function PATCH(
@@ -45,6 +57,13 @@ export async function PATCH(
     if (result.data.fileSize !== undefined) updates.fileSize = result.data.fileSize;
     if (result.data.description !== undefined) updates.description = result.data.description?.trim() || null;
     if (result.data.isActive !== undefined) updates.isActive = result.data.isActive;
+    // Guarded like every other field: an unconditional key would make the
+    // updates object never empty, bypassing the 400 below and turning an empty
+    // PATCH into a 500. An explicit "" clears the date; `undefined` in a
+    // Drizzle .set() means leave unchanged, so null is the only way to remove it.
+    if (result.data.publishedAt !== undefined) {
+      updates.publishedAt = issueDate(result.data.publishedAt) ?? null;
+    }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
