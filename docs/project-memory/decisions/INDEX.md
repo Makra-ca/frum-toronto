@@ -20,3 +20,7 @@ for the format.
 | 2026-07-31 | setApprovalStatus is the single writer of approval_status | [single-writer-for-approval-status](2026-07-31-single-writer-for-approval-status.md) |
 | 2026-07-31 | broadcast_at, not transition rules, guarantees at most one announcement | [broadcast-at-is-the-real-guard](2026-07-31-broadcast-at-is-the-real-guard.md) |
 | 2026-07-31 | Editing an approved item unpublishes it via a distinct pending_edit status | [edit-unpublishes-via-pending-edit](2026-07-31-edit-unpublishes-via-pending-edit.md) |
+| 2026-08-02 | A newsletter series is its publisher string, not a category record | [publisher-is-the-grouping-key](2026-08-02-publisher-is-the-grouping-key.md) |
+| 2026-08-02 | Publisher is chosen from a list; renames are exact, never fuzzy | [publisher-is-chosen-not-typed](2026-08-02-publisher-is-chosen-not-typed.md) |
+| 2026-08-02 | Series headings appear only once most series have a back catalogue | [group-only-when-it-earns-its-place](2026-08-02-group-only-when-it-earns-its-place.md) |
+| 2026-08-02 | A series link shows that series alone; an unknown slug is an empty state | [filtered-view-hides-the-other-section](2026-08-02-filtered-view-hides-the-other-section.md) |
