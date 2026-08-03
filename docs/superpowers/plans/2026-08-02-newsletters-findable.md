@@ -8,6 +8,47 @@
 
 **Tech Stack:** Next.js 16 App Router (Server Components), Drizzle ORM, Neon Postgres, Vitest.
 
+> ## PROGRESS — end of 2026-08-02
+>
+> **Done and committed on `main` (unpushed):** Chunk 1, Chunk 2, Task 4.1.
+>
+> | | |
+> |---|---|
+> | `1a318fa` | `src/lib/newsletters/group-series.ts` + 23 unit tests |
+> | `88fa1b6` | issue date on the admin form and both API routes + 6 integration tests |
+> | `1077fe9` | public page: grouping, `?publisher=`, `?shul=`, empty states |
+> | `645e8c9` | `shouldGroup` tightened to a majority |
+>
+> **Remaining: Chunk 3 (search) and Tasks 4.2–4.6 (admin).** Both are accurate as
+> written — four review passes — but read the two lessons below first.
+>
+> ### Two bugs the tooling could not catch, both found only by rendering
+>
+> 1. **Injected JSX closed the wrong `<div>`**, leaving a field without its
+>    `space-y-2`. `tsc` clean, eslint clean, every test green. Valid JSX that
+>    renders wrong. **After any JSX edit, `curl` the page and read the output.**
+> 2. **`shouldGroup` was written to prevent a layout and then produced it.** The
+>    rule was "any series has a back catalogue"; live data is one shul with two
+>    newsletters and four with one each, so one qualifying series switched
+>    grouping on for the whole section — five headings over lone cards. The test
+>    passed because it asserted *the rule I wrote* rather than *the outcome I
+>    wanted*. It is now a majority test. **Assert outcomes, not restatements.**
+>
+> ### Verifying anything on this page needs data
+>
+> `community_newsletters` has **zero rows**, and an unfiltered page looks
+> identical to a correctly filtered one when there is nothing to filter. Seed
+> `[TEST]`-prefixed rows with distinct `published_at` values, verify, then delete
+> them in the same session — do not leave it to a later step.
+>
+> ### Live bug found on the way, unrelated and unfixed
+>
+> `(public)/search/page.tsx:21` has a **second** label map falling back to
+> `typeConfig.businesses`. `blog`, `simchas` and `kosher-alerts` render as
+> **"Business"** in production today — 3 of 9 search types. Task 3.2 must add
+> `newsletters` there as well as to `UniversalSearch.tsx:52`, and fixing the
+> other three is a free win.
+
 **Spec:** `docs/superpowers/specs/2026-08-02-newsletters-findable-design.md` — read it first, especially *Addressability*, which is the requirement revision 1 missed.
 
 ---
