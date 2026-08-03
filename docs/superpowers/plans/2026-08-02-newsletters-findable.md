@@ -217,16 +217,22 @@ export interface Row {
 
 /** What a row is grouped by. Community newsletters use publisher, shul
  *  newsletters use the shul name — same rules, different key. */
-export type SeriesKey = (row: Row) => string | null | undefined;
+export type SeriesKey<T extends Row = Row> = (row: T) => string | null | undefined;
 
 export const byPublisher: SeriesKey = (r) => r.publisher;
 export const byShul: SeriesKey = (r) => r.shulName;
 
-export interface Series {
+/**
+ * Generic in T so the CALLER's row type survives. The cards render fileSize,
+ * description and shulSlug; a non-generic Series would hand back a bare `Row`
+ * without them and Chunk 2 would not compile. Widening `Row` instead would put
+ * shul-specific columns in a module that is meant to be key-agnostic.
+ */
+export interface Series<T extends Row = Row> {
   name: string;        // display name, from the newest issue
   slug: string;
-  latest: Row;
-  past: Row[];
+  latest: T;
+  past: T[];
   hasMore: boolean;
 }
 
@@ -239,21 +245,21 @@ function byNewest(a: Row, b: Row): number {
   return bt - at || b.id - a.id;
 }
 
-export function groupSeries(
-  rows: Row[],
-  keyOf: SeriesKey,
+export function groupSeries<T extends Row>(
+  rows: T[],
+  keyOf: SeriesKey<T>,
   opts: { pastLimit?: number } = {}
-): Series[] {
+): Series<T>[] {
   const pastLimit = opts.pastLimit ?? DEFAULT_PAST_LIMIT;
 
-  const bySlug = new Map<string, Row[]>();
+  const bySlug = new Map<string, T[]>();
   for (const r of rows) {
     if (r.isActive === false) continue;
     const slug = seriesSlug(keyOf(r));
     (bySlug.get(slug) ?? bySlug.set(slug, []).get(slug)!).push(r);
   }
 
-  const series: Series[] = [];
+  const series: Series<T>[] = [];
   for (const [slug, group] of bySlug) {
     group.sort(byNewest);
     const [latest, ...rest] = group;
@@ -279,6 +285,8 @@ export function groupSeries(
 
 ---
 
+> **Do Task 4.1 (the publication date) before this chunk.** Two Definition-of-done items — the filtered view and the search result — cannot be verified at all while `community_newsletters` has **zero rows**, and an unfiltered page looks identical to a correctly filtered one when there is nothing to filter. Task 4.1 makes it possible to create rows with distinct dates through the admin form. Seed two or three Israel News issues before verifying anything here, and decide whether they stay or are deleted afterwards.
+
 ## Chunk 2: The public page
 
 ### Task 2.1: Render grouped series
@@ -295,10 +303,14 @@ export function groupSeries(
 > **Use `<details>`, not React state.** The page is an async Server Component with no `"use client"`. `<details>` needs no JavaScript, is keyboard accessible, and leaves the links in the DOM for search engines. A React toggle forces the page client-side for nothing.
 
 - [ ] Series headings nest **under** the existing `<h2>Community Newsletters</h2>` (`:97`) and `<h2>Shul Newsletters</h2>` (`:143`) — use `<h3>`, so the document outline stays sane.
+- [ ] **Fall back to today's flat grid when every series in a section has exactly one issue.** On live data the shul side is Ahavat Shalom 2, and four shuls with 1 each — grouping turns a tidy 6-card grid into five stacked headings, four of them a lone card above "Past issues (0)". Grouping should switch on when it earns its place. Same rationale as the lone-"Other" rule below.
+- [ ] **Render no `<details>` at all when `past.length === 0`.**
+- [ ] Keep the existing `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` (`:98`, `:144`) *inside* each series block; the heading sits above it.
 - [ ] **Suppress headings when the only group is "Other".** Otherwise the realistic near-term state — a few publisher-less PDFs — renders one heading reading "Other" over everything, which is worse than today's flat grid.
 - [ ] Add `.limit(200)` to both queries. They are unbounded `select()` under `force-dynamic` — the shape that made `/kosher-alerts` take 46 seconds after the legacy import.
-- [ ] Order `desc(publishedAt), desc(id)`. Drizzle's `desc()` emits no `NULLS LAST` and Postgres sorts NULLs first — safe here **only** because the module re-sorts and the limit is 200, so an undated row cannot displace a real one out of the window. If the limit ever tightens, add `NULLS LAST`.
-- [ ] **Render the "see all" link** when `series.hasMore`, pointing at the filtered view. The cap is pointless without it — the older issues become unreachable.
+- [ ] Order `desc(publishedAt), desc(id)`. Drizzle's `desc()` emits no `NULLS LAST` and Postgres sorts NULLs first — safe here **only** because the module re-sorts and the limit is 200, so an undated row cannot displace a real one out of the window. If the limit ever tightens, add `NULLS LAST`. *(A deliberate deviation from the spec, which mandates it unconditionally.)*
+- [ ] **Render the "see all" link** when `series.hasMore`, pointing at the filtered view.
+- [ ] **The filtered view must be uncapped**, or the link goes to a page applying the same 12-cap and issue #14 stays unreachable — the exact failure the link exists to prevent. Pass `{ pastLimit: Number.POSITIVE_INFINITY }` when a filter is active and suppress "see all" there. Unit test: an infinite `pastLimit` returns every past issue with `hasMore === false`.
 - [ ] Verify by hand: `/newsletters` still shows the six shul newsletters unchanged.
 - [ ] Commit.
 
@@ -324,7 +336,10 @@ it("returns nothing for an unknown publisher, so the page can offer the full lis
 ```ts
 /** One series by slug, for the shareable link. Empty array = unknown slug,
  *  which the page renders as an empty state rather than a 404. */
-export function selectSeries(series: Series[], slug: string | undefined): Series[] {
+export function selectSeries<T extends Row>(
+  series: Series<T>[],
+  slug: string | undefined
+): Series<T>[] {
   if (!slug) return series;
   return series.filter((s) => s.slug === seriesSlug(slug));
 }
@@ -337,7 +352,10 @@ export function selectSeries(series: Series[], slug: string | undefined): Series
   }) {
     const { publisher, shul } = await searchParams;
   ```
-- [ ] Filter the matching side through `selectSeries`. `?publisher=` shows **that series only** — the shul section is hidden entirely, not left full. Otherwise the link you send the three readers renders Israel News *plus all six parsha sheets*, which is close to the state they complained about. `?shul=` does the mirror. **An unknown slug renders an empty state with a link to the full list — never a 404**, because these URLs will be pasted into emails and outlive a rename.
+- [ ] Filter the matching side through `selectSeries`.
+- [ ] **Re-derive section visibility from the FILTERED series, not the raw rows.** `hasAny` (`page.tsx:66`), `community.length > 0` (`:95`) and `shulNewsletters.length > 0` (`:141`) all read the raw query arrays, so under `?publisher=made-up` the rows still exist: the empty-state card never shows, the Community heading renders with nothing under it, and the shul section renders in full. Gate each section on its filtered `series.length > 0`, and the empty-state card on both being empty.
+- [ ] **Distinguish "no such series" from "nothing published yet."** A filter that matched nothing gets its own copy with a link to the full list — this URL will be in emails and will outlive a publisher rename. `?publisher=` shows **that series only** — the shul section is hidden entirely, not left full. Otherwise the link you send the three readers renders Israel News *plus all six parsha sheets*, which is close to the state they complained about. `?shul=` does the mirror. **An unknown slug renders an empty state with a link to the full list — never a 404**, because these URLs will be pasted into emails and outlive a rename.
+- [ ] **Param rules, both stated because an engineer will otherwise guess:** an empty or missing param is *no filter* (test `selectSeries(series, "")` returns everything — do not use `param !== undefined`, which would hide the other section for `?publisher=`); if both params are present, `publisher` wins and `shul` is ignored, never both applied, which would render nothing.
 - [ ] Verify by hand: `/newsletters?publisher=israel-news` and `/newsletters?shul=clanton-park-synagogue`.
 - [ ] Commit.
 
@@ -355,11 +373,12 @@ Without this, a reader still has to know the page exists.
 - [ ] Write `searchNewsletters(query, limit)` modelled on `searchSimchas` (`fuzzy-search.ts:474`). It spans **both** tables — `community_newsletters` (title, publisher) and `shul_documents` (title, plus the shul name via join) — filtered to `type = 'newsletter'` and `isActive`.
 - [ ] Every suggestion's `url` is a filtered view: `/newsletters?publisher=<slug>` for a community series, **`/newsletters?shul=<slug>`** for a shul newsletter. Neither resolves to the bare page — the point is landing on the series.
 - [ ] **Both slugs come from `seriesSlug(name)` — never from `shuls.slug`.** The grouping derives its key from the shul *name*, so a search result built on the existing `shuls.slug` column (which is right there in the query and the obvious thing to reach for) would land on an empty state every time.
+- [ ] **Return one suggestion per SERIES, not per row.** Twelve issues of Israel News would otherwise return twelve suggestions all pointing at the same URL — and in `searchAll` the `perTypeLimit` is 3 (`fuzzy-search.ts:588`), so one series would consume the whole allowance and a shul newsletter could never appear beside it. Dedupe on the resolved slug, keeping the highest-scoring row; title the suggestion with the series name and subtitle it with the latest issue.
 - [ ] **Prefix the suggestion id per table** — `c-${id}` / `s-${id}`. Both tables have `serial` PKs starting at 1, and the id is rendered into a React key as `` `${type}-${id}` `` (`UniversalSearch.tsx:330`), so community #3 and shul-doc #3 in one result set collide.
 - [ ] Tests: a community newsletter is found by **publisher** name; found by **title**; a shul newsletter is found by **shul name**; a **`tefillah` row is never returned**; an inactive row is never returned.
-- [ ] Commit.
+> **Do not commit after 3.1.** `searchFunctions` is `Record<Exclude<SearchType, "all">, …>` (`suggestions/route.ts:19-32`), so adding `"newsletters"` to the union makes that object non-exhaustive and `tsc` fails until 3.2 registers it. The plan's own rule is tsc-clean before every commit; 3.1 and 3.2 are one commit.
 
-### Task 3.2: Register it
+### Task 3.2: Register it — **same commit as 3.1**
 
 **Files:** `src/app/api/search/suggestions/route.ts:30`, `src/components/search/UniversalSearch.tsx:52`
 
@@ -382,10 +401,21 @@ Without this, a reader still has to know the page exists.
 - [ ] Add `publishedAt: z.string().optional().nullable()` to both schemas.
 - [ ] **Write it into both the POST `.values({...})` (`route.ts:53-60`) and the PATCH `updates` object (`[id]/route.ts:41-47`).** A schema field alone is validated and then dropped — the column keeps its `defaultNow()`.
 - [ ] **Convert to a `Date`, and guard the empty string.** `fromDateTimeInputs` returns an **ISO string** (`datetime.ts:168-192`), but the column is `timestamp()` with no `mode: "string"`, so Drizzle demands a `Date`. And `fromDateTimeInputs("")` returns `""`, which `z.string().optional()` happily accepts and `new Date("")` turns into an Invalid Date — an insert error every time the admin leaves the field blank:
+  **POST** — `undefined` maps to `sql\`default\`` and the column takes `defaultNow()`:
   ```ts
   publishedAt: result.data.publishedAt ? new Date(result.data.publishedAt) : undefined,
   ```
-- [ ] Add a date input to the form. Read it with `fromDateTimeInputs(value, "12:00")` — an issue date, not a moment; noon keeps it on the right Toronto day.
+  **PATCH is different and the same line breaks it.** That route builds `updates: Record<string, unknown>` behind `if (x !== undefined)` guards and returns **400 "No fields to update"** when the object is empty (`[id]/route.ts:40-49`). An unconditional key means the object is never empty, the 400 guard is bypassed, and Drizzle's `mapUpdateSet` strips the `undefined` and throws — an empty `PATCH {}` becomes a **500**. Also, `undefined` in `.set()` means *leave unchanged*, so a date could never be cleared:
+  ```ts
+  if (result.data.publishedAt !== undefined) {
+    updates.publishedAt = result.data.publishedAt
+      ? new Date(result.data.publishedAt)
+      : null;   // explicit null clears it
+  }
+  ```
+  Integration test: `PATCH {}` still returns 400.
+- [ ] Add a date input, and wire **all four touch points** — the form has explicit reset/populate functions and an unconditional PATCH body, so missing one is silent: state; `resetForm()` (`newsletters/page.tsx:72-80`); `startEdit()` (`:82-90`), populated via `toDateInputValue(n.publishedAt)`; and the PATCH body (`:114-118`). Miss `startEdit` and every edit opens blank-dated; miss the body and the admin thinks a change saved when it did not.
+- [ ] Read the input with `fromDateTimeInputs(value, "12:00")` — an issue date, not a moment; noon keeps it on the right Toronto day.
 - [ ] Integration tests: an explicit date is stored; **an explicitly empty `publishedAt: ""` still succeeds** (send the key, do not omit it — omitting tests a different path); omitting it falls back to now.
 - [ ] Commit.
 
@@ -393,7 +423,7 @@ Without this, a reader still has to know the page exists.
 
 **Files:** `src/app/(admin)/admin/community/newsletters/page.tsx` only
 
-- [ ] Offer publishers already used as a `<datalist>`, derived **client-side** from the list the page already fetches (`[...new Set(rows.map(r => r.publisher))]`). No new route — the data is on the page.
+- [ ] Offer publishers already used as a `<datalist>`, derived **client-side** from the list the page already fetches: `[...new Set(rows.map(r => r.publisher).filter((p): p is string => !!p))]` — `publisher` is `string | null` and `<option value={null}>` will not typecheck. No new route — the data is on the page.
 - [ ] This is the **only** guard against `Israel News` / `Israeli News` splitting an archive. The grouping test pins that they are different series; this makes picking the same one the path of least resistance.
 - [ ] Commit.
 
@@ -435,17 +465,19 @@ it("refuses a caller who is not an admin", async () => { /* 401 */ });
 ```
 
 - [ ] **Steps 2–4:** fail, implement (`eq(type,'newsletter')`, `eq(isActive,true)`, join `shuls` for the name), pass.
+- [ ] Client side too, which the task otherwise leaves implicit: a `ShulNewsletter` interface, `useState`, and a second `fetch` on the admin page.
 - [ ] Render as a read-only block — **no edit or delete controls**, because shul managers own those rows.
+- [ ] The fixture must create or look up a **shul first** — `shul_documents.shul_id` is `notNull().references(shuls.id)` (`schema.ts:485`), and the route joins `shuls`, so a missing name also weakens the assertion.
 - [ ] Commit.
 
-### Task 4.5: Deep-link into a shul's Docs
+### Task 4.5: Deep-link into a shul's Docs — **land this before 4.4**, or 4.4 ships rows linking to a param that does nothing
 
 **Files:** `src/app/(admin)/admin/shuls/page.tsx:215`
 
 > "Docs" is a client-state dialog (`<Dialog open={!!docsShul}>` driven by `setDocsShul`), not a route. Without this the read-only block's link has no target.
 
 - [ ] **The effect must depend on the loaded shul list, not run on mount.** `docsShul` holds a whole `Shul` object (`:36`, read at `:219` and `:222`), and the list arrives from an async fetch in a separate effect (`:38-55`). On mount `shuls` is `[]`, so a mount-time lookup finds nothing and the dialog silently never opens.
-- [ ] **Wrap in `<Suspense>`.** The page is `"use client"` with no `useSearchParams` today; adding one without a boundary breaks the build. `(public)/search/page.tsx:3,185-187` is the precedent this repo already had to add.
+- [ ] `useSearchParams` needs **no** Suspense boundary here — `(admin)/admin/layout.tsx:12` awaits `auth()`, so the whole admin segment is dynamic and nothing is statically prerendered. `admin/users/page.tsx:139` already renders a `useSearchParams` component with no boundary and builds fine. (An earlier revision of this plan claimed otherwise; it was wrong.)
 - [ ] Link each read-only row to `/admin/shuls?docs=<shulId>`.
 - [ ] Verify by hand.
 - [ ] Commit.
@@ -455,6 +487,7 @@ it("refuses a caller who is not an admin", async () => { /* 401 */ });
 **Files:** `src/components/admin/AdminLayoutClient.tsx:42`, `src/app/(admin)/admin/newsletters/page.tsx:133,149,168`
 
 - [ ] Sidebar label → **Email Campaigns**.
+- [ ] `NewsletterForm.tsx:283` — `{isNew ? "New Newsletter" : …}`, reachable from `/admin/newsletters/new`. Renaming the list page but not the form its button opens leaves the ambiguity one click deeper.
 - [ ] **Both `<h1>Newsletters</h1>` too**, and ":168 New Newsletter" → "New Campaign". Renaming only the sidebar leaves an admin clicking "Email Campaigns" and landing on a page headed "Newsletters" — the ambiguity surviving at exactly the moment the expensive mistake is made.
 - [ ] Active-state matching is on `href`, not `label` (`AdminLayoutClient.tsx:67-69`), so no route changes.
 - [ ] `ShulDocuments.tsx:320` keeps its "Newsletters (n)" header — scoped inside a per-shul dialog, deliberately unchanged.
