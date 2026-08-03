@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { render, screen, waitFor } from "@testing-library/react";
 import CommunityNewslettersPage from "@/app/(admin)/admin/community/newsletters/page";
 
 /**
@@ -135,13 +135,13 @@ describe("admin community newsletters", () => {
     render(<CommunityNewslettersPage />);
     await screen.findByText("[TEST] issue 1");
 
-    const options = Array.from(
-      document.querySelectorAll("#publisher-options option")
-    ).map((o) => o.getAttribute("value"));
+    await userEvent.click(screen.getByLabelText("Publisher / Source"));
 
     // Deduped, and neither a null nor a whitespace-only publisher becomes a
-    // blank suggestion.
-    expect(options).toEqual(["BAYT Bulletin", "Israel News"]);
+    // blank entry.
+    expect(await screen.findByRole("option", { name: "Israel News" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "BAYT Bulletin" })).toBeInTheDocument();
+    expect(screen.getAllByRole("option", { name: "Israel News" })).toHaveLength(1);
   });
 
   it("lists shul newsletters read-only, linking into that shul's Docs dialog", async () => {
@@ -186,17 +186,32 @@ describe("admin community newsletters", () => {
     expect(screen.queryByText("Shul newsletters")).toBeNull();
   });
 
-  it("wires the datalist to the publisher field", async () => {
-    // An option list nothing points at is invisible — the whole guard against
-    // "Israel News" / "Israeli News" depends on this attribute.
-    mockList([row({ id: 1 })]);
+  it("lets a publisher be chosen without typing it", async () => {
+    // The outcome that matters: reusing an existing name must not involve the
+    // keyboard at all, because every keystroke is a chance to split a series.
+    mockList([row({ id: 1, publisher: "Israel News" })]);
 
     render(<CommunityNewslettersPage />);
     await screen.findByText("[TEST] issue 1");
 
-    expect(screen.getByLabelText("Publisher / Source")).toHaveAttribute(
-      "list",
-      "publisher-options"
-    );
+    await userEvent.click(screen.getByLabelText("Publisher / Source"));
+    await userEvent.click(await screen.findByRole("option", { name: "Israel News" }));
+
+    expect(screen.getByLabelText("Publisher / Source")).toHaveTextContent("Israel News");
+    // No free-text box while an existing publisher is selected.
+    expect(screen.queryByPlaceholderText("e.g., Israel News")).not.toBeInTheDocument();
+  });
+
+  it("makes introducing a new publisher a deliberate, separate step", async () => {
+    mockList([row({ id: 1, publisher: "Israel News" })]);
+
+    render(<CommunityNewslettersPage />);
+    await screen.findByText("[TEST] issue 1");
+
+    await userEvent.click(screen.getByLabelText("Publisher / Source"));
+    await userEvent.click(await screen.findByRole("option", { name: /New publisher/ }));
+
+    // Only now does a text box appear — a typo becomes a choice, not a slip.
+    expect(await screen.findByPlaceholderText("e.g., Israel News")).toBeInTheDocument();
   });
 });

@@ -32,6 +32,13 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { uploadFile } from "@/lib/upload-client";
 import { toDateInputValue } from "@/lib/datetime";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /** A shul's own newsletter — listed here, but owned and edited by the shul. */
 interface ShulNewsletter {
@@ -62,6 +69,10 @@ function formatFileSize(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Radix SelectItem cannot take an empty value, so both states need sentinels. */
+const NO_PUBLISHER = "__none__";
+const NEW_PUBLISHER = "__new__";
+
 export default function CommunityNewslettersPage() {
   const [newsletters, setNewsletters] = useState<CommunityNewsletter[]>([]);
   const [shulNewsletters, setShulNewsletters] = useState<ShulNewsletter[]>([]);
@@ -73,6 +84,7 @@ export default function CommunityNewslettersPage() {
   const [publisher, setPublisher] = useState("");
   const [description, setDescription] = useState("");
   const [publishedAt, setPublishedAt] = useState("");
+  const [isNewPublisher, setIsNewPublisher] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [existingFileUrl, setExistingFileUrl] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -151,6 +163,7 @@ export default function CommunityNewslettersPage() {
     setPublisher("");
     setDescription("");
     setPublishedAt("");
+    setIsNewPublisher(false);
     setSelectedFile(null);
     setExistingFileUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -162,6 +175,12 @@ export default function CommunityNewslettersPage() {
     setPublisher(n.publisher || "");
     setDescription(n.description || "");
     setPublishedAt(n.publishedAt ? toDateInputValue(n.publishedAt) : "");
+    // An existing publisher no longer in the list (its only other issue was
+    // deleted) must still be editable rather than silently reset.
+    setIsNewPublisher(
+      Boolean(n.publisher?.trim()) &&
+        !knownPublishers.includes(n.publisher!.trim())
+    );
     setSelectedFile(null);
     setExistingFileUrl(n.fileUrl);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -281,21 +300,52 @@ export default function CommunityNewslettersPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="publisher">Publisher / Source</Label>
-              <Input
-                id="publisher"
-                value={publisher}
-                onChange={(e) => setPublisher(e.target.value)}
-                placeholder="e.g., Israeli News"
-                list="publisher-options"
-                autoComplete="off"
-              />
-              <datalist id="publisher-options">
-                {knownPublishers.map((p) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
+              {/* A select, not a text box. Publisher is the grouping key, so a
+                  typo silently splits a series in two — the archive halves and
+                  a link already sent to readers shows a subset. Choosing an
+                  existing name is one click; introducing a new one is a
+                  separate, deliberate act. */}
+              <Select
+                value={
+                  isNewPublisher
+                    ? NEW_PUBLISHER
+                    : publisher.trim() || NO_PUBLISHER
+                }
+                onValueChange={(v) => {
+                  if (v === NEW_PUBLISHER) {
+                    setIsNewPublisher(true);
+                    setPublisher("");
+                  } else {
+                    setIsNewPublisher(false);
+                    setPublisher(v === NO_PUBLISHER ? "" : v);
+                  }
+                }}
+              >
+                <SelectTrigger id="publisher">
+                  <SelectValue placeholder="Choose a publisher" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_PUBLISHER}>No publisher</SelectItem>
+                  {knownPublishers.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={NEW_PUBLISHER}>+ New publisher…</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {isNewPublisher && (
+                <Input
+                  autoFocus
+                  value={publisher}
+                  onChange={(e) => setPublisher(e.target.value)}
+                  placeholder="e.g., Israel News"
+                />
+              )}
+
               <p className="text-xs text-gray-500">
-                Groups issues into one named series on the public page. Pick an
+                Groups issues into one named series on the public page. Pick the
                 existing name — a new spelling starts a separate series.
               </p>
             </div>
