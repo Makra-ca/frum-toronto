@@ -142,6 +142,22 @@ export function selectSeries<T extends Row>(
  *
  * So: group only when MOST series have something to collapse.
  */
+/**
+ * Every issue in every series, newest first — the ungrouped view.
+ *
+ * The counterpart to `shouldGroup`. When grouping is off the page renders one
+ * flat grid, and rendering `series.latest` there drops the back catalogue
+ * without a trace: six shul newsletters became five cards, with nothing on the
+ * page to suggest one was missing. `shouldGroup` is a *majority* rule, so a
+ * series with two issues sitting among four with one each lands exactly here.
+ *
+ * Re-sorted across series because a flat grid carries no headings, so
+ * series-by-series order would read as random.
+ */
+export function flattenSeries<T extends Row>(series: Series<T>[]): T[] {
+  return series.flatMap((s) => [s.latest, ...s.past]).sort(byNewest);
+}
+
 export function shouldGroup<T extends Row>(series: Series<T>[]): boolean {
   if (series.length === 0) return false;
   const withBackCatalogue = series.filter((s) => s.past.length > 0).length;

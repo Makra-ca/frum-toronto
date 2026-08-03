@@ -6,6 +6,7 @@ import {
   byPublisher,
   byShul,
   shouldGroup,
+  flattenSeries,
   OTHER_SLUG,
   type Row,
 } from "@/lib/newsletters/group-series";
@@ -230,5 +231,52 @@ describe("shouldGroup", () => {
 
   it("does not group nothing", () => {
     expect(shouldGroup([])).toBe(false);
+  });
+});
+
+describe("flattenSeries", () => {
+  const issue = (id: number, publisher: string, day: number) =>
+    row({ id, publisher, publishedAt: new Date(2026, 7, day) });
+
+  it("returns every issue, not one per series", () => {
+    // The counterpart to shouldGroup. When grouping is off the page renders a
+    // flat grid, and rendering series.latest there silently drops the back
+    // catalogue: six shul newsletters, five cards, with nothing to indicate a
+    // newsletter had gone missing. shouldGroup is a MAJORITY rule, so a series
+    // with two issues sitting among four with one each hits exactly this.
+    const rows = [
+      issue(1, "Ahavat Shalom", 1),
+      issue(2, "Ahavat Shalom", 8),
+      issue(3, "Bnai Torah", 2),
+      issue(4, "JEP", 3),
+      issue(5, "Kollel Yad Yosef", 4),
+      issue(6, "Clanton Park", 5),
+    ];
+
+    expect(flattenSeries(groupSeries(rows, byPublisher))).toHaveLength(6);
+  });
+
+  it("orders across series by date, not series by series", () => {
+    // A flat grid has no headings, so grouping order would read as arbitrary.
+    const rows = [
+      issue(1, "A", 1),
+      issue(2, "B", 9),
+      issue(3, "A", 5),
+    ];
+
+    expect(flattenSeries(groupSeries(rows, byPublisher)).map((r) => r.id)).toEqual([
+      2, 3, 1,
+    ]);
+  });
+
+  it("drops nothing that grouping capped", () => {
+    // A capped series reports hasMore; flattening past the cap would be a lie
+    // the flat grid cannot signal, so the cap is honoured and nothing more.
+    const rows = Array.from({ length: 20 }, (_, i) =>
+      issue(i + 1, "A", (i % 28) + 1)
+    );
+    const series = groupSeries(rows, byPublisher, { pastLimit: 12 });
+
+    expect(flattenSeries(series)).toHaveLength(13);
   });
 });

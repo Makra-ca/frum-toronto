@@ -9,6 +9,7 @@ import {
   groupSeries,
   selectSeries,
   shouldGroup,
+  flattenSeries,
   byPublisher,
   byShul,
   type Series,
@@ -310,8 +311,11 @@ export default async function NewslettersPage({
                 ))}
               </div>
             ) : (
+              // Every issue, not one per series — series.latest here drops
+              // the back catalogue of any series that has one, and a flat
+              // grid gives the reader no sign anything is missing.
               <div className={CARD_GRID}>
-                {communitySeries.map((s) => communityCard(s.latest))}
+                {flattenSeries(communitySeries).map(communityCard)}
               </div>
             )}
           </section>
@@ -338,7 +342,7 @@ export default async function NewslettersPage({
               </div>
             ) : (
               <div className={CARD_GRID}>
-                {shulSeries.map((s) => shulCard(s.latest))}
+                {flattenSeries(shulSeries).map(shulCard)}
               </div>
             )}
           </section>
