@@ -62,6 +62,7 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   blog: { label: "Blog", color: "bg-indigo-100 text-indigo-700" },
   simchas: { label: "Simcha", color: "bg-fuchsia-100 text-fuchsia-700" },
   "kosher-alerts": { label: "Kosher Alert", color: "bg-red-100 text-red-700" },
+  newsletters: { label: "Newsletter", color: "bg-sky-100 text-sky-700" },
 };
 
 export function UniversalSearch({

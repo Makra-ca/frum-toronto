@@ -13,10 +13,13 @@ import {
   simchas,
   simchaTypes,
   kosherAlerts,
+  communityNewsletters,
+  shulDocuments,
 } from "@/lib/db/schema";
 import { eq, and, or, sql, desc } from "drizzle-orm";
 import type { SearchSuggestion, SearchType } from "./types";
 import { formatInstant } from "@/lib/datetime";
+import { seriesSlug } from "@/lib/newsletters/group-series";
 
 // ─── Helpers ──────────────────────────────────────────────
 
@@ -580,6 +583,168 @@ export async function searchKosherAlerts(
   }));
 }
 
+export async function searchNewsletters(
+  query: string,
+  limit: number
+): Promise<SearchSuggestion[]> {
+  const queryLower = query.toLowerCase();
+  const searchTerm = `%${query}%`;
+
+  // Over-fetched deliberately. Unlike every other search type, a row here is
+  // not a result — a series is, and twelve issues of Israel News collapse into
+  // one suggestion. Fetching only `limit` rows would let a single popular
+  // series consume the whole allowance and hide every other newsletter.
+  const rowLimit = Math.min(limit * 5, 50);
+
+  const communityScore = sql<number>`GREATEST(
+    similarity(LOWER(${communityNewsletters.title}), ${queryLower}),
+    word_similarity(${queryLower}, LOWER(${communityNewsletters.title})),
+    similarity(LOWER(COALESCE(${communityNewsletters.publisher}, '')), ${queryLower}),
+    word_similarity(${queryLower}, LOWER(COALESCE(${communityNewsletters.publisher}, '')))
+  )`;
+
+  const shulScore = sql<number>`GREATEST(
+    similarity(LOWER(${shulDocuments.title}), ${queryLower}),
+    word_similarity(${queryLower}, LOWER(${shulDocuments.title})),
+    similarity(LOWER(${shuls.name}), ${queryLower}),
+    word_similarity(${queryLower}, LOWER(${shuls.name}))
+  )`;
+
+  const [communityRows, shulRows] = await Promise.all([
+    db
+      .select({
+        id: communityNewsletters.id,
+        title: communityNewsletters.title,
+        publisher: communityNewsletters.publisher,
+        publishedAt: communityNewsletters.publishedAt,
+        score: communityScore,
+      })
+      .from(communityNewsletters)
+      .where(
+        and(
+          eq(communityNewsletters.isActive, true),
+          or(
+            sql`LOWER(${communityNewsletters.title}) LIKE LOWER(${searchTerm})`,
+            sql`LOWER(COALESCE(${communityNewsletters.publisher}, '')) LIKE LOWER(${searchTerm})`,
+            sql`similarity(LOWER(${communityNewsletters.title}), ${queryLower}) > 0.2`,
+            sql`word_similarity(${queryLower}, LOWER(${communityNewsletters.title})) > 0.3`,
+            sql`similarity(LOWER(COALESCE(${communityNewsletters.publisher}, '')), ${queryLower}) > 0.2`,
+            sql`word_similarity(${queryLower}, LOWER(COALESCE(${communityNewsletters.publisher}, ''))) > 0.3`
+          )
+        )
+      )
+      .orderBy(sql`${communityScore} DESC`, desc(communityNewsletters.publishedAt))
+      .limit(rowLimit),
+
+    // innerJoin, not left: shul_id is NOT NULL and the shul name IS the
+    // grouping key, so a row without one has nothing to group under.
+    db
+      .select({
+        id: shulDocuments.id,
+        title: shulDocuments.title,
+        publishedAt: shulDocuments.publishedAt,
+        shulName: shuls.name,
+        score: shulScore,
+      })
+      .from(shulDocuments)
+      .innerJoin(shuls, eq(shulDocuments.shulId, shuls.id))
+      .where(
+        and(
+          // A tefillah sheet is not a newsletter and must never surface here.
+          eq(shulDocuments.type, "newsletter"),
+          eq(shulDocuments.isActive, true),
+          or(
+            sql`LOWER(${shulDocuments.title}) LIKE LOWER(${searchTerm})`,
+            sql`LOWER(${shuls.name}) LIKE LOWER(${searchTerm})`,
+            sql`similarity(LOWER(${shulDocuments.title}), ${queryLower}) > 0.2`,
+            sql`word_similarity(${queryLower}, LOWER(${shulDocuments.title})) > 0.3`,
+            sql`similarity(LOWER(${shuls.name}), ${queryLower}) > 0.2`,
+            sql`word_similarity(${queryLower}, LOWER(${shuls.name})) > 0.3`
+          )
+        )
+      )
+      .orderBy(sql`${shulScore} DESC`, desc(shulDocuments.publishedAt))
+      .limit(rowLimit),
+  ]);
+
+  interface Hit {
+    /** Dedupe key — one suggestion per destination. */
+    key: string;
+    id: string;
+    name: string;
+    issueTitle: string;
+    publishedAt: Date | null;
+    url: string;
+    score: number;
+  }
+
+  const hits: Hit[] = [
+    ...communityRows.map((r) => {
+      const publisher = (r.publisher ?? "").trim();
+      const slug = seriesSlug(r.publisher);
+      return {
+        // A publisher-less newsletter stays its own hit rather than merging
+        // into a single suggestion titled "Other". The reader searched for its
+        // title, so that is what the result has to say.
+        key: publisher ? `c:${slug}` : `c:${slug}:${r.id}`,
+        // Both tables have serial PKs starting at 1, and the id is rendered
+        // into a React key as `${type}-${id}` — unprefixed, community #3 and
+        // shul document #3 collide in one result set.
+        id: `c-${r.id}`,
+        name: publisher || r.title,
+        issueTitle: r.title,
+        publishedAt: r.publishedAt,
+        // Resolves to the series, never the bare page — landing on
+        // /newsletters unfiltered is the problem this search exists to fix.
+        url: `/newsletters?publisher=${slug}`,
+        score: Number(r.score) || 0,
+      };
+    }),
+    ...shulRows.map((r) => {
+      // From the shul NAME, never shuls.slug: the grouping key is derived from
+      // the name, so a link built on the existing slug column lands on an
+      // empty state every time.
+      const slug = seriesSlug(r.shulName);
+      return {
+        key: `s:${slug}`,
+        id: `s-${r.id}`,
+        name: r.shulName,
+        issueTitle: r.title,
+        publishedAt: r.publishedAt,
+        url: `/newsletters?shul=${slug}`,
+        score: Number(r.score) || 0,
+      };
+    }),
+  ];
+
+  // A LIKE-only match scores 0 similarity, so ties are common — fall back to
+  // the newest issue rather than whichever table answered first.
+  hits.sort(
+    (a, b) =>
+      b.score - a.score ||
+      (b.publishedAt?.getTime() ?? -Infinity) -
+        (a.publishedAt?.getTime() ?? -Infinity)
+  );
+
+  const seen = new Set<string>();
+  const suggestions: SearchSuggestion[] = [];
+  for (const hit of hits) {
+    if (seen.has(hit.key)) continue;
+    seen.add(hit.key);
+    suggestions.push({
+      id: hit.id,
+      title: hit.name,
+      subtitle: hit.issueTitle === hit.name ? undefined : hit.issueTitle,
+      url: hit.url,
+      type: "newsletters" as SearchType,
+      relevanceScore: 1000 - suggestions.length * 10,
+    });
+    if (suggestions.length >= limit) break;
+  }
+
+  return suggestions;
+}
+
 // ─── Unified Search ──────────────────────────────────────
 
 export async function searchAll(
@@ -588,7 +753,7 @@ export async function searchAll(
 ): Promise<SearchSuggestion[]> {
   const perTypeLimit = 3;
 
-  const [biz, cls, shl, shr, evt, atr, blg, sim, kos] = await Promise.all([
+  const [biz, cls, shl, shr, evt, atr, blg, sim, kos, nws] = await Promise.all([
     searchBusinesses(query, perTypeLimit),
     searchClassifieds(query, perTypeLimit),
     searchShuls(query, perTypeLimit),
@@ -598,9 +763,10 @@ export async function searchAll(
     searchBlog(query, perTypeLimit),
     searchSimchas(query, perTypeLimit),
     searchKosherAlerts(query, perTypeLimit),
+    searchNewsletters(query, perTypeLimit),
   ]);
 
-  const all = [...biz, ...cls, ...shl, ...shr, ...evt, ...atr, ...blg, ...sim, ...kos];
+  const all = [...biz, ...cls, ...shl, ...shr, ...evt, ...atr, ...blg, ...sim, ...kos, ...nws];
   all.sort((a, b) => b.relevanceScore - a.relevanceScore);
   return all.slice(0, limit);
 }

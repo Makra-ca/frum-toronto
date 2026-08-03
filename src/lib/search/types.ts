@@ -8,6 +8,7 @@ export type SearchType =
   | "blog"
   | "simchas"
   | "kosher-alerts"
+  | "newsletters"
   | "all";
 
 export interface SearchSuggestion {

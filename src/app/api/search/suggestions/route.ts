@@ -9,6 +9,7 @@ import {
   searchBlog,
   searchSimchas,
   searchKosherAlerts,
+  searchNewsletters,
   searchAll,
 } from "@/lib/search/fuzzy-search";
 import type { SearchType, SearchSuggestion, SuggestionsResponse } from "@/lib/search/types";
@@ -29,6 +30,7 @@ const searchFunctions: Record<
   blog: searchBlog,
   simchas: searchSimchas,
   "kosher-alerts": searchKosherAlerts,
+  newsletters: searchNewsletters,
 };
 
 export async function GET(request: NextRequest) {

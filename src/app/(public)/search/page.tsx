@@ -13,6 +13,10 @@ import {
   Landmark,
   BookOpen,
   Calendar,
+  PenLine,
+  PartyPopper,
+  ShieldAlert,
+  Newspaper,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UniversalSearch } from "@/components/search/UniversalSearch";
@@ -25,6 +29,15 @@ const typeConfig: Record<string, { label: string; icon: React.ComponentType<{ cl
   shuls: { label: "Shul", icon: Landmark, color: "bg-amber-100 text-amber-700" },
   shiurim: { label: "Shiur", icon: BookOpen, color: "bg-teal-100 text-teal-700" },
   events: { label: "Event", icon: Calendar, color: "bg-pink-100 text-pink-700" },
+  // The four below were missing while their types were already searchable, and
+  // the lookup at the render site falls back to `typeConfig.businesses` — so a
+  // blog post, a simcha and a kosher alert all rendered as "Business" with a
+  // building icon. Labels and colours match TYPE_LABELS in UniversalSearch, the
+  // other surface these same results appear on.
+  blog: { label: "Blog", icon: PenLine, color: "bg-indigo-100 text-indigo-700" },
+  simchas: { label: "Simcha", icon: PartyPopper, color: "bg-fuchsia-100 text-fuchsia-700" },
+  "kosher-alerts": { label: "Kosher Alert", icon: ShieldAlert, color: "bg-red-100 text-red-700" },
+  newsletters: { label: "Newsletter", icon: Newspaper, color: "bg-sky-100 text-sky-700" },
 };
 
 function SearchPageContent() {
