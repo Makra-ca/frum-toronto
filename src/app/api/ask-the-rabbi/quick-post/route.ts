@@ -6,6 +6,7 @@ import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import { fromDateTimeInputs } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,16 @@ const quickPostSchema = z.object({
   answer: z.string().trim().min(20, "Answer must be at least 20 characters"),
   category: z.string().trim().max(100).optional(),
   answeredBy: z.string().trim().max(200).optional(),
+  // The form has always sent this; the schema never listed it, and z.object()
+  // strips unknown keys silently, so the value was discarded.
+  publishedAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected yyyy-mm-dd")
+    // The regex alone admits 2026-13-45, and fromDateTimeInputs uses the same
+    // pattern, so it would not reject it either — the date would silently roll
+    // over into the next month. Require the parse to round-trip.
+    .refine((v) => fromDateTimeInputs(v).slice(0, 10) === v, "Not a real calendar date")
+    .optional(),
 });
 
 // POST /api/ask-the-rabbi/quick-post
@@ -59,15 +70,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { title, question, answer, category, answeredBy } = result.data;
+    const { title, question, answer, category, answeredBy, publishedAt } = result.data;
 
-    // Determine answeredBy — fall back to session name or default
-    const resolvedAnsweredBy =
-      answeredBy ||
-      [session.user.name].filter(Boolean).join("") ||
-      "FrumToronto Rabbi";
+    // answeredBy is deliberately NOT defaulted here. The column already
+    // defaults to "Hagaon Rav Shlomo Miller Shlit'a" (schema.ts), and the old
+    // fallback chain substituted the session user's name over it — which is why
+    // nine published Q&As were credited to "Admin User" instead of the Rav.
+    // Omit the key when the form sends nothing and let the column default win.
 
-    // Get next question number (compute inside the insert for safety)
+    // Next question number. NOT atomic despite what the old comment claimed —
+    // this is a separate SELECT, so two concurrent publishes could collide on
+    // the question_number unique index. Acceptable at one or two posts a week;
+    // revisit if that changes.
     const [maxResult] = await db
       .select({ max: sql<number>`COALESCE(MAX(question_number), 0)` })
       .from(askTheRabbi);
@@ -81,9 +95,11 @@ export async function POST(request: NextRequest) {
         question,
         answer,
         category: category || null,
-        answeredBy: resolvedAnsweredBy,
+        ...(answeredBy ? { answeredBy } : {}),
         isPublished: true,
-        publishedAt: new Date(),
+        publishedAt: publishedAt
+          ? new Date(fromDateTimeInputs(publishedAt))
+          : new Date(),
       })
       .returning();
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { shulRegistrationRequests, userShuls, users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -73,11 +73,13 @@ export async function PUT(request: Request, { params }: RouteParams) {
         assignedBy: adminId,
       });
 
-      // Update user role to "shul" if not already
+      // Promote a plain member only — see the note in admin/user-shuls. An
+      // unconditional update here would demote an admin who approved their own
+      // shul request.
       await db
         .update(users)
         .set({ role: "shul", updatedAt: new Date() })
-        .where(eq(users.id, existingRequest.userId));
+        .where(and(eq(users.id, existingRequest.userId), eq(users.role, "member")));
     }
 
     return NextResponse.json({

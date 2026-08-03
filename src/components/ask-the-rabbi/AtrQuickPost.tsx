@@ -13,15 +13,23 @@ import { toast } from "sonner";
 
 interface AtrQuickPostProps {
   canManageAtr: boolean;
+  /**
+   * Called after a successful publish. router.refresh() below only refreshes
+   * server-rendered content, so it does nothing for a client-fetched list —
+   * the management tabs use this to move to Questions, which refetches on
+   * mount. The public page passes nothing and is unaffected.
+   */
+  onPublished?: () => void;
 }
 
-export function AtrQuickPost({ canManageAtr }: AtrQuickPostProps) {
+export function AtrQuickPost({ canManageAtr, onPublished }: AtrQuickPostProps) {
   const { data: session } = useSession();
   const router = useRouter();
 
   const [title, setTitle] = useState("");
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [answeredBy, setAnsweredBy] = useState("Hagaon Rav Shlomo Miller Shlit'a");
   const [publishedAt, setPublishedAt] = useState(
     new Date().toISOString().slice(0, 10)
   );
@@ -57,6 +65,7 @@ export function AtrQuickPost({ canManageAtr }: AtrQuickPostProps) {
           title: title.trim(),
           question: question.trim(),
           answer: answer.trim(),
+          answeredBy: answeredBy.trim() || undefined,
           publishedAt: publishedAt || undefined,
         }),
       });
@@ -71,8 +80,10 @@ export function AtrQuickPost({ canManageAtr }: AtrQuickPostProps) {
       setTitle("");
       setQuestion("");
       setAnswer("");
+      setAnsweredBy("Hagaon Rav Shlomo Miller Shlit'a");
       setPublishedAt(new Date().toISOString().slice(0, 10));
       router.refresh();
+      onPublished?.();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to publish question";
       setError(msg);
@@ -130,6 +141,19 @@ export function AtrQuickPost({ canManageAtr }: AtrQuickPostProps) {
               placeholder="The Rabbi's answer..."
               rows={5}
               className="bg-white resize-y"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="atr-answered-by" className="text-sm font-medium">
+              Answered By
+            </Label>
+            <Input
+              id="atr-answered-by"
+              value={answeredBy}
+              onChange={(e) => setAnsweredBy(e.target.value)}
+              placeholder="Hagaon Rav Shlomo Miller Shlit'a"
+              className="bg-white"
             />
           </div>
 

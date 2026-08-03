@@ -220,7 +220,7 @@ export async function POST(
         `Question: ${question.title}\n` +
         `By: ${authorName}\n\n` +
         content.trim(),
-      linkUrl: "/admin/programs/rabbi/comments",
+      linkUrl: "/admin/programs/rabbi?tab=comments",
       status: approvalStatus === "pending" ? "pending" : "auto_approved",
     });
 

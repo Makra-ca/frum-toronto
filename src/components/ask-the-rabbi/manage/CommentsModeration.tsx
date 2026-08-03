@@ -43,6 +43,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { formatInstant } from "@/lib/datetime";
 
+
 interface AtrComment {
   id: number;
   content: string;
@@ -60,7 +61,7 @@ interface Pagination {
   totalPages: number;
 }
 
-export default function AtrCommentsPage() {
+export function CommentsModeration() {
   const [comments, setComments] = useState<AtrComment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("pending");
@@ -74,6 +75,9 @@ export default function AtrCommentsPage() {
   // Delete dialog
   const [deleteComment, setDeleteComment] = useState<AtrComment | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Ported from the dashboard implementation: without it a double click
+  // fires approve/reject twice, because the list only refreshes after.
+  const [actingId, setActingId] = useState<number | null>(null);
 
   const fetchComments = useCallback(async () => {
     setIsLoading(true);
@@ -108,6 +112,7 @@ export default function AtrCommentsPage() {
   }, [fetchComments]);
 
   const handleApprove = async (commentId: number) => {
+    setActingId(commentId);
     try {
       const res = await fetch(
         `/api/admin/ask-the-rabbi/comments/${commentId}/approve`,
@@ -122,10 +127,13 @@ export default function AtrCommentsPage() {
       }
     } catch {
       toast.error("Failed to approve comment");
+    } finally {
+      setActingId(null);
     }
   };
 
   const handleReject = async (commentId: number) => {
+    setActingId(commentId);
     try {
       const res = await fetch(
         `/api/admin/ask-the-rabbi/comments/${commentId}`,
@@ -144,6 +152,8 @@ export default function AtrCommentsPage() {
       }
     } catch {
       toast.error("Failed to reject comment");
+    } finally {
+      setActingId(null);
     }
   };
 
@@ -184,22 +194,10 @@ export default function AtrCommentsPage() {
     }
   };
 
-  const truncateText = (text: string, maxLength: number = 100) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  };
-
   return (
     <div className="space-y-6">
       {/* Back link + Filter */}
       <div className="flex flex-wrap items-end gap-4">
-        <Link href="/admin/programs/rabbi">
-          <Button variant="outline" size="sm">
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back to Submissions
-          </Button>
-        </Link>
-
         <div className="w-[150px]">
           <Label htmlFor="status">Status</Label>
           <Select
@@ -257,10 +255,8 @@ export default function AtrCommentsPage() {
               <TableBody>
                 {comments.map((comment) => (
                   <TableRow key={comment.id}>
-                    <TableCell className="text-sm text-gray-700 max-w-[300px]">
-                      <p className="line-clamp-2">
-                        {truncateText(comment.content)}
-                      </p>
+                    <TableCell className="text-sm text-gray-700 max-w-[420px]">
+                      <p className="whitespace-pre-wrap">{comment.content}</p>
                     </TableCell>
                     <TableCell className="text-sm">
                       <Link
@@ -287,6 +283,7 @@ export default function AtrCommentsPage() {
                               size="sm"
                               variant="ghost"
                               onClick={() => handleApprove(comment.id)}
+                              disabled={actingId === comment.id}
                               className="text-green-600 hover:text-green-700 hover:bg-green-50 h-8 w-8 p-0"
                               title="Approve"
                             >
@@ -296,6 +293,7 @@ export default function AtrCommentsPage() {
                               size="sm"
                               variant="ghost"
                               onClick={() => handleReject(comment.id)}
+                              disabled={actingId === comment.id}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
                               title="Reject"
                             >
@@ -308,6 +306,7 @@ export default function AtrCommentsPage() {
                             size="sm"
                             variant="ghost"
                             onClick={() => handleApprove(comment.id)}
+                              disabled={actingId === comment.id}
                             className="text-green-600 hover:text-green-700 hover:bg-green-50 h-8 w-8 p-0"
                             title="Approve"
                           >
