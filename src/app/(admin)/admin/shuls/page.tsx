@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,6 +35,28 @@ export default function AdminShulsPage() {
   const [deletingShul, setDeletingShul] = useState<Shul | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [docsShul, setDocsShul] = useState<Shul | null>(null);
+
+  // "Docs" is a client-state dialog rather than a route, so linking into it
+  // from elsewhere in the admin needs this. Community -> Newsletters lists
+  // shul newsletters read-only and points here to edit them.
+  const searchParams = useSearchParams();
+  const docsParam = searchParams.get("docs");
+  // Fires once per param value: `shuls` gets a new identity on every refetch,
+  // so without this an edit elsewhere on the page would re-open the dialog the
+  // admin had just closed.
+  const openedDocsFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Deliberately depends on the loaded list, not just on mount. docsShul
+    // holds a whole Shul object and the list arrives from an async fetch, so a
+    // mount-time lookup runs against [] and the dialog silently never opens.
+    if (!docsParam || shuls.length === 0) return;
+    if (openedDocsFor.current === docsParam) return;
+    const target = shuls.find((s) => String(s.id) === docsParam);
+    if (!target) return;
+    openedDocsFor.current = docsParam;
+    setDocsShul(target);
+  }, [docsParam, shuls]);
 
   async function fetchShuls() {
     try {
