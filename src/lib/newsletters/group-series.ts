@@ -134,11 +134,16 @@ export function selectSeries<T extends Row>(
 /**
  * Whether grouping earns its place yet.
  *
- * On today's data the shul side is one shul with two newsletters and four with
- * one each — grouping that turns a tidy card grid into five headings, four of
- * them a lone card. Callers fall back to a flat grid until at least one series
- * actually has a back catalogue.
+ * A heading is worth it when it collapses a back catalogue; over a single card
+ * it is just noise. Today's shul side is one shul with two newsletters and four
+ * with one each — grouping on "any series has more than one issue" produced
+ * five headings with four lone cards beneath them, which is worse than the flat
+ * grid it replaced.
+ *
+ * So: group only when MOST series have something to collapse.
  */
 export function shouldGroup<T extends Row>(series: Series<T>[]): boolean {
-  return series.some((s) => s.past.length > 0);
+  if (series.length === 0) return false;
+  const withBackCatalogue = series.filter((s) => s.past.length > 0).length;
+  return withBackCatalogue * 2 > series.length;
 }

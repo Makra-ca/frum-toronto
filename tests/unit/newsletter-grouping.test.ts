@@ -5,6 +5,7 @@ import {
   selectSeries,
   byPublisher,
   byShul,
+  shouldGroup,
   OTHER_SLUG,
   type Row,
 } from "@/lib/newsletters/group-series";
@@ -186,25 +187,48 @@ describe("selectSeries", () => {
 });
 
 describe("shouldGroup", () => {
-  it("does not group while every series has a single issue", () => {
-    // Live data today: four shuls with one newsletter each. Grouping would
-    // turn a tidy card grid into four headings over four lone cards.
-    const single = groupSeries(
-      [row({ id: 1, publisher: "A" }), row({ id: 2, publisher: "B" })],
-      byPublisher
-    );
-    expect(single.some((s) => s.past.length > 0)).toBe(false);
+  const seriesFrom = (rows: Row[]) => groupSeries(rows, byPublisher);
+  const issue = (id: number, publisher: string, day: number) =>
+    row({ id, publisher, publishedAt: new Date(2026, 7, day) });
+
+  it("does not group when every series has a single issue", () => {
+    expect(
+      shouldGroup(seriesFrom([issue(1, "A", 1), issue(2, "B", 2)]))
+    ).toBe(false);
   });
 
-  it("groups once any series has more than one issue", () => {
-    const mixed = groupSeries(
-      [
-        row({ id: 1, publisher: "A", publishedAt: new Date("2026-08-01") }),
-        row({ id: 2, publisher: "A", publishedAt: new Date("2026-08-08") }),
-        row({ id: 3, publisher: "B" }),
-      ],
-      byPublisher
-    );
-    expect(mixed.some((s) => s.past.length > 0)).toBe(true);
+  it("does not group when only a minority have a back catalogue", () => {
+    // The live shul side: Ahavat Shalom has 2, four other shuls have 1 each.
+    // Grouping produced five headings, four of them over a lone card.
+    const rows = [
+      issue(1, "Ahavat Shalom", 1),
+      issue(2, "Ahavat Shalom", 8),
+      issue(3, "Bnai Torah", 2),
+      issue(4, "JEP", 3),
+      issue(5, "Kollel Yad Yosef", 4),
+      issue(6, "Clanton Park", 5),
+    ];
+    expect(shouldGroup(seriesFrom(rows))).toBe(false);
+  });
+
+  it("groups when most series have a back catalogue", () => {
+    const rows = [
+      issue(1, "A", 1),
+      issue(2, "A", 8),
+      issue(3, "B", 2),
+      issue(4, "B", 9),
+      issue(5, "C", 3),
+    ];
+    expect(shouldGroup(seriesFrom(rows))).toBe(true);
+  });
+
+  it("groups a single series with a back catalogue — the Israel News case", () => {
+    expect(
+      shouldGroup(seriesFrom([issue(1, "Israel News", 1), issue(2, "Israel News", 8)]))
+    ).toBe(true);
+  });
+
+  it("does not group nothing", () => {
+    expect(shouldGroup([])).toBe(false);
   });
 });
