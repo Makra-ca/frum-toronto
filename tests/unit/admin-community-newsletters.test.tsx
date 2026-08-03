@@ -41,14 +41,28 @@ const row = (o: Partial<Row> & { id: number }): Row => ({
   ...o,
 });
 
+interface ShulRow {
+  id: number;
+  title: string;
+  fileUrl: string;
+  fileSize: number | null;
+  description: string | null;
+  publishedAt: string | null;
+  shulId: number;
+  shulName: string;
+}
+
 let patched: Array<{ url: string; body: unknown }>;
 
-function mockList(rows: Row[]) {
+function mockList(rows: Row[], shulRows: ShulRow[] = []) {
   patched = [];
   global.fetch = vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === "PATCH") {
       patched.push({ url, body: JSON.parse(String(init.body)) });
       return { ok: true, json: async () => ({}) };
+    }
+    if (url.includes("shul-list")) {
+      return { ok: true, json: async () => shulRows };
     }
     return { ok: true, json: async () => rows };
   }) as unknown as typeof fetch;
@@ -128,6 +142,48 @@ describe("admin community newsletters", () => {
     // Deduped, and neither a null nor a whitespace-only publisher becomes a
     // blank suggestion.
     expect(options).toEqual(["BAYT Bulletin", "Israel News"]);
+  });
+
+  it("lists shul newsletters read-only, linking into that shul's Docs dialog", async () => {
+    mockList(
+      [row({ id: 1, title: "[TEST] Community issue" })],
+      [
+        {
+          id: 55,
+          title: "[TEST] Parshas Devarim",
+          fileUrl: "https://example.com/d.pdf",
+          fileSize: null,
+          description: null,
+          publishedAt: null,
+          shulId: 12,
+          shulName: "[TEST] Clanton Park",
+        },
+      ]
+    );
+
+    render(<CommunityNewslettersPage />);
+
+    await screen.findByText("[TEST] Parshas Devarim");
+    expect(screen.getByText("[TEST] Clanton Park")).toBeTruthy();
+    // The shul, not the document: Docs is a per-shul dialog.
+    expect(screen.getByText("Manage in Shuls").closest("a")).toHaveAttribute(
+      "href",
+      "/admin/shuls?docs=12"
+    );
+
+    // Read-only. Shul managers own these rows, and the edit/delete controls
+    // here would act on community newsletters they do not belong to.
+    const shulCard = screen.getByText("[TEST] Parshas Devarim").closest("div.p-4");
+    expect(shulCard?.querySelector("button")).toBeNull();
+  });
+
+  it("shows no shul section when there are no shul newsletters", async () => {
+    mockList([row({ id: 1 })], []);
+
+    render(<CommunityNewslettersPage />);
+
+    await screen.findByText("[TEST] issue 1");
+    expect(screen.queryByText("Shul newsletters")).toBeNull();
   });
 
   it("wires the datalist to the publisher field", async () => {

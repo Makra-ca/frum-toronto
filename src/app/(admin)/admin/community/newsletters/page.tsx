@@ -26,10 +26,24 @@ import {
   X,
   Eye,
   EyeOff,
+  Building2,
 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { uploadFile } from "@/lib/upload-client";
 import { toDateInputValue } from "@/lib/datetime";
+
+/** A shul's own newsletter — listed here, but owned and edited by the shul. */
+interface ShulNewsletter {
+  id: number;
+  title: string;
+  fileUrl: string;
+  fileSize: number | null;
+  description: string | null;
+  publishedAt: string | null;
+  shulId: number;
+  shulName: string;
+}
 
 interface CommunityNewsletter {
   id: number;
@@ -50,6 +64,7 @@ function formatFileSize(bytes: number | null): string {
 
 export default function CommunityNewslettersPage() {
   const [newsletters, setNewsletters] = useState<CommunityNewsletter[]>([]);
+  const [shulNewsletters, setShulNewsletters] = useState<ShulNewsletter[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Create/edit form
@@ -78,9 +93,22 @@ export default function CommunityNewslettersPage() {
     }
   }, []);
 
+  // Two tables feed one public page, managed from two unrelated screens — so
+  // until now no screen could answer "what is live right now". This one reads
+  // across both; the shul side stays read-only because shul managers own it.
+  const fetchShulNewsletters = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/community-newsletters/shul-list");
+      if (res.ok) setShulNewsletters(await res.json());
+    } catch {
+      toast.error("Failed to load shul newsletters");
+    }
+  }, []);
+
   useEffect(() => {
     fetchNewsletters();
-  }, [fetchNewsletters]);
+    fetchShulNewsletters();
+  }, [fetchNewsletters, fetchShulNewsletters]);
 
   // Publishers already in use, offered as suggestions. This is the only thing
   // standing between "Israel News" and "Israeli News" splitting one archive
@@ -418,6 +446,52 @@ export default function CommunityNewslettersPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Read-only: these rows belong to the shuls, which upload them
+          themselves through Shuls → Docs. They are listed here so this screen
+          shows everything on the public newsletters page, not so it can edit
+          them — hence a link out rather than edit and delete controls. */}
+      {shulNewsletters.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Shul newsletters
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">
+              Also live on the public newsletters page. Uploaded and edited by
+              each shul under Shuls → Docs.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {shulNewsletters.map((n) => (
+              <Card key={n.id} className="bg-gray-50/60">
+                <CardContent className="p-4">
+                  <p className="font-medium truncate">{n.title}</p>
+                  <p className="text-xs text-gray-500">{n.shulName}</p>
+                  <div className="flex items-center gap-3 mt-2">
+                    <a
+                      href={n.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                    >
+                      <Download className="h-3 w-3" /> View
+                      {n.fileSize ? ` (${formatFileSize(n.fileSize)})` : ""}
+                    </a>
+                    <Link
+                      href={`/admin/shuls?docs=${n.shulId}`}
+                      className="inline-flex items-center gap-1 text-xs text-gray-600 hover:underline"
+                    >
+                      <Pencil className="h-3 w-3" /> Manage in Shuls
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
 
