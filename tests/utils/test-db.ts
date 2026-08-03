@@ -70,6 +70,11 @@ export async function createTestUser(userData: Partial<typeof schema.users.$infe
       canAutoApproveShiurim: userData.canAutoApproveShiurim ?? false,
       canAutoApproveAlerts: userData.canAutoApproveAlerts ?? false,
       canAutoApproveBlog: userData.canAutoApproveBlog ?? false,
+      // canManageAskTheRabbi is a different kind of permission from the twelve
+      // above: those let you skip review on your OWN submissions, this one lets
+      // you review OTHER people's. It was missing here for the same reason the
+      // five above once were.
+      canManageAskTheRabbi: userData.canManageAskTheRabbi ?? false,
     })
     .returning();
   return user;

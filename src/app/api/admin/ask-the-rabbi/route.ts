@@ -1,32 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
+import { canManageAtr } from "@/lib/auth/atr-permissions";
 import { db } from "@/lib/db";
-import { askTheRabbi, askTheRabbiComments, users } from "@/lib/db/schema";
+import { askTheRabbi, askTheRabbiComments } from "@/lib/db/schema";
 import { eq, desc, sql, and, ilike, or } from "drizzle-orm";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
-
-// Auth guard: admin or canManageAskTheRabbi
-async function isAuthorized(session: import("next-auth").Session | null) {
-  if (!session?.user?.id) return false;
-  if (session.user.role === "admin") return true;
-
-  const [dbUser] = await db
-    .select({ canManageAskTheRabbi: users.canManageAskTheRabbi })
-    .from(users)
-    .where(eq(users.id, parseInt(session.user.id)))
-    .limit(1);
-
-  return dbUser?.canManageAskTheRabbi === true;
-}
 
 // GET /api/admin/ask-the-rabbi
 // Returns paginated list of all questions (published and unpublished)
 export async function GET(request: NextRequest) {
   try {
     const session = await auth();
-    if (!(await isAuthorized(session))) {
+    if (!(await canManageAtr(session))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -117,7 +104,7 @@ const patchSchema = z.object({
 export async function PATCH(request: NextRequest) {
   try {
     const session = await auth();
-    if (!(await isAuthorized(session))) {
+    if (!(await canManageAtr(session))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -179,7 +166,7 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const session = await auth();
-    if (!(await isAuthorized(session))) {
+    if (!(await canManageAtr(session))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
