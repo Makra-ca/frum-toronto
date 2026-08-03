@@ -16,7 +16,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FileText, Loader2, Trash2, Pencil, Download, Newspaper, X } from "lucide-react";
+import {
+  FileText,
+  Loader2,
+  Trash2,
+  Pencil,
+  Download,
+  Newspaper,
+  X,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { toast } from "sonner";
 import { uploadFile } from "@/lib/upload-client";
 import { toDateInputValue } from "@/lib/datetime";
@@ -55,6 +65,7 @@ export default function CommunityNewslettersPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<CommunityNewsletter | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
   const fetchNewsletters = useCallback(async () => {
     try {
@@ -70,6 +81,41 @@ export default function CommunityNewslettersPage() {
   useEffect(() => {
     fetchNewsletters();
   }, [fetchNewsletters]);
+
+  // Publishers already in use, offered as suggestions. This is the only thing
+  // standing between "Israel News" and "Israeli News" splitting one archive
+  // into two series that can never be merged from the reader's side. Derived
+  // from the list already on the page — no extra request.
+  const knownPublishers = [
+    ...new Set(
+      newsletters
+        .map((n) => n.publisher?.trim())
+        .filter((p): p is string => !!p)
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+
+  // `is_active` is nullable and defaults true, so only an explicit false hides
+  // a row — matching the public page's own reading of the column.
+  const isLive = (n: CommunityNewsletter) => n.isActive !== false;
+
+  async function toggleActive(n: CommunityNewsletter) {
+    const next = !isLive(n);
+    setTogglingId(n.id);
+    try {
+      const res = await fetch(`/api/admin/community-newsletters/${n.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: next }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      toast.success(next ? "Newsletter is live" : "Newsletter hidden from the public page");
+      fetchNewsletters();
+    } catch {
+      toast.error("Failed to update newsletter");
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   function resetForm() {
     setEditingId(null);
@@ -212,7 +258,18 @@ export default function CommunityNewslettersPage() {
                 value={publisher}
                 onChange={(e) => setPublisher(e.target.value)}
                 placeholder="e.g., Israeli News"
+                list="publisher-options"
+                autoComplete="off"
               />
+              <datalist id="publisher-options">
+                {knownPublishers.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
+              <p className="text-xs text-gray-500">
+                Groups issues into one named series on the public page. Pick an
+                existing name — a new spelling starts a separate series.
+              </p>
             </div>
           </div>
 
@@ -295,11 +352,22 @@ export default function CommunityNewslettersPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {newsletters.map((n) => (
-            <Card key={n.id}>
+            <Card key={n.id} className={isLive(n) ? undefined : "bg-gray-50 border-dashed"}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-medium truncate">{n.title}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium truncate">{n.title}</p>
+                      {/* This screen's whole job is "what is live right now",
+                          and the list has no isActive filter — without a badge
+                          a hidden newsletter looks published here and is absent
+                          from the public page. */}
+                      {!isLive(n) && (
+                        <span className="flex-shrink-0 text-[11px] font-medium px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
+                          Hidden
+                        </span>
+                      )}
+                    </div>
                     {n.publisher && (
                       <p className="text-xs text-gray-500">{n.publisher}</p>
                     )}
@@ -319,6 +387,21 @@ export default function CommunityNewslettersPage() {
                     </div>
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title={isLive(n) ? "Hide from the public page" : "Show on the public page"}
+                      disabled={togglingId === n.id}
+                      onClick={() => toggleActive(n)}
+                    >
+                      {togglingId === n.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : isLive(n) ? (
+                        <Eye className="h-4 w-4" />
+                      ) : (
+                        <EyeOff className="h-4 w-4 text-gray-400" />
+                      )}
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => startEdit(n)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
