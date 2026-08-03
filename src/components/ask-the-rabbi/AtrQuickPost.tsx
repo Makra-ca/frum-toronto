@@ -13,9 +13,16 @@ import { toast } from "sonner";
 
 interface AtrQuickPostProps {
   canManageAtr: boolean;
+  /**
+   * Called after a successful publish. router.refresh() below only refreshes
+   * server-rendered content, so it does nothing for a client-fetched list —
+   * the management tabs use this to move to Questions, which refetches on
+   * mount. The public page passes nothing and is unaffected.
+   */
+  onPublished?: () => void;
 }
 
-export function AtrQuickPost({ canManageAtr }: AtrQuickPostProps) {
+export function AtrQuickPost({ canManageAtr, onPublished }: AtrQuickPostProps) {
   const { data: session } = useSession();
   const router = useRouter();
 
@@ -76,6 +83,7 @@ export function AtrQuickPost({ canManageAtr }: AtrQuickPostProps) {
       setAnsweredBy("Hagaon Rav Shlomo Miller Shlit'a");
       setPublishedAt(new Date().toISOString().slice(0, 10));
       router.refresh();
+      onPublished?.();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to publish question";
       setError(msg);

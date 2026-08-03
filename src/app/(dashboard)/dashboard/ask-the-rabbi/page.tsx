@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
@@ -16,22 +16,16 @@ import {
   MessageSquare,
   ArrowLeft,
   Lock,
-  PlusCircle,
 } from "lucide-react";
-import { AtrQuickPost } from "@/components/ask-the-rabbi/AtrQuickPost";
-import { QuestionsLibrary } from "@/components/ask-the-rabbi/manage/QuestionsLibrary";
-import { CommentsModeration } from "@/components/ask-the-rabbi/manage/CommentsModeration";
+import { AtrManageTabs } from "@/components/ask-the-rabbi/manage/AtrManageTabs";
 
 // Every screen this page renders lives in components/ask-the-rabbi/manage/, so
 // the admin panel can render the same ones. This file is the non-admin shell:
 // the person holding canManageAskTheRabbi is a `member` and cannot reach
 // /admin. See docs/superpowers/specs/2026-08-03-ask-the-rabbi-management-*.
 
-type Tab = "questions" | "comments" | "new";
-
 export default function AskTheRabbiDashboardPage() {
   const { status } = useSession();
-  const [activeTab, setActiveTab] = useState<Tab>("questions");
   const [canManage, setCanManage] = useState<boolean | null>(null);
 
   // Check permission via a lightweight API call
@@ -126,39 +120,16 @@ export default function AskTheRabbiDashboardPage() {
             </div>
 
             {/* Tab nav */}
-            <div className="flex gap-1 mt-4 border-b">
-              {(
-                [
-                  { key: "questions", label: "All Questions" },
-                  { key: "comments", label: "Pending Comments" },
-                  { key: "new", label: "New Question", icon: PlusCircle },
-                ] as { key: Tab; label: string; icon?: React.ElementType }[]
-              ).map(({ key, label, icon: Icon }) => (
-                <button
-                  key={key}
-                  onClick={() => setActiveTab(key)}
-                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                    activeTab === key
-                      ? "border-purple-600 text-purple-700"
-                      : "border-transparent text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {Icon && <Icon className="h-3.5 w-3.5" />}
-                  {label}
-                </button>
-              ))}
+            <div className="mt-4">
+              <Suspense fallback={null}>
+                {/* defaultTab="questions" is deliberate: this page has always
+                    landed on the library, and the submissions table has zero
+                    rows — defaulting the one non-admin manager to a permanently
+                    empty inbox would be a downgrade. An explicit ?tab= wins. */}
+                <AtrManageTabs defaultTab="questions" />
+              </Suspense>
             </div>
           </CardHeader>
-
-          <CardContent>
-            {activeTab === "questions" ? (
-              <QuestionsLibrary />
-            ) : activeTab === "comments" ? (
-              <CommentsModeration />
-            ) : (
-              <AtrQuickPost canManageAtr={true} />
-            )}
-          </CardContent>
         </Card>
       </div>
     </div>
