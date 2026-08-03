@@ -61,13 +61,16 @@ export async function POST(request: NextRequest) {
 
     const { title, question, answer, category, answeredBy } = result.data;
 
-    // Determine answeredBy — fall back to session name or default
-    const resolvedAnsweredBy =
-      answeredBy ||
-      [session.user.name].filter(Boolean).join("") ||
-      "FrumToronto Rabbi";
+    // answeredBy is deliberately NOT defaulted here. The column already
+    // defaults to "Hagaon Rav Shlomo Miller Shlit'a" (schema.ts), and the old
+    // fallback chain substituted the session user's name over it — which is why
+    // nine published Q&As were credited to "Admin User" instead of the Rav.
+    // Omit the key when the form sends nothing and let the column default win.
 
-    // Get next question number (compute inside the insert for safety)
+    // Next question number. NOT atomic despite what the old comment claimed —
+    // this is a separate SELECT, so two concurrent publishes could collide on
+    // the question_number unique index. Acceptable at one or two posts a week;
+    // revisit if that changes.
     const [maxResult] = await db
       .select({ max: sql<number>`COALESCE(MAX(question_number), 0)` })
       .from(askTheRabbi);
@@ -81,7 +84,7 @@ export async function POST(request: NextRequest) {
         question,
         answer,
         category: category || null,
-        answeredBy: resolvedAnsweredBy,
+        ...(answeredBy ? { answeredBy } : {}),
         isPublished: true,
         publishedAt: new Date(),
       })
