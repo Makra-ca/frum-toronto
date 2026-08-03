@@ -10,10 +10,40 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-03-ask-the-rabbi-management-consolidation-design.md`
 
-**Revision 2** — corrected after plan review. Two critical defects were found in revision 1: the guard
-replacement broke type narrowing, and the new permission helper had a signature that would silently deny
-everyone if called the way the existing one is. Both regression tests were also rewritten because neither
-could fail against the current code.
+**Revision 3** — after two further reviews, one of which executed the plan's tests and confirmed they fail
+before the fix and pass after. Revision 2's five structural fixes all hold. This revision adds a backup
+before the destructive delete, a stored-notification backfill, a branch rule, and fixes a live bug on the
+edit path that Task 4 would otherwise have walked past.
+
+### Do not push until Task 11 passes
+
+`main` is what Vercel deploys. This plan lands eleven commits; pushing part-way puts a half-migrated state
+in front of both users.
+
+```bash
+git checkout -b feature/atr-consolidation
+```
+
+Work on the branch, and merge only after Task 11. Chunk boundaries are individually deployable if you need
+to ship early — but Task 9 must **never** ship without Task 8, or `/admin` is left with no comment
+moderation UI at all.
+
+### Out of scope, and known
+
+**Rabbi Bartfeld will still receive no notification when a question arrives.** `createAdminNotification`
+inserts only for `role = "admin"` (`src/lib/notifications.ts:40-43`), and all three repointed links target
+`/admin/…`, which middleware bounces him from. This plan gives him the screens, not the signal. Fixing it
+means notifying capability holders and routing them to `/dashboard/ask-the-rabbi?tab=submissions` — a
+separate piece of work, pending the owner's decision.
+
+**Four inline copies of the permission check survive** this plan, at
+`api/admin/ask-the-rabbi/comments/route.ts:14`, `comments/[id]/route.ts:11`,
+`comments/[id]/approve/route.ts:10`, and the variant inside `quick-post/route.ts:40-48`. Task 1 removes one
+and adds a shared module; it does not claim to remove all five. Do not let the commit message say otherwise.
+
+**Neither the old check nor `canManageAtr` verifies `users.isActive`.** A blocked capability holder keeps
+API access for the life of their session, since `auth.ts` only enforces the block at sign-in. Pre-existing,
+unchanged here, worth knowing.
 
 ---
 
@@ -183,8 +213,29 @@ describe("Ask the Rabbi permission check", () => {
     expect(await canManageAtr(null)).toBe(false);
     expect(await canManageAtr({ user: {} } as never)).toBe(false);
   });
+
+  it("reads the database, not a stale token flag", async () => {
+    // The session carries canManageAskTheRabbi (auth.ts:81), so a future
+    // "optimisation" could read it instead of querying. This pins the
+    // behaviour: a session claiming false must still be allowed when the
+    // database says true, because the token may predate the grant.
+    const stale = {
+      user: { id: String(managerId), role: "member", canManageAskTheRabbi: false },
+    } as never;
+    expect(await canManageAtr(stale)).toBe(true);
+
+    // And the inverse: a forged token flag must not grant access.
+    const forged = {
+      user: { id: String(plainId), role: "member", canManageAskTheRabbi: true },
+    } as never;
+    expect(await canManageAtr(forged)).toBe(false);
+  });
 });
 ```
+
+That last test is the one that matters most. Without it, switching the implementation to
+`session.user.canManageAskTheRabbi` leaves every other test green while breaking the check in both
+directions — silently denying a newly-granted user, and trusting a client-supplied flag.
 
 - [ ] **Step 3: Run it and watch it fail**
 
@@ -211,8 +262,12 @@ import type { Session } from "next-auth";
  * matching the old isAuthorized() signature means no call site can be migrated
  * wrongly.
  *
- * Reads the database rather than the JWT: the flag is not in the token, and a
- * token minted before the flag was granted would go stale.
+ * Reads the database on purpose. `session.user.canManageAskTheRabbi` DOES
+ * exist (auth.ts:57 puts it in the token, :81 copies it to the session), and
+ * reading it would be faster — but a token minted before the flag was granted
+ * carries the stale value, so someone newly given the permission would keep
+ * being refused until their session refreshed. Do not "optimise" this into a
+ * token read.
  */
 export async function canManageAtr(session: Session | null | undefined): Promise<boolean> {
   if (!session?.user?.id) return false;
@@ -456,7 +511,13 @@ const [answeredBy, setAnsweredBy] = useState("Hagaon Rav Shlomo Miller Shlit'a")
 ```
 
 Add to the POST body: `answeredBy: answeredBy.trim() || undefined,`
-Reset it in the success handler beside the other fields.
+
+In the success handler, reset it **back to the Rav's name**, not to `""` — the next Q&A almost certainly
+has the same answerer, and an empty box reads as "unknown" rather than "defaulted":
+
+```tsx
+setAnsweredBy("Hagaon Rav Shlomo Miller Shlit'a");
+```
 Render above the Published At row, matching the existing markup:
 
 ```tsx
@@ -497,11 +558,51 @@ git commit -m "fix(atr): credit quick-published Q&As to the Rav, not the poster"
 
 - [ ] **Step 1: Write a test that exercises the real route**
 
-Create `tests/atr-quick-post-published-at.test.ts`, same mock preamble as Task 3 (hoisted `vi.mock` for
-`auth`, `require-verified`, `notifications`; then `await import` the route):
+Create `tests/atr-quick-post-published-at.test.ts` — **complete file**, not a fragment:
 
 ```ts
+import { describe, it, expect, afterAll, vi } from "vitest";
+import { inArray } from "drizzle-orm";
 import { formatInstant } from "@/lib/datetime";
+
+vi.mock("@/lib/auth/auth", () => ({
+  auth: vi.fn(async () => ({
+    user: { id: "1", role: "admin", name: "Admin User" },
+  })),
+}));
+vi.mock("@/lib/auth/require-verified", () => ({
+  assertCanPost: vi.fn(async () => null),
+}));
+vi.mock("@/lib/notifications", () => ({
+  notifyAdminOfSubmission: vi.fn(async () => undefined),
+}));
+
+const { POST } = await import("@/app/api/ask-the-rabbi/quick-post/route");
+const { db } = await import("@/lib/db");
+const { askTheRabbi } = await import("@/lib/db/schema");
+
+const created: number[] = [];
+
+afterAll(async () => {
+  // Delete by title, not by collected id: the pre-fix run returns 201 for the
+  // malformed-date case, and a row whose id never reached `created` would be
+  // orphaned in the test branch.
+  await db.delete(askTheRabbi).where(inArray(askTheRabbi.title, [base.title]));
+});
+
+function post(body: Record<string, unknown>) {
+  return POST(new Request("http://localhost/api/ask-the-rabbi/quick-post", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }) as never);
+}
+
+const base = {
+  title: "[TEST] atr publishedAt",
+  question: "q".repeat(30),
+  answer: "a".repeat(30),
+};
 
 describe("quick post publishedAt", () => {
   it("uses the date the user picked, on the Toronto day they picked", async () => {
@@ -545,11 +646,25 @@ Expected: **FAIL** — the first test shows today's date, the third returns 201 
 Add to `quickPostSchema` (lines 12-21):
 
 ```ts
-publishedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected yyyy-mm-dd").optional(),
+publishedAt: z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected yyyy-mm-dd")
+  // The regex alone admits 2026-13-45, and fromDateTimeInputs uses the same
+  // pattern — so it would not return "" and the date would silently roll over
+  // into the next month. Check the parse actually round-trips.
+  .refine((v) => {
+    const iso = fromDateTimeInputs(v);
+    return iso !== "" && iso.slice(0, 10) === v;
+  }, "Not a real calendar date")
+  .optional(),
 ```
 
-The regex is what makes the third test return 400. Zod's `z.object()` strips unknown keys silently — which
-is exactly why the form's value has been ignored since it was written.
+Zod's `z.object()` strips unknown keys silently — which is exactly why the form's value has been ignored
+since it was written.
+
+Note `fromDateTimeInputs` returns Toronto noon, so `iso.slice(0,10)` is the same calendar day as the input.
+Verify that holds when you run the tests; if a DST edge makes it drift, compare with `formatInstant`
+instead.
 
 - [ ] **Step 4: Use it in the insert**
 
@@ -574,16 +689,67 @@ cannot become `Invalid Date`:
 publishedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected yyyy-mm-dd").optional().nullable(),
 ```
 
-Then line 154:
+Then fix the whole block, lines 147-155 — **not just line 154**. As it stands the two branches contradict:
 
 ```ts
-updates.publishedAt = result.data.publishedAt
-  ? new Date(fromDateTimeInputs(result.data.publishedAt))
-  : null;
+// CURRENT — broken
+if (result.data.isPublished !== undefined) {
+  updates.isPublished = result.data.isPublished;
+  if (result.data.isPublished && !result.data.publishedAt) {
+    updates.publishedAt = new Date();          // sets it…
+  }
+}
+if (result.data.publishedAt !== undefined) {
+  updates.publishedAt = result.data.publishedAt ? … : null;   // …then nulls it
+}
 ```
 
-The only current caller sends a bare `yyyy-mm-dd` (`(dashboard)/…/page.tsx:133`), so the regex breaks
-nothing.
+The edit dialog sends `publishedAt: publishedAt || null` (`(dashboard)/…/page.tsx:133`), and `null` is not
+`undefined`, so the second block always runs. **Publishing a question with the date box empty stores NULL**
+— the exact opposite of "make the Published At date work". Replace both blocks with one:
+
+```ts
+if (result.data.isPublished !== undefined) {
+  updates.isPublished = result.data.isPublished;
+}
+
+if (result.data.publishedAt !== undefined) {
+  updates.publishedAt = result.data.publishedAt
+    ? new Date(fromDateTimeInputs(result.data.publishedAt))
+    : null;
+}
+
+// Publishing without a date means "publish now", and must be applied after the
+// explicit value above so it cannot be overwritten by the null.
+if (result.data.isPublished && !updates.publishedAt) {
+  updates.publishedAt = new Date();
+}
+```
+
+The only current caller sends a bare `yyyy-mm-dd`, so the regex breaks nothing.
+
+- [ ] **Step 5b: Pin the fixed behaviour with a test**
+
+Add to `tests/atr-quick-post-published-at.test.ts`, importing `PATCH` from
+`@/app/api/admin/ask-the-rabbi/route` alongside `POST`:
+
+```ts
+it("publishing with an empty date stamps now, not null", async () => {
+  const res = await post(base);
+  const row = await res.json();
+  created.push(row.id);
+
+  const patched = await PATCH(new Request(
+    `http://localhost/api/admin/ask-the-rabbi?id=${row.id}`,
+    { method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isPublished: true, publishedAt: null }) },
+  ) as never);
+
+  const updated = await patched.json();
+  // Fails today: the null branch overwrites the now() the branch above set.
+  expect(updated.publishedAt).not.toBeNull();
+});
+```
 
 - [ ] **Step 6: Run everything**
 
@@ -671,8 +837,12 @@ both belong to the shell and the link is deleted in Task 9.
 
 - [ ] **Step 2: Render it from the admin page and clear dead imports**
 
-The page becomes a shell rendering `<SubmissionsInbox />`. Delete imports it no longer uses — at minimum
-`Link` and `MessageSquare` once the button goes in Task 9.
+The page becomes a shell rendering the caption, the Moderation Comments link, and `<SubmissionsInbox />`.
+
+Delete only the imports that are genuinely unused **now** — the ones the moved component took with it
+(`Card`, `Badge`, `Dialog`, the lucide icons it used, `formatDistanceToNow`, `toast`, `formatInstant`).
+**Keep `Link` and `MessageSquare`**: the Moderation Comments button is still on this page until Task 9. Let
+`npm run lint` tell you which are actually orphaned rather than guessing.
 
 - [ ] **Step 3: Verify**
 
@@ -720,7 +890,13 @@ The admin version refetches the list after an action with no per-button disable,
 twice. Port `actingId` from the dashboard version (`(dashboard)/…/page.tsx:514`) and disable that row's
 buttons while it is set.
 
-- [ ] **Step 4: Delete `PendingCommentsTab` and its `PendingComment` interface from the dashboard page**
+- [ ] **Step 4: Swap the dashboard's comments tab over, then delete the old component**
+
+Do these together — deleting `PendingCommentsTab` (`page.tsx:509`) while line 819 still renders it breaks
+the build. Point that render site at `<CommentsModeration />` first, then remove `PendingCommentsTab` and
+its `PendingComment` interface.
+
+(Task 8 replaces this whole tab block anyway, but Task 7 must leave the tree compiling on its own.)
 
 - [ ] **Step 5: Verify against real data**
 
@@ -904,14 +1080,22 @@ export const dynamic = "force-dynamic";
 
 export default function AdminAtrPage() {
   return (
-    <Suspense fallback={null}>
-      <AtrManageTabs />
-    </Suspense>
+    <div className="space-y-6">
+      <span className="text-sm text-gray-500">Manage question submissions</span>
+      <Suspense fallback={null}>
+        <AtrManageTabs />
+      </Suspense>
+    </div>
   );
 }
 ```
 
-Defaults to Submissions, matching today's admin landing screen.
+Defaults to Submissions, matching today's admin landing screen. The caption is carried over from the page
+Task 6 left behind; the Moderation Comments link is **not** — Task 9 deletes its target, so drop it here and
+delete the now-unused `Link`/`MessageSquare` imports at the same time.
+
+Precedent for a server page wrapping a `useSearchParams` client child in Suspense:
+`src/app/(auth)/login/page.tsx`.
 
 - [ ] **Step 8: Wire the dashboard shell**
 
@@ -973,8 +1157,9 @@ links can deep-link and the back button behaves."
 grep -rn "admin/programs/rabbi" src/ --include=*.ts --include=*.tsx
 ```
 
-Expected: the Programs tab definition, the three `linkUrl`s, and any leftover "Moderation Comments" button.
-**Handle every hit** — two are inside API files and easy to miss.
+Expected: the Programs tab definition and the three `linkUrl`s. The "Moderation Comments" button was
+already removed in Task 8 Step 7 — if it is still present, that step was missed. **Handle every hit**: two
+are inside API files and easy to miss.
 
 - [ ] **Step 2: Repoint the three links**
 
@@ -997,6 +1182,21 @@ grep -rn "rabbi/comments" src/
 ```
 
 Expected: no output.
+
+- [ ] **Step 4b: Repoint the one stored notification row**
+
+The code fix does not touch rows already written. There is exactly one — id 33, user 2, `atr_comment`,
+unread — and it would 404 after deploy. Verify then update:
+
+```sql
+SELECT id, user_id, link_url, is_read FROM notifications WHERE link_url LIKE '%programs/rabbi%';
+UPDATE notifications
+   SET link_url = '/admin/programs/rabbi?tab=comments'
+ WHERE link_url = '/admin/programs/rabbi/comments';
+```
+
+Run it through a short script under `scripts/atr/` so the `@/` alias resolves, or via `npm run db:studio`.
+Re-run the SELECT afterwards and confirm no row still carries the bare path.
 
 - [ ] **Step 5: Typecheck, lint, build**
 
@@ -1022,7 +1222,12 @@ notification."
 ## Chunk 3: Production data repair
 
 Two writes to live data. Both re-verify their targets immediately before writing rather than trusting this
-document, and both are reversible from the values recorded in the spec.
+document.
+
+**They are not equally reversible.** The nine UPDATEs are — every target currently holds `"Admin User"`, so
+`UPDATE ask_the_rabbi SET answered_by = 'Admin User' WHERE id BETWEEN 5520 AND 5528` restores them exactly.
+The DELETE is **not**: this document records only the row's id, number, title and date, so the script dumps
+the full row to JSON before removing it. Without that file the only recovery is Neon point-in-time restore.
 
 ### Task 10: Fix the nine bylines and delete the test post
 
@@ -1074,6 +1279,18 @@ async function main() {
     return;
   }
 
+  // Back up the row being destroyed. The spec records only its id, number,
+  // title and date — not question, answer, category or image_url — so without
+  // this the delete is recoverable only via Neon PITR. The id is not reusable
+  // either: the serial has moved past it.
+  const { writeFileSync } = await import("node:fs");
+  const backup = `scripts/atr/deleted-question-${TEST_POST_ID}.json`;
+  writeFileSync(backup, JSON.stringify(testPost, null, 2));
+  console.log(`Backed up row ${TEST_POST_ID} to ${backup}`);
+
+  // Update first, then delete: neon-http has no transactions, so these are two
+  // round trips. This order means a failure between them leaves the bylines
+  // fixed and the test post still present — the recoverable half.
   const updated = await db.update(askTheRabbi).set({ answeredBy: RAV })
     .where(inArray(askTheRabbi.id, BYLINE_IDS)).returning({ id: askTheRabbi.id });
   console.log(`Rewrote ${updated.length} bylines.`);
@@ -1113,12 +1330,19 @@ async function main() {
   console.log("answered_by distribution:");
   console.table(byline);
 
+  const wrong = byline.filter((b) => b.by !== "Hagaon Rav Shlomo Miller Shlit'a");
+  console.log(wrong.length === 0
+    ? "All bylines are the Rav ✓"
+    : `STILL WRONG: ${JSON.stringify(wrong)}`);
+
   const [gone] = await db.select({ id: askTheRabbi.id })
     .from(askTheRabbi).where(eq(askTheRabbi.id, 5519));
   console.log(`Row 5519 present: ${gone ? "YES — repair incomplete" : "no ✓"}`);
 
+  // Deliberately no total-row assertion: any Q&A published after this plan was
+  // written would make a hardcoded count fail for the wrong reason.
   const [total] = await db.select({ c: sql<number>`count(*)` }).from(askTheRabbi);
-  console.log(`Total Q&As: ${total.c} (expected 5520)`);
+  console.log(`Total Q&As: ${total.c} (informational)`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
@@ -1148,8 +1372,10 @@ Expected: `Rewrote 9 bylines.` and `Deleted 1 test post.`
 npx tsx scripts/atr/verify-byline-repair.ts
 ```
 
-Expected: a single row in the distribution — the Rav, **5520**; `Row 5519 present: no ✓`;
-`Total Q&As: 5520`.
+Expected: `All bylines are the Rav ✓` and `Row 5519 present: no ✓`.
+
+**Keep `scripts/atr/deleted-question-5519.json`** until the change is signed off — it is the only copy of
+that row. To restore: re-insert its fields (omit `id`, which the serial has moved past).
 
 - [ ] **Step 6: Commit the scripts**
 
@@ -1189,7 +1415,12 @@ and the composer publishes with the correct byline and the picked date.
 
 - [ ] **Step 3: As the non-admin manager — the point of the whole exercise**
 
-Create a throwaway user with `role: "member"` and `canManageAskTheRabbi: true`, log in as them, and confirm:
+You need a login. Write a throwaway script under `scripts/atr/` (so `@/` resolves) that inserts a user with
+`role: "member"`, `canManageAskTheRabbi: true`, `emailVerified` set, `isActive: true`, and a real bcrypt
+hash — `bcryptjs` at cost 12, matching `/api/auth/register`. `scripts/reset-admin-password.ts` shows the
+hashing call. Do **not** reuse Rabbi Bartfeld's account.
+
+Log in as that user and confirm:
 
 - `/dashboard/ask-the-rabbi` loads and **all four tabs work, Submissions included**. Before this work its
   API returned 401 for this user.
