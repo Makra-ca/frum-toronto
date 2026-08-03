@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { userShuls, users, shuls } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 // GET all user-shul assignments
 export async function GET() {
@@ -97,11 +97,15 @@ export async function POST(request: Request) {
       throw insertError;
     }
 
-    // Update user role to "shul" if not already
+    // Promote a plain member to "shul" so the dashboard's "Manage My Shuls"
+    // link appears. Only "member" — this used to be unconditional, which
+    // demoted an admin picked from the (unfiltered) user list straight out of
+    // /admin. Authority to manage the shul comes from the userShuls row above,
+    // not from this role, so leaving any other role untouched is safe.
     await db
       .update(users)
       .set({ role: "shul", updatedAt: new Date() })
-      .where(eq(users.id, userId));
+      .where(and(eq(users.id, userId), eq(users.role, "member")));
 
     return NextResponse.json({
       message: "Assignment created successfully",
