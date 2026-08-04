@@ -201,6 +201,22 @@ after review whether it was applied and any reason.
 **A second edit replaces the first** — only the owner's latest intent is ever
 reviewed.
 
+### Exactly one owner, and the public sees nothing
+
+`businesses.user_id` is a single column, so a listing has **one owner or none**.
+There is no co-owner and no second claimant to consider — the question only
+arises once delegation ships, which is a separate project and will need its own
+answer for who may see a pending change.
+
+**The public listing shows no indication that a change is queued.** No "update
+pending" badge, no greyed field. That follows directly from the rule that the
+listing stays live and unchanged: a visitor should not be able to tell the
+difference between a listing nobody has touched and one with an edit awaiting
+review.
+
+Who can see a pending change: **the owner who submitted it** (on their
+dashboard) and **the admin** (in the Changes tab). Nobody else, anywhere.
+
 ### Review is field by field
 
 Old → new with a tick per field. Approving writes only ticked fields. Each
