@@ -32,7 +32,12 @@ export async function createNotification(payload: NotificationPayload): Promise<
 }
 
 /**
- * Creates a notification for ALL active admin users.
+ * Creates a notification for ALL active admin users — admins only, by design.
+ *
+ * Submission notifications no longer come through here: they go via
+ * notifyAdminOfSubmission, which resolves admins ∪ capability holders and gives
+ * each audience a link it can open. This remains for genuinely admin-only
+ * signals, such as a trusted user editing live content.
  */
 export async function createAdminNotification(
   payload: Omit<NotificationPayload, "userId">
@@ -94,6 +99,85 @@ const FORM_TYPE_BY_CONTENT: Partial<Record<SubmissionContentType, string>> = {
   tehillim: "tehillim",
 };
 
+/**
+ * contentType → the capability whose holders are ALSO responsible for it.
+ *
+ * Only canManageAskTheRabbi grants review authority over other people's
+ * content. The other capability columns are canAutoApprove* / canPostSpecials,
+ * which govern a user's OWN submissions and so create no work queue and need no
+ * incoming notification. That is why this map has three entries and not twenty.
+ *
+ * Shul-scoped types (shul_edit, davening_edit, shul_document, shul-linked
+ * events) are deliberately absent: their right recipient is "whoever manages
+ * THAT shul", which is a row lookup rather than a flag. Rejected for now — see
+ * decisions/2026-08-03-notify-capability-holders-not-just-admins.
+ */
+export const CAPABILITY_BY_CONTENT = {
+  ask_the_rabbi: "canManageAskTheRabbi",
+  atr_comment: "canManageAskTheRabbi",
+  atr_quick_post: "canManageAskTheRabbi",
+} as const satisfies Partial<Record<SubmissionContentType, "canManageAskTheRabbi">>;
+
+/**
+ * Where a non-admin holder should be sent instead of the admin URL. Middleware
+ * bounces a member from /admin, so without this the notification would be a
+ * dead end for exactly the person it exists to reach.
+ */
+const NON_ADMIN_LINK_BY_CONTENT: Partial<Record<SubmissionContentType, string>> = {
+  ask_the_rabbi: "/dashboard/ask-the-rabbi?tab=submissions",
+  atr_comment: "/dashboard/ask-the-rabbi?tab=comments",
+  atr_quick_post: "/dashboard/ask-the-rabbi?tab=questions",
+};
+
+export interface NotificationRecipient {
+  id: number;
+  email: string;
+  isAdmin: boolean;
+}
+
+/**
+ * Active admins ∪ active holders of the capability governing this content type,
+ * deduplicated by user id (an admin who also holds the flag appears once).
+ */
+export async function resolveNotificationRecipients(
+  contentType: SubmissionContentType
+): Promise<NotificationRecipient[]> {
+  const admins = await db
+    .select({ id: users.id, email: users.email })
+    .from(users)
+    .where(and(eq(users.role, "admin"), eq(users.isActive, true)));
+
+  const byId = new Map<number, NotificationRecipient>();
+  for (const a of admins) byId.set(a.id, { ...a, isAdmin: true });
+
+  const capability =
+    CAPABILITY_BY_CONTENT[contentType as keyof typeof CAPABILITY_BY_CONTENT];
+
+  if (capability) {
+    const holders = await db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(and(eq(users[capability], true), eq(users.isActive, true)));
+
+    // Admin wins on collision: they keep the admin link.
+    for (const h of holders) {
+      if (!byId.has(h.id)) byId.set(h.id, { ...h, isAdmin: false });
+    }
+  }
+
+  return [...byId.values()];
+}
+
+/** The link this recipient can actually open. */
+export function linkForRecipient(
+  recipient: { isAdmin: boolean },
+  adminLinkUrl: string,
+  contentType: SubmissionContentType
+): string {
+  if (recipient.isAdmin) return adminLinkUrl;
+  return NON_ADMIN_LINK_BY_CONTENT[contentType] ?? adminLinkUrl;
+}
+
 interface SubmissionNotificationParams {
   contentType: SubmissionContentType;
   title: string;        // "New event submitted"
@@ -121,16 +205,26 @@ export async function notifyAdminOfSubmission(
   try {
     const { contentType, title, body, linkUrl, status, replyTo } = params;
 
-    // 1. In-app notification for all active admins (all tiers)
+    // 1. In-app notification for everyone responsible: active admins, plus
+    //    holders of the capability governing this type. Each gets the link
+    //    their role can actually open.
+    let recipients: NotificationRecipient[] = [];
     try {
-      await createAdminNotification({
-        type: contentType,
-        title,
-        body,
-        linkUrl,
-      });
+      recipients = await resolveNotificationRecipients(contentType);
+
+      if (recipients.length > 0) {
+        await db.insert(notifications).values(
+          recipients.map((r) => ({
+            userId: r.id,
+            type: contentType,
+            title,
+            body,
+            linkUrl: linkForRecipient(r, linkUrl, contentType),
+          }))
+        );
+      }
     } catch (error) {
-      console.error("[NOTIFY] Failed to create in-app admin notifications:", error);
+      console.error("[NOTIFY] Failed to create in-app notifications:", error);
     }
 
     // 2. Instant email — Tier A (+ tehillim) pending submissions only.
@@ -139,7 +233,7 @@ export async function notifyAdminOfSubmission(
       try {
         const formType = FORM_TYPE_BY_CONTENT[contentType];
         if (formType && resend) {
-          const recipients = await db
+          const configured = await db
             .select({ email: formEmailRecipients.email })
             .from(formEmailRecipients)
             .where(
@@ -149,7 +243,13 @@ export async function notifyAdminOfSubmission(
               )
             );
 
-          if (recipients.length > 0) {
+          // Capability holders are responsible for this type, so they are
+          // emailed alongside the configured recipients — otherwise the person
+          // who has to act only finds out by visiting the page.
+          const holderEmails = recipients.filter((r) => !r.isAdmin).map((r) => r.email);
+          const to = [...new Set([...configured.map((r) => r.email), ...holderEmails])];
+
+          if (to.length > 0) {
             const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
             const absoluteLink = linkUrl.startsWith("http")
               ? linkUrl
@@ -157,7 +257,7 @@ export async function notifyAdminOfSubmission(
 
             const { error } = await resend.emails.send({
               from: EMAIL_FROM,
-              to: recipients.map((r) => r.email),
+              to,
               subject: title,
               html: getAdminNotificationEmailHtml({
                 heading: title,
