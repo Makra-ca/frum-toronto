@@ -3,8 +3,16 @@ name: dead-toggles-get-wired-not-removed
 description: The three permission toggles that do nothing will be made to work rather than deleted from the dialog
 type: decision
 date: 2026-08-03
-status: accepted
+status: partially-superseded
 ---
+
+> **Partially superseded 2026-08-04** by
+> [[auto-approve-businesses-gates-edits-not-creation]]. The decision to wire the
+> toggles rather than delete them stands, and the Ask the Rabbi and Shuls wirings
+> are unchanged. What changed is `canAutoApproveBusinesses`: this record's
+> Consequences section pointed it at business *creation*, but a parked design
+> from 2026-07-31 had already assigned it to owner *edits*. The creation wiring
+> in `268b1f1` is reverted.
 
 **Decision:** `canAutoApproveBusinesses`, `canAutoApproveAskTheRabbi` and
 `canAutoApproveShuls` will be **wired up to do what the dialog heading

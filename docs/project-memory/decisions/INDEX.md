@@ -5,11 +5,19 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-04 | Claim before edit; only approved listings can be claimed | [claim-before-edit](2026-08-04-claim-before-edit.md) |
+| 2026-08-04 | An owner's pending edit is stored separately so the listing stays live | [listing-stays-live-during-review](2026-08-04-listing-stays-live-during-review.md) |
+| 2026-08-04 | Review is per field, with an optional per-field reason | [review-per-field-not-per-submission](2026-08-04-review-per-field-not-per-submission.md) |
+| 2026-08-04 | The owner's editor shows only what their tier displays | [owner-editor-matches-the-tier](2026-08-04-owner-editor-matches-the-tier.md) |
+| 2026-08-04 | Dashboard access follows ownership, not role | [dashboard-access-follows-ownership](2026-08-04-dashboard-access-follows-ownership.md) |
+| 2026-08-04 | Business review is admin-only; no capability added | [business-review-is-admin-only](2026-08-04-business-review-is-admin-only.md) |
+| 2026-08-04 | Editable images are logo and banner; the gallery does not exist | [images-are-logo-and-banner-only](2026-08-04-images-are-logo-and-banner-only.md) |
+| 2026-08-04 | canAutoApproveBusinesses gates edits, not creation | [auto-approve-businesses-gates-edits-not-creation](2026-08-04-auto-approve-businesses-gates-edits-not-creation.md) |
 | 2026-08-03 | Ask the Rabbi's four screens are shared components rendered by both shells | [atr-screens-shared-by-both-shells](2026-08-03-atr-screens-shared-by-both-shells.md) |
 | 2026-08-03 | canManageAtr takes a Session and reads the DB, never the token flag | [atr-capability-not-admin-role](2026-08-03-atr-capability-not-admin-role.md) |
 | 2026-08-03 | The userShuls row is the authority; assignment only ever promotes a member | [userShuls-row-is-the-authority](2026-08-03-userShuls-row-is-the-authority.md) |
 | 2026-08-03 | The column default owns the byline; the fallback chain is deleted | [column-default-owns-the-byline](2026-08-03-column-default-owns-the-byline.md) |
-| 2026-08-03 | The three dead permission toggles get wired up, not removed | [dead-toggles-get-wired-not-removed](2026-08-03-dead-toggles-get-wired-not-removed.md) |
+| 2026-08-03 | The three dead permission toggles get wired up, not removed *(partially superseded)* | [dead-toggles-get-wired-not-removed](2026-08-03-dead-toggles-get-wired-not-removed.md) |
 | 2026-08-03 | Notifications reach capability holders; shul-scoped rejected for now | [notify-capability-holders-not-just-admins](2026-08-03-notify-capability-holders-not-just-admins.md) |
 | 2026-07-31 | Business self-editing blocked by ownership, not by a missing route | [business-claim-is-the-missing-step](2026-07-31-business-claim-is-the-missing-step.md) |
 | 2026-07-31 | ~~Three dead permission toggles kept for now~~ *(superseded)*; the real gap is business owners cannot edit their listing | [business-owners-cannot-edit-their-listing](2026-07-31-business-owners-cannot-edit-their-listing.md) |
