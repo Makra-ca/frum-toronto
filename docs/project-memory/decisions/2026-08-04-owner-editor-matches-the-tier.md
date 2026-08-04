@@ -7,13 +7,19 @@ status: accepted
 ---
 
 **Decision:** The owner's editor shows **only the fields their subscription tier
-displays publicly**. A Free owner edits phone, address, city, postal code,
-contact name, tagline, dining type and one category. Description, email, website,
-hours, logo and social links are not shown, because Free does not display them.
+displays publicly**. A Free owner edits phone, address, city, postal code, dining type and one
+category. Description, email, website, hours, logo, social links **and contact
+name** are not shown, because Free displays none of them.
+
+**Corrected 2026-08-04:** an earlier version of this record listed contact name
+and tagline as Free-editable. `show_contact_name` is false on Free, so contact
+name is not; and tagline has no `show_*` flag at all and currently renders
+nowhere on the listing, so whether it is editable depends on an open Part 0
+decision.
 
 **Context:** The tier design is from February 2026 — Free is name, address, phone
 and one category; description, email, website, hours, map and logo are what
-Standard sells at $27. The database matches it exactly.
+Standard sells at $27. The database matches the tier design, though not every field has a flag — see the correction below.
 
 Until now that only governed **what the public sees**. This feature is the first
 time it matters what an owner can *type into a form*, and those had silently been

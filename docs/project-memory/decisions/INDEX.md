@@ -11,7 +11,7 @@ for the format.
 | 2026-08-04 | The owner's editor shows only what their tier displays | [owner-editor-matches-the-tier](2026-08-04-owner-editor-matches-the-tier.md) |
 | 2026-08-04 | Dashboard access follows ownership, not role | [dashboard-access-follows-ownership](2026-08-04-dashboard-access-follows-ownership.md) |
 | 2026-08-04 | Business review is admin-only; no capability added | [business-review-is-admin-only](2026-08-04-business-review-is-admin-only.md) |
-| 2026-08-04 | Editable images are logo and banner; the gallery does not exist | [images-are-logo-and-banner-only](2026-08-04-images-are-logo-and-banner-only.md) |
+| 2026-08-04 | Editable image is the logo; banner is an ads asset, gallery does not exist | [images-are-logo-only](2026-08-04-images-are-logo-and-banner-only.md) |
 | 2026-08-04 | canAutoApproveBusinesses gates edits, not creation | [auto-approve-businesses-gates-edits-not-creation](2026-08-04-auto-approve-businesses-gates-edits-not-creation.md) |
 | 2026-08-03 | Ask the Rabbi's four screens are shared components rendered by both shells | [atr-screens-shared-by-both-shells](2026-08-03-atr-screens-shared-by-both-shells.md) |
 | 2026-08-03 | canManageAtr takes a Session and reads the DB, never the token flag | [atr-capability-not-admin-role](2026-08-03-atr-capability-not-admin-role.md) |

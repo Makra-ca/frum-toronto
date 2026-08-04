@@ -1,7 +1,7 @@
 # Business claiming and owner editing
 
 **Date:** 2026-08-04
-**Status:** Revision 3 — scope expanded after measuring which fields actually work
+**Status:** Revision 4 — field facts re-derived from every write path; data model and API surface added
 
 Completes the sketch parked in `docs/project-memory/TODO-business-claim-flow.md`.
 Decisions carried from 2026-07-31 are marked **(July)**.
@@ -49,19 +49,35 @@ the same row.
 six field groups Daniel chose do not fully work today, and a field existing in
 `schema.ts` says nothing about whether anything can write it or render it.
 
-| Field | Admin can write? | Renders on listing? | Rows with data |
+| Field | Writable where | Renders on listing | Rows |
 |---|---|---|---|
-| phone · address · city · postal code | yes | yes | most |
-| email · website · description | yes | yes (plan-gated) | email 1,198 |
-| hours | yes | yes (plan-gated) | **1** |
-| dining type | yes | restaurants only | — |
-| category (main) | yes | yes | all |
-| **logo** | **no write path** | yes | **0** |
-| **contact name** | **no write path** | selected, never rendered | 1 |
-| **social links** | **no write path** | selected, never rendered | **0** |
-| **additional categories** | **no write path** | no | **0** |
-| tagline | yes | **not on the listing** (newsletter shoutouts only) | **0** |
-| banner | yes | **not on the listing** (homepage ads only) | **0** |
+| phone · address · city · postal code | anywhere | yes | most |
+| email · website · description | anywhere | yes (plan-gated) | email 1,198 |
+| hours | anywhere | yes (plan-gated) | **1** |
+| dining type | anywhere | restaurants only | **0** |
+| category (main) | anywhere | yes | 1,633 of 1,635 |
+| **logo** | **nowhere** | yes (plan-gated) | **0** |
+| **contact name** | **user registration only** | selected, never rendered | 1 |
+| **social links** | **user registration only** | selected, never rendered | **0** |
+| **additional categories** | **user registration only** | no | **0** |
+| tagline | anywhere | **not on the listing** (newsletter shoutouts only) | **0** |
+| banner | admin only | **not on the listing** (homepage ads only) | **0** |
+
+Derived by enumerating **all 27 write sites** against the `businesses` table, not
+by reading `schema.ts`. Revision 3 said contact name, social links and additional
+categories had no write path; they are written by
+`POST /api/businesses/create` and have full UI on the registration form. The
+defect is narrower and worse than "missing": they are **create-only**, so a
+business sets them at registration and then *nobody* — owner or admin — can ever
+change them. The admin update omits the keys, so an edit silently leaves stale
+values rather than clearing them.
+
+**Logo is the genuine gap**: the only reference in the admin create route is a
+SELECT, and `businessSchema` does not contain it. Nothing anywhere can set it.
+
+`maxCategories` **is** already enforced against `additionalCategoryIds` on create
+(`create/route.ts:134-141`). Revision 3 called the limit "meaningless"; that was
+wrong. What is missing is any way to change the categories afterwards.
 
 `show_contact_name` and `show_social_links` are selected on the listing page and
 then never used — plan flags gating nothing. `show_kosher_badge` is false on all
@@ -73,18 +89,22 @@ be the photo-gallery mistake repeated four times.
 
 Required before Part 1:
 
-1. **`logoUrl`** — add to `businessSchema`, `BusinessForm` and the admin PUT.
-   Rendering already exists, gated on `showLogo`.
-2. **`contactName`** — add the write path, and render it gated on
-   `showContactName`, which exists and is unused.
-3. **`socialLinks`** — add the write path, and render gated on
-   `showSocialLinks`.
-4. **`additionalCategoryIds`** — add the write path and render the extra
-   categories. This is what `maxCategories` gates, so the limit is meaningless
-   without it.
-5. **`tagline`** — writable already; decide whether it renders on the listing or
-   stays a newsletter-only field. If it stays newsletter-only it is **not** an
-   owner-editable listing field.
+1. **`logoUrl`** — build the write path: add to `businessSchema`, `BusinessForm`
+   and the admin PUT, and to the owner editor. Rendering already exists.
+2. **`contactName`, `socialLinks`, `additionalCategoryIds`** — add to the **edit**
+   path only; the create path already handles them. `businessSchema` +
+   `BusinessForm` + admin PUT + owner editor.
+3. **Render `contactName` and `socialLinks`** on the listing, gated on
+   `showContactName` and `showSocialLinks` — both flags exist and gate nothing.
+4. **Additional categories must affect browsing.** Category browse
+   (`directory/[slug]/page.tsx`) and search (`api/directory/search/route.ts`)
+   filter on `categoryId` only. Matching inside the JSONB array needs a GIN
+   index. Without this, extra categories are decorative — and they are what
+   `maxCategories` sells.
+5. **`tagline`** — **decision required from Daniel** before building: render it
+   on the listing, or leave it a newsletter-only field? If newsletter-only it is
+   not an owner-editable listing field. It has no `show_*` flag, so rendering it
+   makes it visible on Free.
 
 **Banner stays out.** It is a homepage-advertising asset gated on
 `show_in_homepage_banner`, not a listing field, and belongs with the ads work.
@@ -373,6 +393,112 @@ Uses `notifyAdminOfSubmission`, which requires new entries in
 being what populates the Admin → Settings recipients UI, without which nobody
 can configure who receives claim and change emails.
 
+
+## Data model
+
+Two new tables. Column lists are the contract; the plan turns them into a
+migration.
+
+### `business_claims`
+
+Modelled on `shul_registration_requests`, which is proven.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | serial PK | |
+| `business_id` | int NOT NULL → `businesses.id` **ON DELETE CASCADE** | |
+| `user_id` | int NOT NULL → `users.id` **ON DELETE CASCADE** | |
+| `message` | text NULL | the claimant's optional note |
+| `status` | varchar(20) NOT NULL default `pending` | `pending` · `approved` · `rejected` · `auto_rejected` · `withdrawn` |
+| `rejection_reason` | text NULL | optional, same rule as change review |
+| `reviewed_by` | int NULL → `users.id` ON DELETE SET NULL | |
+| `reviewed_at` | timestamp NULL | |
+| `created_at` | timestamp NOT NULL default now | |
+
+**Partial unique index** on `(business_id, user_id) WHERE status = 'pending'` —
+one open claim per person per listing. A rejected claimant may resubmit, which
+creates a new row; the index does not block that because the old row is no longer
+`pending`.
+
+Approving one claim sets every other `pending` claim on that business to
+`auto_rejected` in the same operation.
+
+### `business_pending_changes`
+
+**One row per submission, not per field.** The alternative — a row per changed
+field — was considered and rejected: `hours`, `social_links` and
+`additional_category_ids` are JSONB, and an EAV table would stringify them and
+lose their types. One row also makes "a second edit replaces the first" a single
+`DELETE` + `INSERT` rather than a set difference.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | serial PK | |
+| `business_id` | int NOT NULL → `businesses.id` **ON DELETE CASCADE** | |
+| `submitted_by` | int NOT NULL → `users.id` ON DELETE CASCADE | |
+| `proposed` | jsonb NOT NULL | `{ field: newValue }` — only changed fields |
+| `previous` | jsonb NOT NULL | same keys, values as at submission, for the diff |
+| `outcome` | jsonb NULL | after review: `{ field: { applied: bool, reason: string \| null } }` |
+| `status` | varchar(20) NOT NULL default `pending` | `pending` · `reviewed` · `superseded` |
+| `reviewed_by` | int NULL → `users.id` ON DELETE SET NULL | |
+| `reviewed_at` | timestamp NULL | |
+| `created_at` | timestamp NOT NULL default now | |
+
+**Partial unique index** on `(business_id) WHERE status = 'pending'` — at most one
+waiting change per listing, which is what "a second edit replaces the first"
+means. Replacement marks the old row `superseded` rather than deleting it, so the
+history survives.
+
+`previous` is captured at submission, so a diff always shows what the owner was
+looking at. If the admin changed the listing meanwhile, `previous` will not match
+the live row — the review screen must show the live value too, and that
+divergence is the one the owner never saw.
+
+## API surface
+
+All owner routes reuse the existing idiom: `!isAdmin && business.userId !== userId`
+→ 403. All admin routes check the role. Every mutating route calls
+`assertCanPost`.
+
+| Route | Method | Who | Purpose |
+|---|---|---|---|
+| `/api/businesses/[id]/claim` | POST | verified user | Submit a claim |
+| `/api/businesses/[id]/claim` | DELETE | claimant | Withdraw own pending claim |
+| `/api/user/business-claims` | GET | self | Claims and their status, for the dashboard |
+| `/api/admin/business-claims` | GET | admin | The Claims queue |
+| `/api/admin/business-claims/[id]` | PATCH | admin | Approve or reject; approving sets `businesses.user_id` and auto-rejects rivals |
+| `/api/admin/businesses/[id]/owner` | PUT / DELETE | admin | Assign directly / revoke |
+| `/api/businesses/[id]` | PATCH | owner | Submit an edit — queues, or applies directly if trusted |
+| `/api/businesses/[id]/pending-change` | GET | owner + admin | The waiting change |
+| `/api/admin/business-changes` | GET | admin | The Changes queue |
+| `/api/admin/business-changes/[id]` | PATCH | admin | Per-field approve; body carries the outcome map |
+
+### Notification identifiers
+
+New `SubmissionContentType` values **`business_claim`** and
+**`business_change`**, with matching `FORM_TYPE_BY_CONTENT` and `FORM_TYPES`
+entries (`business_claim`, `business_change`) so recipients are configurable in
+Admin → Settings.
+
+Both are **Tier B** — in-app notification, no instant email. A claim is not
+time-critical, and per-change emails on 1,633 listings would be noise. They
+appear in the daily digest. *(Note the digest has never actually run — see
+`SECURITY-FINDINGS-2026-08-04.md` item 1.)*
+
+### Approval-time re-validation
+
+Per-field approval can produce a combination the owner never proposed. Before
+writing, the approval must re-check:
+
+- **`maxCategories`** against the resulting set — approving `additionalCategoryIds`
+  while rejecting `categoryId` can exceed the plan or duplicate a category
+- **Category existence** — `additional_category_ids` is JSONB with no referential
+  integrity, so a category can vanish between submission and approval
+- **Plan gating** — the plan may have changed since submission
+
+A failed re-check blocks that field and shows the reason; it does not fail the
+whole review.
+
 ## Lifecycle rules
 
 | Event | Rule |
@@ -415,7 +541,7 @@ means two different things.
 | Verification | Admin by hand; email codes deferred **(July)** |
 | Who may claim | Any logged-in, email-verified user |
 | Claimable listings | **Approved only**; admin assigns for the rest |
-| Editable fields | Contact, description, hours, logo/banner, social, categories |
+| Editable fields | Contact, description, hours, **logo**, social, categories. **Banner excluded** (ads asset); tagline pending the Part 0 decision |
 | Excluded | Kosher certification; photo gallery (does not exist) |
 | Owner roles | Ordinary and trusted (`canAutoApproveBusinesses`) **(July)** |
 | Free-tier editor | **Shows only what the tier displays** |
