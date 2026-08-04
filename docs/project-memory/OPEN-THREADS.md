@@ -55,18 +55,19 @@ revert to — the edit overwrites the row in place.
 | Admin edits someone's item | The submitter is never told. They just see different text under their name. Notify, or leave it? |
 | The edit-form approach | Six edit pages built from one described form rather than mirroring the existing modals. **Nobody has seen them rendered.** Recorded as provisional. |
 | Five `[TEST]` shuls live on the public site | ids 2–5 are `[TEST]`-prefixed, plus `makra.ca`; all `isActive: true`, all showing at `/shuls`. Two duplicate real entries (Shaarei Shomayim, Beth Jacob V'Anshei Drildz). Delete, deactivate, or leave? |
+| `canAutoApproveShiurim` / `canPostSpecials` mislabelled | Both sit under "submit without approval" but are **403 gates on submitting at all** — and since `shiurim.approvalStatus` defaults to `approved`, holding one means publish-instantly. `daniel@makra.ca` holds `canAutoApproveShiurim`. Three different meanings share one dialog heading. |
 | `isTrusted` | Set on 22 users who own zero businesses between them. Leftover from the pre-per-type permission system; unexamined. |
-| Push to production | `main` is 17 commits ahead of `origin/main` and **nothing is deployed**. Includes the user-submissions work, the timezone fix, and the Ask the Rabbi consolidation. Pushing makes the `$onUpdate` change to 17 `updated_at` columns user-visible. |
+| Push to production | 3 commits unpushed (the two toggles/notifications commits + decision records). Earlier work is live. Was 17 commits ahead of `origin/main` and **nothing is deployed**. Includes the user-submissions work, the timezone fix, and the Ask the Rabbi consolidation. Pushing makes the `$onUpdate` change to 17 `updated_at` columns user-visible. |
 
 ## 3. Do — decided, not built
 
 | Item | Note |
 |---|---|
-| ~~Ask the Rabbi consolidation~~ | **Done 2026-08-03**, merged to `main` (`4e2d17f`). Four shared screens in both shells; five bugs fixed; nine bylines and one test post repaired in production. |
+| ~~Ask the Rabbi consolidation~~ | **Done + deployed 2026-08-03** (`4e2d17f`, pushed). Four shared screens in both shells; five bugs fixed; nine bylines and one test post repaired in production. |
+| ~~Three dead permission toggles~~ | **Done 2026-08-03** (`268b1f1`), not yet pushed. Each wired to the one real approval step in its area — businesses to creation, Ask the Rabbi to comment moderation, shuls to granting a management request outright. |
+| ~~Ask the Rabbi notifications~~ | **Done 2026-08-03** (`f71ceb7`), not yet pushed. Recipients are admins ∪ capability holders, deduped; each audience gets a link it can open; holders are emailed too. |
 | "Your change is live" | An approval after a correction still says "Your event is live", identical to a first approval. Agreed to fix. **Worth doing together with item 1** — the same messages are involved. |
 | Grant Rochel `canAutoApproveBlog` | The control now exists in Admin → Users → shield icon. Daniel's to flip; no production writes by the assistant. |
-| Wire up the three dead permission toggles | Decided 2026-08-03: make them do what the dialog heading promises, rather than deleting them. `canAutoApproveBusinesses` / `canAutoApproveAskTheRabbi` / `canAutoApproveShuls` are saved and read by nothing. Businesses currently auto-approves off `isTrusted` instead (`businesses/create/route.ts:150`), so that one needs untangling. |
-| Ask the Rabbi notifications reach the capability holder | Decided 2026-08-03. `createAdminNotification` targets `role = "admin"` only (`notifications.ts:40-43`), so `rabbi.bartfeld@` gets no signal that a question arrived — and the three repointed `linkUrl`s go to `/admin`, which he cannot open. Add a contentType → capability map beside `FORM_TYPE_BY_CONTENT` and route his to `/dashboard/ask-the-rabbi?tab=submissions`. **Shul-scoped notifications explicitly rejected** — see `TODO-shul-manager-delegation.md`. |
 
 ## 4. Parked deliberately
 
