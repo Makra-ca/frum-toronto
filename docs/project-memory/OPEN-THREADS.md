@@ -46,7 +46,27 @@ revert to — the edit overwrites the row in place.
 
 ---
 
-## 2. Decide
+## 2. Security findings — 2026-08-04
+
+Full write-up with evidence and exploits: `SECURITY-FINDINGS-2026-08-04.md`.
+**Nothing fixed except the first item.**
+
+- **Client-supplied role became an admin token** — FIXED and deployed (`ad81bdb`).
+  Verified by exploit: a plain member POSTing `{"role":"admin"}` to
+  `/api/auth/session` got `/admin` and the admin API.
+- **All four cron endpoints are unauthenticated** — anonymous, live.
+  `CRON_SECRET` does not exist, in `.env` or in Vercel. Two guards fail open, two
+  require the literal string `Bearer undefined`. Same cause means
+  `cleanup-notifications` and `notification-digest` have been 401ing Vercel's own
+  scheduler — **the daily digest has never run.**
+- **Any member can self-assign the $120/mo Elite plan** — `subscriptionPlanId`
+  is client-supplied and no price or subscription is checked.
+- **Specials can be posted under any business's name** — no ownership check.
+- **A blog edit rewrites another user's slug before the ownership check** —
+  permanently 404s any of 3,058 posts.
+- Plus 8 medium and ~12 low, and a list of what was checked and found clean.
+
+## 2b. Decide
 
 | Item | Question |
 |---|---|
