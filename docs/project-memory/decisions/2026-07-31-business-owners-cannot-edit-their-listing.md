@@ -3,8 +3,13 @@ name: business-owners-cannot-edit-their-listing
 description: Three permission toggles do nothing; investigating why surfaced that business owners have no way to edit their own listing at all
 type: decision
 date: 2026-07-31
-status: accepted
+status: superseded
 ---
+
+> **Superseded 2026-08-03** by [[dead-toggles-get-wired-not-removed]] on the
+> toggles specifically. The reframe below still stands — the three are different
+> problems, and business owners still cannot edit their listing. What changed is
+> that leaving the toggles in place is no longer the answer.
 
 **Decision:** The three dead toggles — Ask the Rabbi, Business Listings, Shul
 Directory — are left in place for now rather than removed, because the

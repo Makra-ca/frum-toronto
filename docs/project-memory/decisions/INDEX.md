@@ -5,8 +5,14 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-03 | Ask the Rabbi's four screens are shared components rendered by both shells | [atr-screens-shared-by-both-shells](2026-08-03-atr-screens-shared-by-both-shells.md) |
+| 2026-08-03 | canManageAtr takes a Session and reads the DB, never the token flag | [atr-capability-not-admin-role](2026-08-03-atr-capability-not-admin-role.md) |
+| 2026-08-03 | The userShuls row is the authority; assignment only ever promotes a member | [userShuls-row-is-the-authority](2026-08-03-userShuls-row-is-the-authority.md) |
+| 2026-08-03 | The column default owns the byline; the fallback chain is deleted | [column-default-owns-the-byline](2026-08-03-column-default-owns-the-byline.md) |
+| 2026-08-03 | The three dead permission toggles get wired up, not removed | [dead-toggles-get-wired-not-removed](2026-08-03-dead-toggles-get-wired-not-removed.md) |
+| 2026-08-03 | Notifications reach capability holders; shul-scoped rejected for now | [notify-capability-holders-not-just-admins](2026-08-03-notify-capability-holders-not-just-admins.md) |
 | 2026-07-31 | Business self-editing blocked by ownership, not by a missing route | [business-claim-is-the-missing-step](2026-07-31-business-claim-is-the-missing-step.md) |
-| 2026-07-31 | Three dead permission toggles kept for now; the real gap is business owners cannot edit their listing | [business-owners-cannot-edit-their-listing](2026-07-31-business-owners-cannot-edit-their-listing.md) |
+| 2026-07-31 | ~~Three dead permission toggles kept for now~~ *(superseded)*; the real gap is business owners cannot edit their listing | [business-owners-cannot-edit-their-listing](2026-07-31-business-owners-cannot-edit-their-listing.md) |
 | 2026-07-31 | Missing permission controls are added to the admin panel, not granted by direct SQL | [grant-permissions-through-the-ui-not-sql](2026-07-31-grant-permissions-through-the-ui-not-sql.md) |
 | 2026-07-31 | Rejection reason is an inline box in a dialog, a prompt only in a list | [rejection-reason-inline-not-prompt](2026-07-31-rejection-reason-inline-not-prompt.md) |
 | 2026-07-31 | Admins auto-approve on every type, not five | [admins-auto-approve-every-type](2026-07-31-admins-auto-approve-every-type.md) |
