@@ -1,7 +1,7 @@
 # Business claiming and owner editing
 
 **Date:** 2026-08-04
-**Status:** Revision 2 — approved by Daniel, corrected after adversarial review
+**Status:** Revision 3 — scope expanded after measuring which fields actually work
 
 Completes the sketch parked in `docs/project-memory/TODO-business-claim-flow.md`.
 Decisions carried from 2026-07-31 are marked **(July)**.
@@ -42,6 +42,53 @@ Business" screen must sit alongside those three existing sub-workflows (video
 review, shoutouts, non-profit application), each with its own approval state on
 the same row.
 
+
+## Part 0 — Finish the business fields
+
+**Measured 2026-08-04 from the code and the data, not the schema.** Four of the
+six field groups Daniel chose do not fully work today, and a field existing in
+`schema.ts` says nothing about whether anything can write it or render it.
+
+| Field | Admin can write? | Renders on listing? | Rows with data |
+|---|---|---|---|
+| phone · address · city · postal code | yes | yes | most |
+| email · website · description | yes | yes (plan-gated) | email 1,198 |
+| hours | yes | yes (plan-gated) | **1** |
+| dining type | yes | restaurants only | — |
+| category (main) | yes | yes | all |
+| **logo** | **no write path** | yes | **0** |
+| **contact name** | **no write path** | selected, never rendered | 1 |
+| **social links** | **no write path** | selected, never rendered | **0** |
+| **additional categories** | **no write path** | no | **0** |
+| tagline | yes | **not on the listing** (newsletter shoutouts only) | **0** |
+| banner | yes | **not on the listing** (homepage ads only) | **0** |
+
+`show_contact_name` and `show_social_links` are selected on the listing page and
+then never used — plan flags gating nothing. `show_kosher_badge` is false on all
+four plans, so that badge renders for nobody.
+
+**Daniel's decision: fix these first, as part of this project.** An owner editor
+offering a logo that nothing can store, or social links that never appear, would
+be the photo-gallery mistake repeated four times.
+
+Required before Part 1:
+
+1. **`logoUrl`** — add to `businessSchema`, `BusinessForm` and the admin PUT.
+   Rendering already exists, gated on `showLogo`.
+2. **`contactName`** — add the write path, and render it gated on
+   `showContactName`, which exists and is unused.
+3. **`socialLinks`** — add the write path, and render gated on
+   `showSocialLinks`.
+4. **`additionalCategoryIds`** — add the write path and render the extra
+   categories. This is what `maxCategories` gates, so the limit is meaningless
+   without it.
+5. **`tagline`** — writable already; decide whether it renders on the listing or
+   stays a newsletter-only field. If it stays newsletter-only it is **not** an
+   owner-editable listing field.
+
+**Banner stays out.** It is a homepage-advertising asset gated on
+`show_in_homepage_banner`, not a listing field, and belongs with the ads work.
+
 ## Part 1 — Claiming
 
 ### Flow
@@ -74,7 +121,7 @@ change**, which is why it is deferred rather than designed now.
 | Situation | Behaviour |
 |---|---|
 | Two people claim the same shop | Approving one **auto-rejects the others** with a note |
-| The listing already has an owner | Link becomes **"Report a problem with this listing"** |
+| The listing already has an owner | Link becomes **"Report a problem with this listing"** — routes to the existing contact form, pre-filled with the business name. **Not a new queue**, no new tab, no new content type |
 | The business is not in the directory | Point at the existing "add your business" flow |
 | The listing is not approved | No claim link. Admin assigns manually if asked |
 
@@ -95,8 +142,11 @@ update never touches `userId`. All three need building. Reuse the existing
 ### Editable
 
 Contact details (phone, email, website, address, city, postal code, contact
-name) · description & tagline · hours & dining type · **logo and banner** ·
-social links · categories.
+name) · description · hours & dining type · **logo** · social links · categories
+(main and additional).
+
+Every one of those is real **only after Part 0**. Tagline is included only if
+Part 0 gives it a home on the listing. Banner is excluded — it is an ads asset.
 
 ### Never editable by an owner
 
@@ -138,9 +188,12 @@ Trusted is the existing **`canAutoApproveBusinesses`** flag **(July)**.
 ### The editor shows only what the owner's tier displays
 
 **Daniel's decision, made knowing the consequence.** A Free owner's editor
-contains phone, address, city, postal code, contact name, tagline, dining type
-and one category. Description, email, website, hours, logo and social links are
-**not shown**, because Free does not display them.
+contains phone, address, city, postal code, dining type and one category.
+Description, email, website, hours, logo, social links and **contact name** are
+not shown, because Free displays none of them (`show_contact_name` is false on
+Free — an earlier draft wrongly listed it as Free-editable).
+
+Tagline appears only if Part 0 makes it render.
 
 That is thin, and 1,634 of 1,635 businesses are on Free. It is the tier design
 working as intended — those fields are what Standard sells. The accepted cost is
@@ -158,7 +211,10 @@ on fields nobody will see.
 this is copying an existing rule, not inventing one.
 
 The `show*` flags are display-only gates. Under the decision above they become
-editor-visibility rules too.
+editor-visibility rules too — **and server-side rejection rules**. Hiding a field
+in the form is not enforcement: the API must reject a value for a field the
+caller's plan does not display, exactly as it already rejects too many
+categories. The project's standing rule is never to trust the frontend.
 
 **Existing over-limit data is grandfathered.** A business downgraded from
 Standard (3 categories) to Free (1) keeps its three; the editor blocks *adding*
@@ -197,6 +253,12 @@ notification path from `setApprovalStatus`, rather than growing a parallel one.
 
 Per field: the proposed value, the value at submission time (for the diff), and
 after review whether it was applied and any reason.
+
+**Field granularity for structured values.** `hours`, `socialLinks` and
+`additionalCategoryIds` are JSONB, not scalars. Each is treated as **one field**
+for review — a whole-hours change is approved or rejected together, not
+day-by-day. Splitting them would multiply the review surface for no benefit, and
+partial hours are more likely to be wrong than useful.
 
 **A second edit replaces the first** — only the owner's latest intent is ever
 reviewed.
@@ -249,7 +311,7 @@ it is not rediscovered as a surprise.
 
 | Role | Sees | Can do | Where |
 |---|---|---|---|
-| Anonymous | Approved listing | — | Public listing |
+| Anonymous | Approved listing **and the claim CTA** | Click → sent to login, returned to the claim form after | Public listing |
 | Member, unverified | Listing + claim CTA | Blocked; offered a resend link (`assertCanPost` returns a distinguishable code) | Public listing |
 | Member, verified | Listing + claim CTA | Submit a claim | Claim form |
 | **Claimant, pending** | Their claim and its status | Wait, or withdraw | **`/dashboard/business`** |
@@ -260,17 +322,40 @@ it is not rediscovered as a surprise.
 | Former owner (revoked) | Nothing owned | Claim again | `/dashboard` |
 | Admin | Everything | Approve, reject, assign, revoke | Admin → Businesses |
 
-**The dashboard link is shown when the user owns a business**, not when
-`role === "business"`. The role gate would leave an approved claimant owning a
-listing with no navigation to reach it — and promoting them to `role: "business"`
-does not fix it, because `token.role` is only set at sign-in, so they would see
-nothing until they logged out and back in.
+**The dashboard link is shown when the user owns a business OR has a claim in
+any state**, not when `role === "business"`. Ownership alone is not enough: a
+*pending* claimant owns nothing yet, and the three claimant rows above would be
+unreachable.
+
+The role gate would leave an approved claimant owning a listing with no
+navigation to reach it. Promoting them to `role: "business"` does not fix it
+either: `token.role` is set at sign-in, and the only refresh path is
+`update()` — which since `ad81bdb` re-reads from the database rather than
+trusting the client, so it is now safe to call but still requires the client to
+call it.
 
 **Review is admin-role-only.** There is no `canManageBusinesses` capability and
 this design does not add one — deliberate, stated so it is a decision rather than
 an omission. It diverges from
 `decisions/2026-08-03-atr-capability-not-admin-role`, justified by there being
 exactly one reviewer.
+
+### Business owner — `/dashboard/business`
+
+The screen this project exists to build.
+
+- **No listing yet** — shows any claim they have made and its state: pending,
+  rejected with the reason, or auto-rejected because another claim was approved.
+  Resubmission allowed from here.
+- **Owns a listing** — the editor. Fields their plan does not display are absent
+  (see the tier decision). Plan-capped counts show the cap.
+- **Ordinary owner with a change waiting** — a panel above the form: "Your
+  changes are awaiting review", listing each pending field with its proposed
+  value. Editing again replaces that change.
+- **Trusted owner** — no waiting state; changes are applied on save and the
+  admin is notified who changed what.
+- **After review** — an in-app notification and an email naming the fields that
+  went live, the fields that did not, and any reason given.
 
 ### Admin — Admin → Businesses
 
@@ -314,9 +399,10 @@ can configure who receives claim and change emails.
 this scale; revocation is the backstop.
 
 **Nobody has used the payment flow.** Zero subscriptions have ever been created,
-so the plan-limit paths this depends on are unexercised in production. Free is
-the only tier any real owner will have on day one — and under the editor decision
-above, Free is a thin editor.
+so the plan-limit paths this depends on are unexercised in production. Business
+1634 — one of the two owned listings — is on **Standard**, pending payment; every
+other listing is Free. So Free is what almost every owner gets, and under the
+editor decision above that is a thin editor.
 
 **`268b1f1` must be reworked before this ships**, or `canAutoApproveBusinesses`
 means two different things.
