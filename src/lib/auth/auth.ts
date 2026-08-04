@@ -4,6 +4,7 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { loadUserClaims } from "@/lib/auth/user-claims";
 import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { authConfig } from "./auth.config";
@@ -40,7 +41,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id as string;
         // For OAuth users, fetch role from database since profile() always returns "member"
@@ -66,10 +67,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.canManageAskTheRabbi = false;
         }
       }
-      // Handle session updates
-      if (trigger === "update" && session) {
-        token.role = session.role;
-        token.isTrusted = session.isTrusted;
+      // Handle session updates.
+      //
+      // SECURITY: NextAuth also passes a `session` argument here, holding
+      // whatever the CLIENT posted to /api/auth/session. It is deliberately not
+      // destructured above — there is no safe use for it. Trusting it
+      // let any logged-in account POST {"data":{"role":"admin"}} and become an
+      // admin: verified by exploit on 2026-08-04, /admin went 307 -> 200 and
+      // /api/admin/users returned 200 for a plain member.
+      //
+      // So the payload is ignored entirely. An update re-reads the claims from
+      // the database, which is what makes update() useful (a role granted while
+      // someone is logged in can be picked up without re-authenticating) while
+      // making the client's opinion irrelevant.
+      if (trigger === "update" && token.id) {
+        const claims = await loadUserClaims({ id: token.id });
+        if (claims) {
+          token.role = claims.role;
+          token.isTrusted = claims.isTrusted;
+          token.canManageAskTheRabbi = claims.canManageAskTheRabbi;
+        }
       }
       return token;
     },
