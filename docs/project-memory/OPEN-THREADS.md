@@ -1,4 +1,4 @@
-# Open threads — as at 2026-08-03
+# Open threads — as at 2026-08-03 (updated after the Ask the Rabbi merge)
 
 Everything outstanding, in one place. Split into **decide** (needs Daniel) and
 **do** (decided, not built). Nothing here is in progress.
@@ -56,12 +56,13 @@ revert to — the edit overwrites the row in place.
 | The edit-form approach | Six edit pages built from one described form rather than mirroring the existing modals. **Nobody has seen them rendered.** Recorded as provisional. |
 | Five `[TEST]` shuls live on the public site | ids 2–5 are `[TEST]`-prefixed, plus `makra.ca`; all `isActive: true`, all showing at `/shuls`. Two duplicate real entries (Shaarei Shomayim, Beth Jacob V'Anshei Drildz). Delete, deactivate, or leave? |
 | `isTrusted` | Set on 22 users who own zero businesses between them. Leftover from the pre-per-type permission system; unexamined. |
-| Merge and push | The branch is 41 commits, verified, unmerged. Pushing also deploys the timezone fix and the ads work already unpushed on `main`, and makes the `$onUpdate` change to 17 `updated_at` columns user-visible. |
+| Push to production | `main` is 17 commits ahead of `origin/main` and **nothing is deployed**. Includes the user-submissions work, the timezone fix, and the Ask the Rabbi consolidation. Pushing makes the `$onUpdate` change to 17 `updated_at` columns user-visible. |
 
 ## 3. Do — decided, not built
 
 | Item | Note |
 |---|---|
+| ~~Ask the Rabbi consolidation~~ | **Done 2026-08-03**, merged to `main` (`4e2d17f`). Four shared screens in both shells; five bugs fixed; nine bylines and one test post repaired in production. |
 | "Your change is live" | An approval after a correction still says "Your event is live", identical to a first approval. Agreed to fix. **Worth doing together with item 1** — the same messages are involved. |
 | Grant Rochel `canAutoApproveBlog` | The control now exists in Admin → Users → shield icon. Daniel's to flip; no production writes by the assistant. |
 | Wire up the three dead permission toggles | Decided 2026-08-03: make them do what the dialog heading promises, rather than deleting them. `canAutoApproveBusinesses` / `canAutoApproveAskTheRabbi` / `canAutoApproveShuls` are saved and read by nothing. Businesses currently auto-approves off `isTrusted` instead (`businesses/create/route.ts:150`), so that one needs untangling. |
