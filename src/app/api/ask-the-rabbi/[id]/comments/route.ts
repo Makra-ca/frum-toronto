@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
+import { resolveCommentApprovalStatus } from "@/lib/permissions/auto-approve-targets";
 import { askTheRabbi, askTheRabbiComments, users } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
@@ -135,6 +136,7 @@ export async function POST(
     const [dbUser] = await db
       .select({
         commentPermission: users.commentPermission,
+        canAutoApproveAskTheRabbi: users.canAutoApproveAskTheRabbi,
         canManageAskTheRabbi: users.canManageAskTheRabbi,
         firstName: users.firstName,
         lastName: users.lastName,
@@ -189,14 +191,13 @@ export async function POST(
       }
     }
 
-    // Determine approval status
-    let approvalStatus = "approved";
-    if (!isManager) {
-      const permission = dbUser?.commentPermission ?? "allowed";
-      if (permission === "moderated" || permission === "requires_approval") {
-        approvalStatus = "pending";
-      }
-    }
+    // Ask the Rabbi questions are answered, not approved, so comment
+    // moderation is the one approval step canAutoApproveAskTheRabbi can govern.
+    const approvalStatus = resolveCommentApprovalStatus({
+      isManager,
+      commentPermission: dbUser?.commentPermission,
+      canAutoApproveAskTheRabbi: dbUser?.canAutoApproveAskTheRabbi,
+    });
 
     const [newComment] = await db
       .insert(askTheRabbiComments)

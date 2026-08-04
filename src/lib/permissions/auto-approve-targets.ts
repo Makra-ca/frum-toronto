@@ -1,0 +1,89 @@
+/**
+ * The three permission toggles that used to do nothing.
+ *
+ * `canAutoApproveBusinesses`, `canAutoApproveAskTheRabbi` and
+ * `canAutoApproveShuls` were saved by the admin permissions dialog and read by
+ * no code anywhere — ticking one gave a success toast and changed nothing.
+ *
+ * Each attaches here to the one real approval step in its area. They are pure
+ * functions on purpose: the decision is the part worth testing, and keeping it
+ * out of the route handlers means a test does not need a request, a session or
+ * a database.
+ *
+ * Note "auto-approve" means something different in each area, because the areas
+ * differ — see the individual functions. Ask the Rabbi *questions* have no
+ * approval step at all (they are answered, not approved), so the flag governs
+ * comment moderation instead.
+ */
+
+export type BusinessApprovalInput = {
+  /** Waiting on PayPal. Nothing is paid for yet, so nothing may go live. */
+  pendingPayment: boolean;
+  /** Legacy flag, still the live path for business creation. */
+  isTrusted: boolean | null | undefined;
+  canAutoApproveBusinesses: boolean | null | undefined;
+};
+
+/**
+ * pending_payment > approved > pending.
+ *
+ * pendingPayment wins over both flags: a listing awaiting payment is not
+ * visible anywhere, and a permission to skip *review* must not be read as a
+ * permission to skip *paying*.
+ */
+export function resolveBusinessApprovalStatus({
+  pendingPayment,
+  isTrusted,
+  canAutoApproveBusinesses,
+}: BusinessApprovalInput): "pending_payment" | "approved" | "pending" {
+  if (pendingPayment) return "pending_payment";
+  if (canAutoApproveBusinesses || isTrusted) return "approved";
+  return "pending";
+}
+
+export type CommentApprovalInput = {
+  /** Admin or canManageAskTheRabbi — already bypassed moderation. */
+  isManager: boolean;
+  /** users.commentPermission: "allowed" | "moderated" | "requires_approval". */
+  commentPermission: string | null | undefined;
+  canAutoApproveAskTheRabbi: boolean | null | undefined;
+};
+
+/**
+ * Ask the Rabbi questions are answered, not approved, so there is no approval
+ * step there for a flag to skip. The one real approval step in Ask the Rabbi is
+ * comment moderation, which is what this governs: a holder's comments go live
+ * even if their account is set to moderated.
+ */
+export function resolveCommentApprovalStatus({
+  isManager,
+  commentPermission,
+  canAutoApproveAskTheRabbi,
+}: CommentApprovalInput): "approved" | "pending" {
+  if (isManager || canAutoApproveAskTheRabbi) return "approved";
+
+  const permission = commentPermission ?? "allowed";
+  if (permission === "moderated" || permission === "requires_approval") {
+    return "pending";
+  }
+  return "approved";
+}
+
+export type ShulRequestInput = {
+  canAutoApproveShuls: boolean | null | undefined;
+};
+
+/**
+ * Grants a request to MANAGE a shul without admin review.
+ *
+ * Worth being clear about what this hands over: not the ability to submit
+ * something for approval, but control of a shul's public listing — name,
+ * address, rabbi, davening times, documents — all of which go live without
+ * review once assigned. That is why it is a per-user permission and not a
+ * default, and why nobody holds it today.
+ */
+export function shouldAutoGrantShulRequest({
+  canAutoApproveShuls,
+}: ShulRequestInput): boolean {
+  return canAutoApproveShuls === true;
+}

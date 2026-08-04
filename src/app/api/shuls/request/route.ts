@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { shulRegistrationRequests, userShuls, shuls } from "@/lib/db/schema";
+import { shouldAutoGrantShulRequest } from "@/lib/permissions/auto-approve-targets";
+import { shulRegistrationRequests, userShuls, shuls, users } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
@@ -65,16 +66,45 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create the request
+    // canAutoApproveShuls grants the request outright. Note what that hands
+    // over: not permission to submit something for review, but control of a
+    // shul's public listing — name, address, rabbi, davening times, documents —
+    // all of which go live without approval once assigned.
+    const [requester] = await db
+      .select({ canAutoApproveShuls: users.canAutoApproveShuls })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const autoGrant = shouldAutoGrantShulRequest({
+      canAutoApproveShuls: requester?.canAutoApproveShuls,
+    });
+
     const [newRequest] = await db
       .insert(shulRegistrationRequests)
       .values({
         userId,
         shulId,
         message: message || null,
-        status: "pending",
+        status: autoGrant ? "approved" : "pending",
       })
       .returning();
+
+    if (autoGrant) {
+      // Mirror the admin approval path exactly (admin/shul-requests/[id]):
+      // create the assignment, then promote a plain member so the dashboard
+      // link appears. Only "member" — never overwrite an existing role.
+      await db.insert(userShuls).values({
+        userId,
+        shulId,
+        assignedBy: userId,
+      });
+
+      await db
+        .update(users)
+        .set({ role: "shul", updatedAt: new Date() })
+        .where(and(eq(users.id, userId), eq(users.role, "member")));
+    }
 
     // Notify admins (in-app + instant email to shul_registration recipients)
     // Name lookup is notification prep only — never let it fail the submission
@@ -92,13 +122,15 @@ export async function POST(request: Request) {
 
     await notifyAdminOfSubmission({
       contentType: "shul_request",
-      title: `New shul management request: ${shulName || `Shul #${shulId}`}`,
+      title: autoGrant
+        ? `Shul management granted automatically: ${shulName || `Shul #${shulId}`}`
+        : `New shul management request: ${shulName || `Shul #${shulId}`}`,
       body:
         `Shul: ${shulName || `#${shulId}`}\n` +
         `Requested by: ${session.user.name || session.user.email || "Unknown user"}` +
         (message ? `\n\nMessage: ${message}` : ""),
-      linkUrl: "/admin/shuls/requests",
-      status: "pending",
+      linkUrl: autoGrant ? "/admin/shuls/managers" : "/admin/shuls/requests",
+      status: autoGrant ? "auto_approved" : "pending",
     });
 
     return NextResponse.json(newRequest, { status: 201 });

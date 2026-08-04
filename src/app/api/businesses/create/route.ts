@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
+import { resolveBusinessApprovalStatus } from "@/lib/permissions/auto-approve-targets";
 import { businesses, subscriptionPlans, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -100,7 +101,10 @@ export async function POST(request: NextRequest) {
 
     // Get the user to check if they're trusted
     const [user] = await db
-      .select({ isTrusted: users.isTrusted })
+      .select({
+        isTrusted: users.isTrusted,
+        canAutoApproveBusinesses: users.canAutoApproveBusinesses,
+      })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
@@ -144,14 +148,11 @@ export async function POST(request: NextRequest) {
     // pending_payment = waiting for PayPal (not visible anywhere)
     // pending = waiting for admin approval (visible to admin)
     // approved = live on site
-    let approvalStatus: string;
-    if (data.pendingPayment) {
-      approvalStatus = "pending_payment";
-    } else if (user?.isTrusted) {
-      approvalStatus = "approved";
-    } else {
-      approvalStatus = "pending";
-    }
+    const approvalStatus = resolveBusinessApprovalStatus({
+      pendingPayment: Boolean(data.pendingPayment),
+      isTrusted: user?.isTrusted,
+      canAutoApproveBusinesses: user?.canAutoApproveBusinesses,
+    });
 
     // Create the business
     const [newBusiness] = await db
