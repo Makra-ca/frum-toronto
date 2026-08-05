@@ -1,7 +1,7 @@
 # Business claiming and owner editing
 
 **Date:** 2026-08-04
-**Status:** Revision 8 — dining type corrected, 268b1f1 is shipped not local, counts fixed.
+**Status:** Revision 9 — the read path, the unapproved-listing case, and plan-less defaults.
 
 Completes the sketch parked in `docs/project-memory/TODO-business-claim-flow.md`.
 Decisions carried from 2026-07-31 are marked **(July)**.
@@ -170,6 +170,9 @@ change**, which is why it is deferred rather than designed now.
 - **Assign an owner without a claim** — a shop that phones instead of using the
   site, or a genuine owner of an unapproved listing
 - **Revoke an owner** — the business changes hands, or a grant is abused
+- **Assigning where an owner already exists** returns **409**, not a silent
+  overwrite. Replacing an owner is revoke-then-assign, so the removal is a
+  deliberate act rather than a side effect
 
 **Neither has any plumbing today.** `BusinessForm` has no owner field,
 `businessSchema` has no `userId` (so the admin PUT would strip it), and the
@@ -285,10 +288,9 @@ deliberately: a blog post going dark for a day is a inconvenience; a directory
 listing going dark takes a business's phone number off the internet.
 
 **Reuse the single-writer discipline** from `setApprovalStatus` — one function
-owns the status transition — but **not `notifySubmitter`**. Its signature is
-`{ approved: boolean, reason, … }` and it hardcodes
-`linkUrl = "/dashboard/submissions"`, a page that will never list a business
-change. A per-field partial outcome is neither approved nor rejected, and
+owns the status transition — but **not `notifySubmitter`**. Its signature is `{ approved: boolean, reason, … }`, and its
+link falls back to `/dashboard/submissions` — a page that will never list a
+business change — whenever the outcome is not a clean approval. A per-field partial outcome is neither approved nor rejected, and
 widening that function would change the shape for all eight existing submission
 types.
 
@@ -585,16 +587,33 @@ New **`ownerBusinessEditSchema`** in `src/lib/validations/content.ts`: exactly t
 editable fields, all optional, with the `socialLinks` key set defined (reuse the
 shape already in `createBusinessSchema`, which is the only place it exists).
 
-### Plan capability must become readable outside the listing page
+### Nothing currently returns the values the editor must show
+
+The editor lives on `/dashboard/business/[id]`, which calls
+**`GET /api/businesses/[id]`** — not `my-businesses`, which serves the list page.
+
+That route returns identity, video, non-profit, category and four plan flags
+(`showVideo`, `showShoutouts`, `showInHomepageBanner`, `showInHomepageSidebar`).
+It returns **none of the editable fields**: no phone, email, website, address,
+city, postal code, description, hours, logo, contact name, social links or
+additional categories.
+
+So there is a **read** path to build as well as the write paths in Part 0.
+Extend `GET /api/businesses/[id]` with the editable fields and the remaining
+capability flags (`showDescription`, `showEmail`, `showWebsite`, `showHours`,
+`showLogo`, `showSocialLinks`, `showContactName`, `maxCategories`). The route
+already returns four such flags, so this follows an established shape.
 
 `canShowFeature` is **module-private** inside
-`src/app/directory/business/[slug]/page.tsx:284`, and
-`/api/businesses/my-businesses` returns only `planId`, `planName`, `planSlug` —
-no `show*` flags, no `maxCategories`.
+`directory/business/[slug]/page.tsx`; extract it so the editor and the
+server-side rejection rules share one definition.
 
-Both the tier-gated editor and the server-side rejection rules need them, so:
-extract `canShowFeature` into a shared module, and extend `my-businesses` to
-return the plan's capability flags and limits.
+**Watch the plan-less default.** `canShowFeature` is `if (!plan) return false`,
+while the category limit is `if (plan && plan.maxCategories !== null)` — which
+skips the check entirely when there is no plan. Copied verbatim into the edit
+path, a business with a NULL `subscriptionPlanId` could edit almost nothing and
+add unlimited categories. Decide one rule for plan-less businesses and apply it
+to both.
 
 ### The `268b1f1` rework breaks existing tests
 
@@ -615,6 +634,20 @@ business/listing entry.
 category. Pre-filling is a change to a page this project otherwise does not
 touch, for a link nobody has asked for yet.
 
+### An owner whose listing is not approved
+
+**This is the only state the feature ships into.** Both businesses that have an
+owner today are unapproved — 1634 `pending_payment`, 1635 `pending`.
+
+Part 3's premise, that the listing "stays live and unchanged", does not apply to
+a listing that is not live. So for a listing whose `approvalStatus` is anything
+other than `approved`, an owner's edit is **written straight to the row**, with
+no pending change and no review — it is already sitting in the creation-approval
+queue, and a second queue on top of it would mean the admin approving the same
+listing twice.
+
+The pending-change machinery applies only to **approved** listings.
+
 ### Claim states the spec created but did not resolve
 
 - **A user with a pending claim** sees "Your claim is awaiting review" on the
@@ -622,6 +655,45 @@ touch, for a link nobody has asked for yet.
   partial unique index surfaces as a raw constraint error.
 - **Withdrawn claims** may be re-submitted — the index only blocks a second
   *pending* row. A withdrawn claim disappears from the dashboard.
+
+### The digest queries do not follow the existing pattern
+
+The eleven existing counts in `cron/notification-digest/route.ts` all read
+`approval_status`. The two new ones read **`status = 'pending'`** on the new
+tables instead, so the pattern does not transfer verbatim. Note also that
+`categories` is filtered on `count > 0`, so an empty queue correctly contributes
+nothing.
+
+### Cache invalidation on approval
+
+`directory/business/[slug]/page.tsx` exports no `dynamic` or `revalidate`, and
+neither the admin business route nor `businesses/create` calls
+`revalidatePath`. Approving a change writes to the live row with nothing
+invalidating the public page. Approval must `revalidatePath` the listing — the
+project already does this for simchas and shul documents.
+
+### `createBusinessSchema` has to move
+
+`ownerBusinessEditSchema` belongs in `src/lib/validations/content.ts`, but the
+`socialLinks` shape it should reuse is a **local const** in
+`api/businesses/create/route.ts` — not exported, not in `content.ts`. Moving it
+touches the create route.
+
+### An admin using the owner PATCH
+
+The reused idiom (`!isAdmin && business.userId !== userId`) means an admin may
+PATCH any business. An admin is not necessarily a trusted *owner*, so under the
+literal rule an admin's edit would queue for the admin to review.
+`decisions/2026-07-31-admins-auto-approve-every-type` settles the general case:
+**an admin's edit applies immediately**, exactly like a trusted owner's.
+
+### Other tests this touches
+
+Beyond `dead-permission-toggles.test.ts`: `resolveBusinessApprovalStatus`'s
+signature change reaches its call site in `businesses/create/route.ts`, and
+`tests/unit/notify-admin.test.ts` asserts tier routing per content type — two
+types in neither `INSTANT_EMAIL_TYPES` nor `FORM_TYPE_BY_CONTENT` is a shape it
+does not currently cover.
 
 ### Empty and loading states
 
@@ -631,7 +703,7 @@ while `my-businesses` resolves.
 
 ### Reaching the new screens
 
-`dashboard/page.tsx:221` currently gates its business link on
+`dashboard/page.tsx:222` currently gates its business link on
 `role === "business" || role === "admin"`. Replacing that with "owns a business
 or has a claim" means the page must also fetch claims; it fetches businesses
 only today.
@@ -646,6 +718,12 @@ only today.
 | Plan downgraded below current content | Existing data grandfathered; adding beyond the new limit blocked |
 | Pending change names a deleted category | Validated **at approval time**; `additional_category_ids` is JSONB with no referential integrity, so this is already possible today |
 | One user, many businesses | Supported; `my-businesses` already returns a list |
+
+## On completion
+
+Two new decision records — the claims table and the pending-changes model — plus
+an `INDEX.md` row for each. The `268b1f1` reversal is already filed as
+`2026-08-04-auto-approve-businesses-gates-edits-not-creation`.
 
 ## Out of scope
 
