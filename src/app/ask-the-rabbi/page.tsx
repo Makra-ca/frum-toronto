@@ -87,6 +87,13 @@ async function getQuestions(searchParams: SearchParams) {
             desc(askTheRabbi.questionNumber),
           ]
         : [
+            // Newest question first by the date it was published, NOT by
+            // insertion order. desc(id) put back-dated archive rows above
+            // recent posts, and made two questions entered out of sequence
+            // (#6024 before #6019) display in the order they were typed.
+            // NULLS LAST matters: Postgres sorts NULLs FIRST on DESC, which
+            // would float any dateless row to the top of the archive.
+            sql`${askTheRabbi.publishedAt} DESC NULLS LAST`,
             desc(askTheRabbi.id),
           ])
     )

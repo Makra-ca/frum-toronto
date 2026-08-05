@@ -375,3 +375,122 @@ export function slugify(input: string): string {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 }
+
+// ============================================
+// ASK THE RABBI
+// ============================================
+
+/**
+ * Pulls the rabbi's question number out of a title.
+ *
+ * IMPORTANT: pass DECODED text (htmlToLine output), never the raw legacy HTML.
+ * The original migrate-ask-rabbi.js matched /#(\d+)/ against the raw string,
+ * which happily matched the *HTML entity* "&#8203;" (zero-width space) that the
+ * legacy editor sprinkled through titles. Two questions numbered 2156 and 2998
+ * both came out as 8203, collided on the UNIQUE(question_number) constraint and
+ * were silently dropped — and one row that did land (id 2011, "# 2006 In His
+ * Name or Our Name?&#8203;") is still storing 8203 today.
+ *
+ * Only the "#NNNN" form is recognised. Titles that carry a bare leading number
+ * ("5735 - Family Problems") are deliberately left unnumbered, matching the
+ * 3,911 rows already in the archive with a NULL question_number; inferring them
+ * here would number the newly imported rows while their neighbours stay blank.
+ */
+export function extractQuestionNumber(decodedTitle: string | null | undefined): number | null {
+  if (!decodedTitle) return null;
+  const m = decodedTitle.match(/#\s*(\d{1,5})\b/);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** Rewrites the "#NNNN" in a title to a new number, leaving the rest intact. */
+export function renumberTitle(decodedTitle: string, next: number): string {
+  return decodedTitle.replace(/#\s*\d{1,5}\b/, `#${next}`);
+}
+
+/**
+ * Splits a legacy Q&A body into its question and answer halves.
+ *
+ * The legacy format is "Q. <question> A. <answer>", but the markers are
+ * inconsistent ("Q,", "- Q.", "A:", "Answer:") and some rows carry no answer
+ * marker at all — those keep the whole body as the question, which is how the
+ * 85 answer-less rows already in the archive were produced.
+ */
+export function splitQuestionAnswer(text: string): { question: string; answer: string | null } {
+  const cleaned = (text || "").trim();
+  if (!cleaned) return { question: "", answer: null };
+
+  const stripQ = (s: string) => s.replace(/^[\s\-–—]*Q\s*[.,:]?\s*/i, "").trim();
+
+  const patterns = [
+    // The normal form: an answer marker followed by whitespace, sitting at a
+    // line start or immediately after a sentence ends. The lookbehind keeps the
+    // question's own closing punctuation out of the match.
+    /(?:^|\n|(?<=[.?!])\s+)[ \t]*(?:A\s*[.:]|Answer\s*:)\s+/,
+    // The legacy typo: "A.Some Poskim rule..." with no space after the period.
+    // Only honoured at a LINE START. Allowing it mid-prose would split on an
+    // initial such as "Rav A.Y. Kook", and a wrong split silently relabels part
+    // of the question as the rabbi's answer — worse than not splitting at all.
+    /(?:^|\n)[ \t]*(?:A[.:]|Answer:)(?=[A-Z“‘"'])/,
+  ];
+
+  // Every candidate position, earliest first — not just the first match of each
+  // pattern, because the first candidate is sometimes a false positive that has
+  // to be stepped over.
+  const candidates: { index: number; length: number }[] = [];
+  for (const re of patterns) {
+    for (const m of cleaned.matchAll(new RegExp(re.source, "g"))) {
+      if (m.index !== undefined) candidates.push({ index: m.index, length: m[0].length });
+    }
+  }
+  candidates.sort((a, b) => a.index - b.index);
+
+  for (const c of candidates) {
+    // Nearly every legacy answer is signed "Rabbi A. Bartfeld as revised by
+    // Horav Shlomo Miller Shlit'a", and one variant is "Rabbi. A. Bartfeld" —
+    // whose "Rabbi." satisfies the sentence-end boundary, so the byline's
+    // INITIAL reads as an answer marker. Splitting there files the signature as
+    // the rabbi's ruling and leaves the real answer inside the question. Refuse
+    // any marker that is really the initial in that byline.
+    if (/\b(?:rabbi|rav|horav)\.?\s*$/i.test(cleaned.slice(0, c.index))) continue;
+
+    const question = stripQ(cleaned.slice(0, c.index));
+    const answer = cleaned.slice(c.index + c.length).trim();
+    if (question.length >= 10 && answer.length > 0) return { question, answer };
+  }
+
+  return { question: stripQ(cleaned), answer: null };
+}
+
+/**
+ * Dice coefficient over character bigrams, 0..1.
+ *
+ * Used to decide whether two questions sharing a number are the same question
+ * posted twice or two genuinely different questions. A plain equality check is
+ * not enough: the legacy site's re-posts differ by a stray "- Q." prefix or a
+ * prepended header line, so they share no common prefix at all despite being
+ * the same text.
+ */
+export function bodySimilarity(a: string, b: string): number {
+  const norm = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const x = norm(a);
+  const y = norm(b);
+  if (!x.length && !y.length) return 1;
+  if (x.length < 2 || y.length < 2) return x === y ? 1 : 0;
+
+  const bigrams = (s: string) => {
+    const m = new Map<string, number>();
+    for (let i = 0; i < s.length - 1; i++) {
+      const g = s.slice(i, i + 2);
+      m.set(g, (m.get(g) ?? 0) + 1);
+    }
+    return m;
+  };
+
+  const ma = bigrams(x);
+  const mb = bigrams(y);
+  let shared = 0;
+  for (const [g, n] of ma) shared += Math.min(n, mb.get(g) ?? 0);
+  return (2 * shared) / (x.length - 1 + (y.length - 1));
+}

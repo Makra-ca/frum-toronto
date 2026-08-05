@@ -66,7 +66,13 @@ export async function GET(request: NextRequest) {
       })
       .from(askTheRabbi)
       .where(whereClause)
-      .orderBy(desc(askTheRabbi.id))
+      // Newest question first by publication date, NOT by insertion order.
+      // desc(id) showed rows in the order they were typed, which is why
+      // #6024 (posted 7/30) sat above #6019 (posted 8/3), and why the legacy
+      // archive import would otherwise land on top of recent posts.
+      // NULLS LAST: Postgres sorts NULLs FIRST on DESC, so an unpublished row
+      // with no date would otherwise head the list.
+      .orderBy(sql`${askTheRabbi.publishedAt} DESC NULLS LAST`, desc(askTheRabbi.id))
       .limit(limit)
       .offset(offset);
 
