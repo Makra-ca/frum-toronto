@@ -1,7 +1,7 @@
 # Business claiming and owner editing
 
 **Date:** 2026-08-04
-**Status:** Revision 7 — blockers closed: screen locations, the notifier, the owner schema, tab routes.
+**Status:** Revision 8 — dining type corrected, 268b1f1 is shipped not local, counts fixed.
 
 Completes the sketch parked in `docs/project-memory/TODO-business-claim-flow.md`.
 Decisions carried from 2026-07-31 are marked **(July)**.
@@ -54,7 +54,7 @@ six field groups Daniel chose do not fully work today, and a field existing in
 | phone · address · city · postal code | anywhere | yes | most |
 | email · website · description | anywhere | yes (plan-gated) | email 1,198 |
 | hours | anywhere | yes (plan-gated) | **1** |
-| dining type | anywhere | restaurants only | **0** |
+| dining type | admin **edit** only | restaurants only | **0** |
 | category (main) | anywhere | yes | 1,633 of 1,635 |
 | **logo** | **nowhere** | yes (plan-gated) | **0** |
 | **contact name** | **user registration only** | selected, never rendered | 1 |
@@ -63,8 +63,8 @@ six field groups Daniel chose do not fully work today, and a field existing in
 | tagline | user create + admin **edit** (silently dropped by admin create) | **not on the listing** (newsletter shoutouts only) | **0** |
 | banner | admin **edit** only (silently dropped by admin create) | **not on the listing** (homepage ads only) | **0** |
 
-Derived by enumerating **all 27 write sites** against the `businesses` table, not
-by reading `schema.ts`. Revision 3 said contact name, social links and additional
+Derived by enumerating **all 28 write sites** against the `businesses` table
+(`insert`/`update`, `.ts` and `.tsx`), not by reading `schema.ts`. Revision 3 said contact name, social links and additional
 categories had no write path; they are written by
 `POST /api/businesses/create` and have full UI on the registration form. The
 defect is narrower and worse than "missing": they are **create-only**, so a
@@ -98,7 +98,10 @@ Required before Part 1:
 1. **`logoUrl`** — build the write path: add to `businessSchema`, `BusinessForm`
    and the admin PUT, and to the owner editor. Rendering already exists.
 2. **`contactName`, `socialLinks`, `additionalCategoryIds`** — add to the **edit**
-   path only; the create path already handles them. `businessSchema` +
+   path only; the create path already handles them.
+   **`diningType`** joins them: it is written only by the admin PUT, so it has no
+   non-admin write path — and it is one of the few fields a Free owner can edit,
+   which makes it load-bearing for that tier. `businessSchema` +
    `BusinessForm` + admin PUT + owner editor.
 3. **Render `contactName` and `socialLinks`** on the listing, gated on
    `showContactName` and `showSocialLinks` — both flags exist and gate nothing.
@@ -213,7 +216,7 @@ render today. The gallery becomes its own project.
 
 Trusted is the existing **`canAutoApproveBusinesses`** flag **(July)**.
 
-> **Supersedes `268b1f1` (unpushed).** That commit wired
+> **Supersedes `268b1f1`, which is deployed.** That commit wired
 > `canAutoApproveBusinesses` to gate approval of business **creation**, following
 > `decisions/2026-08-03-dead-toggles-get-wired-not-removed`. This design uses it
 > for **owner edits**, which is what July designed it for. The commit must be
@@ -454,7 +457,7 @@ Modelled on `shul_registration_requests`, which is proven.
 | `reviewed_by` | int NULL → `users.id` ON DELETE SET NULL | |
 | `reviewed_at` | timestamp NULL | |
 | `created_at` | timestamp NOT NULL default now | |
-| `updated_at` | timestamp NOT NULL default now, `$onUpdate` | Every comparable table has one; 17 were repaired recently for lacking it |
+| `updated_at` | timestamp NOT NULL default now, `$onUpdate` | Note `shul_registration_requests`, the model for this table, has none — this follows the newer convention deliberately |
 
 **Partial unique index** on `(business_id, user_id) WHERE status = 'pending'` —
 one open claim per person per listing. A rejected claimant may resubmit, which
@@ -529,7 +532,7 @@ All owner routes reuse the existing idiom: `!isAdmin && business.userId !== user
 
 New `SubmissionContentType` values **`business_claim`** and
 **`business_change`**. In-app notifications for all admins are unconditional
-(`notifications.ts:196-214`), so both queues reach the bell with no further work.
+(`notifications.ts`, `createAdminNotification`), so both queues reach the bell with no further work.
 
 **No instant email.** A claim is not time-critical, and per-change emails across
 1,635 listings would be noise. That means **no `INSTANT_EMAIL_TYPES` entry** —
@@ -541,8 +544,8 @@ recipients who never receive anything.
 
 **The daily digest does not pick these up automatically.** An earlier revision
 claimed it would; that was wrong. `cron/notification-digest/route.ts` is a
-**hardcoded list of eleven `count(*)` queries** (lines 44-79) feeding a hardcoded
-`categories` array (81-93). It iterates neither `FORM_TYPES` nor the
+**hardcoded list of eleven `count(*)` queries** feeding a hardcoded `categories`
+array. It iterates neither `FORM_TYPES` nor the
 `notifications` table. So including the two new queues requires **explicitly
 editing that route**: two more count queries and two more `categories` entries,
 pointing at `/admin/businesses/claims` and `/admin/businesses/changes`.
