@@ -1,7 +1,7 @@
 # Business claiming and owner editing
 
 **Date:** 2026-08-04
-**Status:** Revision 11 — two overstated negatives corrected.
+**Status:** Revision 12 — no transactions, count-gated categories, the supersession wording (properly).
 
 Completes the sketch parked in `docs/project-memory/TODO-business-claim-flow.md`.
 Decisions carried from 2026-07-31 are marked **(July)**.
@@ -257,6 +257,17 @@ in the form is not enforcement: the API must reject a value for a field the
 caller's plan does not display, exactly as it already rejects too many
 categories. The project's standing rule is never to trust the frontend.
 
+**Categories are gated by a count, not a flag — so the tier-visibility rule does
+not apply to them.** Every other field is shown or hidden by a boolean `show*`
+flag. `additionalCategoryIds` has only `maxCategories`, and a cap of 1 does not
+mean "hide the control".
+
+So the additional-categories control is **always present**, showing the cap
+("3 of 1 — your plan allows 1"). Adding is blocked at or over the cap; **removing
+is always allowed**, and the server accepts a write that shrinks the set even
+when the count exceeds the plan. Without that exception a downgraded owner could
+never clear the excess, which is the dead end grandfathering exists to prevent.
+
 **Existing over-limit data is grandfathered.** A business downgraded from
 Standard (3 categories) to Free (1) keeps its three; the editor blocks *adding*
 more but never forces a purge, or the owner hits a dead end they cannot clear.
@@ -474,8 +485,8 @@ Approving one claim sets every other `pending` claim on that business to
 **One row per submission, not per field.** The alternative — a row per changed
 field — was considered and rejected: `hours`, `social_links` and
 `additional_category_ids` are JSONB, and an EAV table would stringify them and
-lose their types. One row also makes "a second edit replaces the first" a single
-`DELETE` + `INSERT` rather than a set difference.
+lose their types. One row also makes "a second edit replaces the first" a single row
+transition rather than a set difference.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -485,7 +496,7 @@ lose their types. One row also makes "a second edit replaces the first" a single
 | `proposed` | jsonb NOT NULL | `{ field: newValue }` — only changed fields |
 | `previous` | jsonb NOT NULL | same keys, values as at submission, for the diff |
 | `outcome` | jsonb NULL | after review: `{ field: { applied: bool, reason: string \| null } }` |
-| `status` | varchar(20) NOT NULL default `pending` | `pending` · `reviewed` · `superseded` · `discarded`. A trusted owner's (or admin's) save is written directly as `reviewed`; `discarded` is set when the owner is revoked |
+| `status` | varchar(20) NOT NULL default `pending` | `pending` · `reviewed` · `superseded` · `discarded`. A trusted owner's (or admin's) save is written directly as `reviewed`; `discarded` is set when the owner is revoked **or** when the listing is un-approved; the owner is told in both cases |
 | `reviewed_by` | int NULL → `users.id` ON DELETE SET NULL | |
 | `reviewed_at` | timestamp NULL | |
 | `created_at` | timestamp NOT NULL default now | |
@@ -527,6 +538,7 @@ All owner routes reuse the existing idiom: `!isAdmin && business.userId !== user
 | `/api/admin/businesses/[id]/owner` | PUT / DELETE | admin | Assign directly / revoke |
 | `/api/businesses/[id]` | PATCH | owner | Submit an edit — queues, or applies directly if trusted |
 | `/api/businesses/[id]/pending-change` | GET | owner + admin | The waiting change |
+| `/api/businesses/[id]/pending-change` | DELETE | owner | Withdraw it. Without this an owner who submits by mistake can only overwrite it with another edit, since the index permits one pending row and Save is the editor's only action |
 | `/api/admin/business-changes` | GET | admin | The Changes queue |
 | `/api/admin/business-changes/[id]` | PATCH | admin | Per-field approve; body carries the outcome map |
 
@@ -710,13 +722,34 @@ tables instead, so the pattern does not transfer verbatim. Note also that
 `categories` is filtered on `count > 0`, so an empty queue correctly contributes
 nothing.
 
+### There are no transactions
+
+`src/lib/db/index.ts` uses `neon()` HTTP with `drizzle-orm/neon-http`.
+**`db.transaction` does not exist** — the only mention in `src/` is a comment
+explaining its absence. Two places in this design read as atomic and are not:
+
+- **Approving a claim** sets the owner and auto-rejects rival claims. Order:
+  auto-reject rivals **first**, then set the owner. A failure between them leaves
+  rivals rejected and no owner — recoverable by approving again. The reverse
+  order can leave two people believing they own the listing.
+- **Approving a change** writes the listing row, the `outcome` map and the
+  status. Order: **outcome and status first, then the listing row.** A failure
+  between them leaves a change marked reviewed whose values did not land — 
+  visible and re-appliable — rather than a silently-changed listing the owner is
+  never told about.
+
+This matches the existing precedent: `applyEdit` and `setApprovalStatus` are two
+unguarded round trips for the same reason.
+
 ### Cache invalidation on approval
 
 `directory/business/[slug]/page.tsx` exports no `dynamic` or `revalidate`, and
 neither the admin business route nor `businesses/create` calls
 `revalidatePath`. Approving a change writes to the live row with nothing
-invalidating the public page. Approval must `revalidatePath` the listing — the
-project already does this for simchas and shul documents.
+invalidating the public page. **All three paths that write the live row must `revalidatePath` the listing**:
+admin approval of a change, a trusted owner's direct save, and an
+unapproved-listing owner edit — the last because that listing becomes public
+later. The project already does this for simchas and shul documents.
 
 ### `createBusinessSchema` has to move
 
