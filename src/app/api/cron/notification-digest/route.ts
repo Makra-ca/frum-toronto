@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAuthorisedCronRequest } from "@/lib/auth/cron-auth";
 import { db } from "@/lib/db";
 import {
   events,
@@ -25,9 +26,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 // GET — daily digest of pending Tier B approvals (called by Vercel cron at 13:00 UTC = 8 AM EST)
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorisedCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

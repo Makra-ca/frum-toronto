@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthorisedCronRequest } from "@/lib/auth/cron-auth";
 import { db } from "@/lib/db";
 import { tehillimList } from "@/lib/db/schema";
 import { and, eq, lt, or, isNull } from "drizzle-orm";
@@ -9,10 +10,7 @@ import { and, eq, lt, or, isNull } from "drizzle-orm";
 export async function GET(request: Request) {
   try {
     // Verify cron secret in production
-    const authHeader = request.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!isAuthorisedCronRequest(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

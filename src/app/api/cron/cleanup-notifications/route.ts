@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAuthorisedCronRequest } from "@/lib/auth/cron-auth";
 import { db } from "@/lib/db";
 import { notifications } from "@/lib/db/schema";
 import { lt } from "drizzle-orm";
@@ -7,9 +8,7 @@ export const dynamic = "force-dynamic";
 
 // GET — delete notifications older than 30 days (called by Vercel cron)
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorisedCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

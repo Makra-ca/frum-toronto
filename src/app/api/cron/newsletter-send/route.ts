@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAuthorisedCronRequest } from "@/lib/auth/cron-auth";
 import { db } from "@/lib/db";
 import { newsletterSends, newsletterRecipientLogs, newsletters, emailSubscribers } from "@/lib/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
@@ -38,11 +39,7 @@ const DELAY_BETWEEN_BATCHES = 600; // ms - to stay under rate limits
  * This should run every minute via Vercel cron
  */
 export async function GET(req: NextRequest) {
-  // Verify cron secret for security
-  const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!isAuthorisedCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
