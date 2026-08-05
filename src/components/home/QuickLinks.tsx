@@ -3,10 +3,10 @@ import { ChevronRight } from "lucide-react";
 
 const quickLinks = [
   {
-    title: "Business Directory",
-    description: "Find local kosher businesses",
-    href: "/directory",
-    accent: "border-l-blue-500",
+    title: "Ask The Rabbi",
+    description: "Halachic Q&A archive",
+    href: "/ask-the-rabbi",
+    accent: "border-l-teal-500",
   },
   {
     title: "Shuls & Davening",
@@ -45,10 +45,10 @@ const quickLinks = [
     accent: "border-l-pink-500",
   },
   {
-    title: "Ask The Rabbi",
-    description: "Halachic Q&A archive",
-    href: "/ask-the-rabbi",
-    accent: "border-l-teal-500",
+    title: "Business Directory",
+    description: "Find local kosher businesses",
+    href: "/directory",
+    accent: "border-l-blue-500",
   },
 ];
 

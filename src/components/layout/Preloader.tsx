@@ -3,6 +3,50 @@
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
+// localStorage, not sessionStorage: sessionStorage is scoped to a single tab, so
+// closing the tab replayed the whole 3.9s intro on the next visit. This flag
+// persists until the visitor clears site data — the preloader plays exactly once
+// per browser. PageWrapper reads the same key to decide its fade-in timing.
+export const PRELOADER_SEEN_KEY = 'preloaderShown';
+
+// Safari in private mode and browsers with storage blocked throw on access.
+// A throw inside the effect would take the whole tree down, so both sides of the
+// flag are guarded — worst case the preloader plays every visit, which is the
+// old behaviour rather than a broken page.
+export function hasSeenPreloader(): boolean {
+  try {
+    return localStorage.getItem(PRELOADER_SEEN_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
+function markPreloaderSeen(): void {
+  try {
+    localStorage.setItem(PRELOADER_SEEN_KEY, 'true');
+  } catch {
+    // ignore — see hasSeenPreloader
+  }
+}
+
+// Timings. PRELOADER_FADE_START_MS must stay in step with the 3.2s delay on
+// `.animate-page-fade-in` in globals.css — that class holds the page invisible
+// until the preloader begins fading out.
+export const PRELOADER_FADE_START_MS = 3200;
+export const PRELOADER_TOTAL_MS = 3900;
+
+/**
+ * Routes the preloader never plays on.
+ *
+ * Shared with PageWrapper deliberately. PageWrapper's delayed fade-in holds the
+ * page at `opacity: 0` for 3.2s to sit behind the preloader — so if the two
+ * predicates ever drift, a route that skips the preloader but takes the delay
+ * shows a blank screen for over three seconds.
+ */
+export function isPreloaderSkippedRoute(pathname: string | null): boolean {
+  return !!pathname && (pathname.startsWith('/admin') || pathname.startsWith('/dashboard'));
+}
+
 // Pre-defined particle positions to avoid hydration mismatch
 const particleData = [
   { left: 46, tx: -45, ty: -90 },
@@ -29,29 +73,28 @@ export default function Preloader() {
   const [fadeOut, setFadeOut] = useState(false);
 
   // Skip preloader on admin/dashboard routes
-  const isAdminRoute = pathname?.startsWith('/admin') || pathname?.startsWith('/dashboard');
+  const isAdminRoute = isPreloaderSkippedRoute(pathname);
 
   useEffect(() => {
     // Skip on admin routes
     if (isAdminRoute) return;
 
-    // Check if preloader was already shown this session
-    const hasSeenPreloader = sessionStorage.getItem('preloaderShown');
-    if (hasSeenPreloader) return;
+    // Check if the preloader has ever been shown on this browser
+    if (hasSeenPreloader()) return;
 
     // Show preloader and mark as shown
     setShouldShow(true);
-    sessionStorage.setItem('preloaderShown', 'true');
+    markPreloaderSeen();
 
     // Start fade out after animation completes
     const timer = setTimeout(() => {
       setFadeOut(true);
-    }, 3200);
+    }, PRELOADER_FADE_START_MS);
 
     // Hide preloader after fade
     const removeTimer = setTimeout(() => {
       setShouldShow(false);
-    }, 3900);
+    }, PRELOADER_TOTAL_MS);
 
     return () => {
       clearTimeout(timer);

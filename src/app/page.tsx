@@ -6,6 +6,7 @@ import { HeroSection } from "@/components/home/hero/HeroSection";
 import { getHeroData } from "@/lib/hero/heroData";
 import { CommunityCornerTabs } from "@/components/home/CommunityCornerTabs";
 import { QuickLinks } from "@/components/home/QuickLinks";
+import { AskTheRabbiCta } from "@/components/home/AskTheRabbiCta";
 import { FeaturedBusinesses } from "@/components/home/FeaturedBusinesses";
 import { UpcomingEvents } from "@/components/home/UpcomingEvents";
 import { ZmanimWidget } from "@/components/widgets/ZmanimWidget";
@@ -30,6 +31,9 @@ export default async function HomePage() {
     <div>
       {/* Hero Section */}
       <HeroSection zmanim={hero.zmanim} eruv={hero.eruv} counts={hero.counts} />
+
+      {/* Ask The Rabbi CTA - between the hero and the banner strip */}
+      <AskTheRabbiCta />
 
       {/* Banner Ads - After Hero */}
       <HomepageBannerAds />
