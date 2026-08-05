@@ -1,7 +1,7 @@
 # Business claiming and owner editing
 
 **Date:** 2026-08-04
-**Status:** Revision 4 — field facts re-derived from every write path; data model and API surface added
+**Status:** Revision 5 — notification mechanics corrected; migration steps made explicit
 
 Completes the sketch parked in `docs/project-memory/TODO-business-claim-flow.md`.
 Decisions carried from 2026-07-31 are marked **(July)**.
@@ -420,6 +420,7 @@ Modelled on `shul_registration_requests`, which is proven.
 | `reviewed_by` | int NULL → `users.id` ON DELETE SET NULL | |
 | `reviewed_at` | timestamp NULL | |
 | `created_at` | timestamp NOT NULL default now | |
+| `updated_at` | timestamp NOT NULL default now, `$onUpdate` | Every comparable table has one; 17 were repaired recently for lacking it |
 
 **Partial unique index** on `(business_id, user_id) WHERE status = 'pending'` —
 one open claim per person per listing. A rejected claimant may resubmit, which
@@ -441,7 +442,7 @@ lose their types. One row also makes "a second edit replaces the first" a single
 |---|---|---|
 | `id` | serial PK | |
 | `business_id` | int NOT NULL → `businesses.id` **ON DELETE CASCADE** | |
-| `submitted_by` | int NOT NULL → `users.id` ON DELETE CASCADE | |
+| `submitted_by` | int NULL → `users.id` **ON DELETE SET NULL** | |
 | `proposed` | jsonb NOT NULL | `{ field: newValue }` — only changed fields |
 | `previous` | jsonb NOT NULL | same keys, values as at submission, for the diff |
 | `outcome` | jsonb NULL | after review: `{ field: { applied: bool, reason: string \| null } }` |
@@ -449,6 +450,7 @@ lose their types. One row also makes "a second edit replaces the first" a single
 | `reviewed_by` | int NULL → `users.id` ON DELETE SET NULL | |
 | `reviewed_at` | timestamp NULL | |
 | `created_at` | timestamp NOT NULL default now | |
+| `updated_at` | timestamp NOT NULL default now, `$onUpdate` | Mutated on review and on supersede |
 
 **Partial unique index** on `(business_id) WHERE status = 'pending'` — at most one
 waiting change per listing, which is what "a second edit replaces the first"
@@ -459,6 +461,16 @@ history survives.
 looking at. If the admin changed the listing meanwhile, `previous` will not match
 the live row — the review screen must show the live value too, and that
 divergence is the one the owner never saw.
+
+### Change to an existing column
+
+`businesses.user_id` currently has **no `ON DELETE` clause**
+(`schema.ts:171`), so deleting a user who owns a business raises a foreign-key
+error. Add **`ON DELETE SET NULL`**. This is an alteration to an existing column
+on a 1,635-row table and is a migration step in its own right, not an aside.
+
+*(Note there is no DELETE handler on `/api/admin/users/[id]`, so users cannot be
+deleted through any UI today — this is defensive.)*
 
 ## API surface
 
@@ -482,14 +494,28 @@ All owner routes reuse the existing idiom: `!isAdmin && business.userId !== user
 ### Notification identifiers
 
 New `SubmissionContentType` values **`business_claim`** and
-**`business_change`**, with matching `FORM_TYPE_BY_CONTENT` and `FORM_TYPES`
-entries (`business_claim`, `business_change`) so recipients are configurable in
-Admin → Settings.
+**`business_change`**. In-app notifications for all admins are unconditional
+(`notifications.ts:196-214`), so both queues reach the bell with no further work.
 
-Both are **Tier B** — in-app notification, no instant email. A claim is not
-time-critical, and per-change emails on 1,633 listings would be noise. They
-appear in the daily digest. *(Note the digest has never actually run — see
-`SECURITY-FINDINGS-2026-08-04.md` item 1.)*
+**No instant email.** A claim is not time-critical, and per-change emails across
+1,635 listings would be noise. That means **no `INSTANT_EMAIL_TYPES` entry** —
+and consequently **no `FORM_TYPE_BY_CONTENT` entry either**: that map is read in
+exactly one place (`notifications.ts:234`), *inside* the instant-email branch, so
+an entry without the corresponding `INSTANT_EMAIL_TYPES` membership is dead
+config. Adding one to `FORM_TYPES` alone would create a Settings screen for
+recipients who never receive anything.
+
+**The daily digest does not pick these up automatically.** An earlier revision
+claimed it would; that was wrong. `cron/notification-digest/route.ts` is a
+**hardcoded list of eleven `count(*)` queries** (lines 44-79) feeding a hardcoded
+`categories` array (81-93). It iterates neither `FORM_TYPES` nor the
+`notifications` table. So including the two new queues requires **explicitly
+editing that route**: two more count queries and two more `categories` entries,
+pointing at `/admin/businesses?tab=claims` and `?tab=changes`.
+
+*(That cron has never actually run — `CRON_SECRET` is unset and it returns 401 to
+Vercel's own scheduler. See `SECURITY-FINDINGS-2026-08-04.md` item 1. The digest
+work here is worthless until that is fixed.)*
 
 ### Approval-time re-validation
 
