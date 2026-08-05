@@ -60,8 +60,8 @@ six field groups Daniel chose do not fully work today, and a field existing in
 | **contact name** | **user registration only** | selected, never rendered | 1 |
 | **social links** | **user registration only** | selected, never rendered | **0** |
 | **additional categories** | **user registration only** | no | **0** |
-| tagline | anywhere | **not on the listing** (newsletter shoutouts only) | **0** |
-| banner | admin only | **not on the listing** (homepage ads only) | **0** |
+| tagline | user create + admin **edit** (silently dropped by admin create) | **not on the listing** (newsletter shoutouts only) | **0** |
+| banner | admin **edit** only (silently dropped by admin create) | **not on the listing** (homepage ads only) | **0** |
 
 Derived by enumerating **all 27 write sites** against the `businesses` table, not
 by reading `schema.ts`. Revision 3 said contact name, social links and additional
@@ -71,6 +71,12 @@ defect is narrower and worse than "missing": they are **create-only**, so a
 business sets them at registration and then *nobody* — owner or admin — can ever
 change them. The admin update omits the keys, so an edit silently leaves stale
 values rather than clearing them.
+
+**A third pattern, found on the fourth pass:** `POST /api/admin/businesses`
+validates against `businessSchema` — which accepts `tagline` and
+`bannerImageUrl` — and then writes an **explicit field list that omits both**.
+An admin creating a business with a tagline gets no tagline and no error. Small,
+real, and worth fixing while the edit path is being extended.
 
 **Logo is the genuine gap**: the only reference in the admin create route is a
 SELECT, and `businessSchema` does not contain it. Nothing anywhere can set it.
