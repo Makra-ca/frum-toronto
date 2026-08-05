@@ -1,0 +1,194 @@
+{
+  "takenAt": "2026-08-05T21:22:23.161Z",
+  "target": "ep-still-block-ahs6wvfm-pooler.c-3.us-east-1.aws.neon.tech",
+  "note": "Pre-change values. To revert: restore question_number and title for each row.",
+  "entityBugRow": {
+    "id": 2011,
+    "question_number": 8203,
+    "title": "# 2006   In His Name or Our Name?&#8203;",
+    "question": "According to Minhag Ashkenaz, at the end of Birkas HaMazon, we say \"HoRachamon Hu Yishlach Lanu Es Eliyah HaNavi Zachur LaTov, Vivoreich Osanu Kol Echad V&#146;Echad Mimenu Bishmo.\"\n\r\nWhat is the meaning of the phrase after the comma, especially the significance of the word \"Bishmo\"?",
+    "answer": "Siddur Tzilusso DeAvrohom (p. 544) quotes from Seder Hashulchan the above nussach in the name of Mahara&#146;n. It is also the nusach of the Kol Bo, Siddur Horokeach, Seder Avodas Yisroel (p. 560) and a number of Pesach Haggados. \n\r\nHowever, Kitzur Hasheloh refutes this nusach since we do not find that Eliahu Hanavi will come to bless us. \n\r\nThe meaning of \"Mimenu Bishmo\" could refer to uttering a blessing using Hashem&#146;s name, as is often done.\n\r\nHorav Shlomo Miller&#146;s Shlit&#146;a opinion is that it relates to the name of the individual being blessed, as the brochos are very sensitive to the name and status of the one receiving them. This may also pertain to the interpretation of \"Ki chazak hu mimenu\" (Bamidbar 13: 21), whether it refers to the people or to Hashem (Sotah 35a).  \n\r\n\n\r\nRabbi A. Bartfeld as revised by Horav Shlomo Miller Shlit&#146;a"
+  },
+  "renumbered": [
+    {
+      "id": 5114,
+      "question_number": 5300,
+      "title": "#5300     A New World - Really?"
+    },
+    {
+      "id": 5113,
+      "question_number": 5299,
+      "title": "#5299    A Real Newborn?"
+    },
+    {
+      "id": 5112,
+      "question_number": 5298,
+      "title": "#5298    Honey, Don’t Pass the Milk!"
+    },
+    {
+      "id": 5111,
+      "question_number": 5297,
+      "title": "#5297   A Sefer Torah in Aramaic?"
+    },
+    {
+      "id": 5110,
+      "question_number": 5296,
+      "title": "#5296  Make it in Aramaic?"
+    },
+    {
+      "id": 5109,
+      "question_number": 5295,
+      "title": "#5295     The True Tu Bishvat"
+    },
+    {
+      "id": 5108,
+      "question_number": 5294,
+      "title": "#5294   Go For a True Song"
+    },
+    {
+      "id": 5107,
+      "question_number": 5293,
+      "title": "#5293     An Eating Problem?"
+    },
+    {
+      "id": 5106,
+      "question_number": 5292,
+      "title": "#5292   A Drink Problem?"
+    },
+    {
+      "id": 5105,
+      "question_number": 5291,
+      "title": "#5291  Sounds Are To Good to Be True?"
+    },
+    {
+      "id": 5104,
+      "question_number": 5290,
+      "title": "#5290  Don’t Trim the Shovavim!"
+    },
+    {
+      "id": 5103,
+      "question_number": 5289,
+      "title": "#5289   The Shovaim Meaning"
+    },
+    {
+      "id": 5102,
+      "question_number": 5288,
+      "title": "#5288      Get the Right Day Right!"
+    },
+    {
+      "id": 5101,
+      "question_number": 5287,
+      "title": "#5287    Always “Heaven On Earth&quot;"
+    },
+    {
+      "id": 5100,
+      "question_number": 5286,
+      "title": "#5286     Let Women Forget?"
+    },
+    {
+      "id": 5099,
+      "question_number": 5285,
+      "title": "#5285    Living with Olives V"
+    },
+    {
+      "id": 5098,
+      "question_number": 5284,
+      "title": "#5284   Living with Olives IV"
+    },
+    {
+      "id": 5097,
+      "question_number": 5283,
+      "title": "#5283   Living with Olives III"
+    },
+    {
+      "id": 5096,
+      "question_number": 5282,
+      "title": "#5282    Living with Olives II"
+    },
+    {
+      "id": 5095,
+      "question_number": 5281,
+      "title": "#5281   Living with Olives?"
+    },
+    {
+      "id": 5094,
+      "question_number": 5280,
+      "title": "#5280    No Parking Allowed"
+    },
+    {
+      "id": 5093,
+      "question_number": 5279,
+      "title": "#5279   The Blessed Wine?"
+    },
+    {
+      "id": 5092,
+      "question_number": 5278,
+      "title": "#5278    The Brew Bracha"
+    },
+    {
+      "id": 5091,
+      "question_number": 5277,
+      "title": "#5277   Listening To the Shema!"
+    },
+    {
+      "id": 5090,
+      "question_number": 5276,
+      "title": "#5276      Fruits For All?"
+    },
+    {
+      "id": 5089,
+      "question_number": 5275,
+      "title": "#5275    Women On Time?"
+    },
+    {
+      "id": 5088,
+      "question_number": 5274,
+      "title": "#5274   The Torah Blessing Women"
+    },
+    {
+      "id": 5087,
+      "question_number": 5273,
+      "title": "#5273:   Need an Answer?"
+    },
+    {
+      "id": 5086,
+      "question_number": 5272,
+      "title": "#5272:   Trump Up Trump?"
+    },
+    {
+      "id": 5085,
+      "question_number": 5271,
+      "title": "#5271:   Pray Tell the Pray"
+    },
+    {
+      "id": 5084,
+      "question_number": 5270,
+      "title": "#5270:    Beyond the Grave"
+    },
+    {
+      "id": 5083,
+      "question_number": 5269,
+      "title": "#5269:    A  Very Grave Grave!"
+    },
+    {
+      "id": 5082,
+      "question_number": 5268,
+      "title": "#5268     The End of All Films?"
+    },
+    {
+      "id": 5081,
+      "question_number": 5267,
+      "title": "#5267:     A Popcorn Film?"
+    },
+    {
+      "id": 5080,
+      "question_number": 5266,
+      "title": "#5266:     No Gain Pain "
+    },
+    {
+      "id": 5079,
+      "question_number": 5265,
+      "title": "#5265:  Need to Hear Your Voice!"
+    }
+  ]
+}
