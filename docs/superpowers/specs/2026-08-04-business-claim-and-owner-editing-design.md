@@ -1,7 +1,7 @@
 # Business claiming and owner editing
 
 **Date:** 2026-08-04
-**Status:** Revision 9 — the read path, the unapproved-listing case, and plan-less defaults.
+**Status:** Revision 10 — supersession, status values, the claim CTA and its caching consequence.
 
 Completes the sketch parked in `docs/project-memory/TODO-business-claim-flow.md`.
 Decisions carried from 2026-07-31 are marked **(July)**.
@@ -485,7 +485,7 @@ lose their types. One row also makes "a second edit replaces the first" a single
 | `proposed` | jsonb NOT NULL | `{ field: newValue }` — only changed fields |
 | `previous` | jsonb NOT NULL | same keys, values as at submission, for the diff |
 | `outcome` | jsonb NULL | after review: `{ field: { applied: bool, reason: string \| null } }` |
-| `status` | varchar(20) NOT NULL default `pending` | `pending` · `reviewed` · `superseded`. A trusted owner's save is written directly as `reviewed` |
+| `status` | varchar(20) NOT NULL default `pending` | `pending` · `reviewed` · `superseded` · `discarded`. A trusted owner's (or admin's) save is written directly as `reviewed`; `discarded` is set when the owner is revoked |
 | `reviewed_by` | int NULL → `users.id` ON DELETE SET NULL | |
 | `reviewed_at` | timestamp NULL | |
 | `created_at` | timestamp NOT NULL default now | |
@@ -621,8 +621,13 @@ to both.
 `canAutoApproveBusinesses` decides business **creation**, with comments
 documenting it as the fix for a dead toggle. Reworking the flag to gate edits
 means updating that file and `resolveBusinessApprovalStatus`'s signature — the
-`canAutoApproveBusinesses` parameter goes away and creation depends on
-`isTrusted` alone.
+`canAutoApproveBusinesses` parameter goes away, `BusinessApprovalInput` loses a
+field, and creation depends on `isTrusted` alone.
+
+Two pieces of admin-facing copy also describe the old meaning and must change:
+the permissions dialog labels the toggle **"Business Listings"** under a heading
+about submitting without approval (`UserTable.tsx`), and the module docstring of
+`auto-approve-targets.ts` explains all three toggles in terms of creation.
 
 ### "Report a problem" cannot pre-fill the contact form as things stand
 
@@ -648,6 +653,32 @@ listing twice.
 
 The pending-change machinery applies only to **approved** listings.
 
+### The claim CTA and what it costs
+
+The CTA has four viewer-dependent states — claim · "awaiting review" · "report a
+problem" · nothing — so it depends on the session and a claims lookup. Today the
+listing page calls `auth()` only inside its not-publicly-visible branch.
+
+**Render the CTA as a client component with its own fetch**, leaving the page
+itself server-rendered and cacheable. Server-rendering it would make the listing
+per-viewer and moot the `revalidatePath` rule below.
+
+**The claim form is a modal on the listing page**, opened by `?claim=1`. That
+gives the login redirect a `callbackUrl` to return to — `LoginForm` already
+honours one — without inventing a separate route for a form with one optional
+field.
+
+**Claimable means approved AND `isActive`.** The public page requires both, so an
+approved-but-deactivated listing has no page to put the link on. The API check
+must match the CTA rule, not just `approvalStatus`.
+
+### Claim outcomes are notified too
+
+Approve, reject and auto-reject each notify the claimant — in-app and email —
+using the same business-specific notifier. Without this the claimant learns their
+outcome only by revisiting the dashboard, which is the silence problem already
+rejected for change review.
+
 ### Claim states the spec created but did not resolve
 
 - **A user with a pending claim** sees "Your claim is awaiting review" on the
@@ -655,6 +686,18 @@ The pending-change machinery applies only to **approved** listings.
   partial unique index surfaces as a raw constraint error.
 - **Withdrawn claims** may be re-submitted — the index only blocks a second
   *pending* row. A withdrawn claim disappears from the dashboard.
+
+### Dining type is gated by category, not by plan
+
+Every other editor-visibility rule is a tier rule. Dining type is not: it renders
+only when `category.isRestaurant`, and `BusinessForm` already nulls it for
+non-restaurant categories.
+
+So a Free owner sees the field **only if their category is a restaurant**, the
+server rejects a `diningType` value for a non-restaurant category, and
+**approval-time re-validation must include it** — per-field approval could
+otherwise approve a dining type while rejecting the category move that justified
+it, leaving a dining type on a non-restaurant listing.
 
 ### The digest queries do not follow the existing pattern
 
@@ -716,6 +759,7 @@ only today.
 | Owner revoked with a change pending | The pending change is discarded and the owner told |
 | User deleted while owning a business | `businesses.user_id` has **no `onDelete` clause** — add `SET NULL`, or deleting the user raises an FK error |
 | Plan downgraded below current content | Existing data grandfathered; adding beyond the new limit blocked |
+| Listing crosses the approved boundary while a change waits | Un-approving a listing **discards** its pending change — the owner now edits straight through, so a queue is meaningless. Approving a listing leaves nothing queued, since its owner was writing straight through |
 | Pending change names a deleted category | Validated **at approval time**; `additional_category_ids` is JSONB with no referential integrity, so this is already possible today |
 | One user, many businesses | Supported; `my-businesses` already returns a list |
 
