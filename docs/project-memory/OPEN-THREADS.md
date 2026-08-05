@@ -66,6 +66,14 @@ Full write-up with evidence and exploits: `SECURITY-FINDINGS-2026-08-04.md`.
   permanently 404s any of 3,058 posts.
 - Plus 8 medium and ~12 low, and a list of what was checked and found clean.
 
+## 2a. Small fixes found while specifying the business work
+
+| Item | Note |
+|---|---|
+| Tagline form text is wrong | The admin form says the tagline "will appear in homepage ad placements". It appears only in newsletter shoutouts. Two-minute copy fix |
+| Admin business **create** silently drops fields | `POST /api/admin/businesses` validates `tagline` and `bannerImageUrl` via `businessSchema`, then writes an explicit field list omitting both. No error, no value |
+| **`BusinessCard` ignores the plan entirely** | A Free business's description shows in the directory listing but is hidden on its own detail page, which does gate it. Backwards, and it undercuts the upgrade pitch — the description they'd pay to unlock is already visible where most people look. **Needs a decision:** gate the card, or ungate the detail page? |
+
 ## 2b. Decide
 
 | Item | Question |

@@ -1,7 +1,7 @@
 # Business claiming and owner editing
 
 **Date:** 2026-08-04
-**Status:** Revision 5 — notification mechanics corrected; migration steps made explicit
+**Status:** Revision 6 — all decisions closed. Ready for an implementation plan.
 
 Completes the sketch parked in `docs/project-memory/TODO-business-claim-flow.md`.
 Decisions carried from 2026-07-31 are marked **(July)**.
@@ -107,10 +107,21 @@ Required before Part 1:
    filter on `categoryId` only. Matching inside the JSONB array needs a GIN
    index. Without this, extra categories are decorative — and they are what
    `maxCategories` sells.
-5. **`tagline`** — **decision required from Daniel** before building: render it
-   on the listing, or leave it a newsletter-only field? If newsletter-only it is
-   not an owner-editable listing field. It has no `show_*` flag, so rendering it
-   makes it visible on Free.
+5. **`tagline` — decided: not an owner-editable field, and no work here.**
+   It was built for homepage ads (`schema.ts:188`, and the admin form still
+   promises "will appear in homepage ad placements"). The ads shipped using the
+   banner image instead. Its only render is the newsletter shoutout block
+   (`newsletter-renderer.ts:183`), which requires Elite. Measured: **0 businesses
+   on Elite, 0 shoutouts ever created, 0 taglines set.** Every link in that chain
+   is empty.
+
+   It stays the admin's copy for a paid placement. `description` is the field
+   owners edit — 1,072 of 1,635 already have one, and the directory card already
+   renders it truncated to 150 characters, which is what a tagline would have
+   done.
+
+   Separate small fix, not part of this project: the admin form text is wrong and
+   should say "used in newsletter shoutouts".
 
 **Banner stays out.** It is a homepage-advertising asset gated on
 `show_in_homepage_banner`, not a listing field, and belongs with the ads work.
@@ -573,7 +584,7 @@ means two different things.
 | Verification | Admin by hand; email codes deferred **(July)** |
 | Who may claim | Any logged-in, email-verified user |
 | Claimable listings | **Approved only**; admin assigns for the rest |
-| Editable fields | Contact, description, hours, **logo**, social, categories. **Banner excluded** (ads asset); tagline pending the Part 0 decision |
+| Editable fields | Contact, description, hours, **logo**, social, categories. **Banner and tagline excluded** — both are ads/newsletter assets, not listing fields |
 | Excluded | Kosher certification; photo gallery (does not exist) |
 | Owner roles | Ordinary and trusted (`canAutoApproveBusinesses`) **(July)** |
 | Free-tier editor | **Shows only what the tier displays** |

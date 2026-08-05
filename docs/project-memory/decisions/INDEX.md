@@ -5,6 +5,7 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-05 | Tagline is ads copy, not a listing field; owners edit description | [tagline-is-ads-copy-not-a-listing-field](2026-08-05-tagline-is-ads-copy-not-a-listing-field.md) |
 | 2026-08-04 | Claim before edit; only approved listings can be claimed | [claim-before-edit](2026-08-04-claim-before-edit.md) |
 | 2026-08-04 | An owner's pending edit is stored separately so the listing stays live | [listing-stays-live-during-review](2026-08-04-listing-stays-live-during-review.md) |
 | 2026-08-04 | Review is per field, with an optional per-field reason | [review-per-field-not-per-submission](2026-08-04-review-per-field-not-per-submission.md) |
