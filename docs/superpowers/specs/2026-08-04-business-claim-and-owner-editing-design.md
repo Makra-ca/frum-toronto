@@ -1,7 +1,7 @@
 # Business claiming and owner editing
 
 **Date:** 2026-08-04
-**Status:** Revision 6 — all decisions closed. Ready for an implementation plan.
+**Status:** Revision 7 — blockers closed: screen locations, the notifier, the owner schema, tab routes.
 
 Completes the sketch parked in `docs/project-memory/TODO-business-claim-flow.md`.
 Decisions carried from 2026-07-31 are marked **(July)**.
@@ -182,8 +182,8 @@ Contact details (phone, email, website, address, city, postal code, contact
 name) · description · hours & dining type · **logo** · social links · categories
 (main and additional).
 
-Every one of those is real **only after Part 0**. Tagline is included only if
-Part 0 gives it a home on the listing. Banner is excluded — it is an ads asset.
+Every one of those is real **only after Part 0**. Tagline and banner are both
+excluded — they are ads/newsletter assets, not listing fields.
 
 ### Never editable by an owner
 
@@ -229,8 +229,6 @@ contains phone, address, city, postal code, dining type and one category.
 Description, email, website, hours, logo, social links and **contact name** are
 not shown, because Free displays none of them (`show_contact_name` is false on
 Free — an earlier draft wrongly listed it as Free-editable).
-
-Tagline appears only if Part 0 makes it render.
 
 That is thin, and 1,634 of 1,635 businesses are on Free. It is the tier design
 working as intended — those fields are what Standard sells. The accepted cost is
@@ -283,8 +281,17 @@ diverging from `decisions/2026-07-31-edit-unpublishes-via-pending-edit`. Argued
 deliberately: a blog post going dark for a day is a inconvenience; a directory
 listing going dark takes a business's phone number off the internet.
 
-**Reuse where it does fit:** the single-writer discipline and submitter-
-notification path from `setApprovalStatus`, rather than growing a parallel one.
+**Reuse the single-writer discipline** from `setApprovalStatus` — one function
+owns the status transition — but **not `notifySubmitter`**. Its signature is
+`{ approved: boolean, reason, … }` and it hardcodes
+`linkUrl = "/dashboard/submissions"`, a page that will never list a business
+change. A per-field partial outcome is neither approved nor rejected, and
+widening that function would change the shape for all eight existing submission
+types.
+
+So: **a business-specific notifier**, taking the outcome map and composing "4 of
+your 5 changes are live; Description was not approved because …", linking to
+`/dashboard/business/[id]`.
 
 ### Shape
 
@@ -351,11 +358,11 @@ it is not rediscovered as a surprise.
 | Anonymous | Approved listing **and the claim CTA** | Click → sent to login, returned to the claim form after | Public listing |
 | Member, unverified | Listing + claim CTA | Blocked; offered a resend link (`assertCanPost` returns a distinguishable code) | Public listing |
 | Member, verified | Listing + claim CTA | Submit a claim | Claim form |
-| **Claimant, pending** | Their claim and its status | Wait, or withdraw | **`/dashboard/business`** |
-| **Claimant, rejected** | Rejection and reason | Resubmit | **`/dashboard/business`** |
-| **Claimant, auto-rejected** | "Another claim was approved" | — | **`/dashboard/business`** |
-| Ordinary owner | Listing + pending change | Edit → queue | `/dashboard/business` |
-| Trusted owner | Listing | Edit → live | `/dashboard/business` |
+| **Claimant, pending** | Their claim and its status | Wait, or withdraw | `/dashboard/business` (list) |
+| **Claimant, rejected** | Rejection and reason | Resubmit | `/dashboard/business` (list) |
+| **Claimant, auto-rejected** | "Another claim was approved" | — | `/dashboard/business` (list) |
+| Ordinary owner | Listing + pending change | Edit → queue | `/dashboard/business/[id]` |
+| Trusted owner | Listing | Edit → live | `/dashboard/business/[id]` |
 | Former owner (revoked) | Nothing owned | Claim again | `/dashboard` |
 | Admin | Everything | Approve, reject, assign, revoke | Admin → Businesses |
 
@@ -377,27 +384,45 @@ an omission. It diverges from
 `decisions/2026-08-03-atr-capability-not-admin-role`, justified by there being
 exactly one reviewer.
 
-### Business owner — `/dashboard/business`
+### Business owner — two screens, not one
 
-The screen this project exists to build.
+`/dashboard/business` is already a **list** of the user's businesses, and
+`/dashboard/business/[id]` is the per-business dashboard where the video
+uploader, shoutouts and the non-profit application already live. The editor
+belongs on **`[id]`**, alongside those three — putting it on the list page would
+break the multi-business case this design explicitly supports.
+
+**`/dashboard/business` — the list**
 
 - **No listing yet** — shows any claim they have made and its state: pending,
   rejected with the reason, or auto-rejected because another claim was approved.
   Resubmission allowed from here.
-- **Owns a listing** — the editor. Fields their plan does not display are absent
-  (see the tier decision). Plan-capped counts show the cap.
+- **Owns one or more** — the existing list, unchanged.
+- **Neither a business nor a claim** — an empty state pointing at the directory:
+  "Find your business and claim it."
+
+**`/dashboard/business/[id]` — the editor**
+
+- Fields their plan does not display are absent (see the tier decision).
+  Plan-capped counts show the cap.
 - **Ordinary owner with a change waiting** — a panel above the form: "Your
   changes are awaiting review", listing each pending field with its proposed
   value. Editing again replaces that change.
 - **Trusted owner** — no waiting state; changes are applied on save and the
-  admin is notified who changed what.
+  admin is notified who changed what. **A row is still written**, with
+  `status = 'reviewed'` and an `outcome` marking every field applied. Without it
+  "who changed what" survives only in a notification body, and the activity page
+  that would otherwise cover this is explicitly out of scope.
 - **After review** — an in-app notification and an email naming the fields that
   went live, the fields that did not, and any reason given.
 
 ### Admin — Admin → Businesses
 
 Existing: All Businesses · Categories · Plans · Non-Profit · Video Review ·
-Shoutouts · Ads. **Adding Claims and Changes makes nine.** Daniel's call, knowing
+Shoutouts · Ads. **Adding Claims and Changes makes nine.** Both are **path segments**
+(`/admin/businesses/claims`, `/admin/businesses/changes`), matching every
+existing tab in `(admin)/admin/businesses/layout.tsx`. This section uses no
+query-param tabs. Daniel's call, knowing
 the row is crowded and stacks vertically on mobile. Regrouping the section is
 separate work.
 
@@ -405,10 +430,8 @@ All Businesses gains an owner column with assign and revoke.
 
 ### Notifications
 
-Uses `notifyAdminOfSubmission`, which requires new entries in
-`SubmissionContentType`, `FORM_TYPE_BY_CONTENT`, and `FORM_TYPES` — the last
-being what populates the Admin → Settings recipients UI, without which nobody
-can configure who receives claim and change emails.
+Uses `notifyAdminOfSubmission`. See **Notification identifiers** below for
+exactly which registries to touch — and, importantly, which not to.
 
 
 ## Data model
@@ -457,7 +480,7 @@ lose their types. One row also makes "a second edit replaces the first" a single
 | `proposed` | jsonb NOT NULL | `{ field: newValue }` — only changed fields |
 | `previous` | jsonb NOT NULL | same keys, values as at submission, for the diff |
 | `outcome` | jsonb NULL | after review: `{ field: { applied: bool, reason: string \| null } }` |
-| `status` | varchar(20) NOT NULL default `pending` | `pending` · `reviewed` · `superseded` |
+| `status` | varchar(20) NOT NULL default `pending` | `pending` · `reviewed` · `superseded`. A trusted owner's save is written directly as `reviewed` |
 | `reviewed_by` | int NULL → `users.id` ON DELETE SET NULL | |
 | `reviewed_at` | timestamp NULL | |
 | `created_at` | timestamp NOT NULL default now | |
@@ -522,7 +545,7 @@ claimed it would; that was wrong. `cron/notification-digest/route.ts` is a
 `categories` array (81-93). It iterates neither `FORM_TYPES` nor the
 `notifications` table. So including the two new queues requires **explicitly
 editing that route**: two more count queries and two more `categories` entries,
-pointing at `/admin/businesses?tab=claims` and `?tab=changes`.
+pointing at `/admin/businesses/claims` and `/admin/businesses/changes`.
 
 *(That cron has never actually run — `CRON_SECRET` is unset and it returns 401 to
 Vercel's own scheduler. See `SECURITY-FINDINGS-2026-08-04.md` item 1. The digest
@@ -541,6 +564,74 @@ writing, the approval must re-check:
 
 A failed re-check blocks that field and shows the reason; it does not fail the
 whole review.
+
+
+## Supporting work the feature depends on
+
+Not obvious from the parts above, but an engineer hits all of these.
+
+### The owner editor needs its own validation schema
+
+**Do not reuse `businessSchema`.** It requires `name`, and it contains
+`isFeatured`, `isKosher`, `kosherCertification` and `bannerImageUrl` — every one
+on the never-editable list. A `.partial()` of it accepts all of them. It also
+does not contain `socialLinks`, `contactName`, `additionalCategoryIds` or
+`logoUrl` at all.
+
+New **`ownerBusinessEditSchema`** in `src/lib/validations/content.ts`: exactly the
+editable fields, all optional, with the `socialLinks` key set defined (reuse the
+shape already in `createBusinessSchema`, which is the only place it exists).
+
+### Plan capability must become readable outside the listing page
+
+`canShowFeature` is **module-private** inside
+`src/app/directory/business/[slug]/page.tsx:284`, and
+`/api/businesses/my-businesses` returns only `planId`, `planName`, `planSlug` —
+no `show*` flags, no `maxCategories`.
+
+Both the tier-gated editor and the server-side rejection rules need them, so:
+extract `canShowFeature` into a shared module, and extend `my-businesses` to
+return the plan's capability flags and limits.
+
+### The `268b1f1` rework breaks existing tests
+
+`tests/dead-permission-toggles.test.ts` contains four assertions that
+`canAutoApproveBusinesses` decides business **creation**, with comments
+documenting it as the fix for a dead toggle. Reworking the flag to gate edits
+means updating that file and `resolveBusinessApprovalStatus`'s signature — the
+`canAutoApproveBusinesses` parameter goes away and creation depends on
+`isTrusted` alone.
+
+### "Report a problem" cannot pre-fill the contact form as things stand
+
+`src/app/contact/page.tsx` holds its form in local state with no
+`useSearchParams` and no prefill path, and its `CONTACT_CATEGORIES` list has no
+business/listing entry.
+
+**Decision: link to `/contact` with no pre-fill**, and add a "Business listing"
+category. Pre-filling is a change to a page this project otherwise does not
+touch, for a link nobody has asked for yet.
+
+### Claim states the spec created but did not resolve
+
+- **A user with a pending claim** sees "Your claim is awaiting review" on the
+  listing, not the claim CTA. The route must check before inserting, or the
+  partial unique index surfaces as a raw constraint error.
+- **Withdrawn claims** may be re-submitted — the index only blocks a second
+  *pending* row. A withdrawn claim disappears from the dashboard.
+
+### Empty and loading states
+
+Both new admin tabs will be **empty on day one** — zero claims and zero changes
+exist. Each needs an empty state, not a bare table. The editor shows a skeleton
+while `my-businesses` resolves.
+
+### Reaching the new screens
+
+`dashboard/page.tsx:221` currently gates its business link on
+`role === "business" || role === "admin"`. Replacing that with "owns a business
+or has a claim" means the page must also fetch claims; it fetches businesses
+only today.
 
 ## Lifecycle rules
 
