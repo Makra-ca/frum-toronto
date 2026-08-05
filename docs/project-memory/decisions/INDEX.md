@@ -5,6 +5,10 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-05 | Forms collect what the directory needs to browse and search; plans gate the rest | [forms-collect-what-the-directory-needs](2026-08-05-forms-collect-what-the-directory-needs.md) |
+| 2026-08-05 | Kosher status is never plan-gated — it feeds a filter and a facet | [kosher-is-never-plan-gated](2026-08-05-kosher-is-never-plan-gated.md) |
+| 2026-08-05 | One shared businessInCategory() predicate; no call site filters on category_id | [one-predicate-for-category-membership](2026-08-05-one-predicate-for-category-membership.md) |
+| 2026-08-05 | Category required on public submission; admins exempt from the plan limit | [category-required-admins-exempt](2026-08-05-category-required-admins-exempt.md) |
 | 2026-08-05 | Session update re-reads claims from the database, not the client | [session-update-rereads-claims-from-the-database](2026-08-05-session-update-rereads-claims-from-the-database.md) |
 | 2026-08-05 | Security findings written up with evidence, not fixed | [security-findings-written-up-not-fixed](2026-08-05-security-findings-written-up-not-fixed.md) |
 | 2026-08-05 | The business work is two plans; finishing the fields comes first | [business-work-split-into-two-plans](2026-08-05-business-work-split-into-two-plans.md) |
@@ -14,7 +18,7 @@ for the format.
 | 2026-08-04 | Claim before edit; only approved listings can be claimed | [claim-before-edit](2026-08-04-claim-before-edit.md) |
 | 2026-08-04 | An owner's pending edit is stored separately so the listing stays live | [listing-stays-live-during-review](2026-08-04-listing-stays-live-during-review.md) |
 | 2026-08-04 | Review is per field, with an optional per-field reason | [review-per-field-not-per-submission](2026-08-04-review-per-field-not-per-submission.md) |
-| 2026-08-04 | The owner's editor shows only what their tier displays | [owner-editor-matches-the-tier](2026-08-04-owner-editor-matches-the-tier.md) |
+| 2026-08-04 | The owner's editor shows only what their tier displays *(narrowed 2026-08-05 — excludes description, kosher, category)* | [owner-editor-matches-the-tier](2026-08-04-owner-editor-matches-the-tier.md) |
 | 2026-08-04 | Dashboard access follows ownership, not role | [dashboard-access-follows-ownership](2026-08-04-dashboard-access-follows-ownership.md) |
 | 2026-08-04 | Business review is admin-only; no capability added | [business-review-is-admin-only](2026-08-04-business-review-is-admin-only.md) |
 | 2026-08-04 | Editable image is the logo; banner is an ads asset, gallery does not exist | [images-are-logo-only](2026-08-04-images-are-logo-and-banner-only.md) |

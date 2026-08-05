@@ -9,6 +9,7 @@
  *
  * ALL reads against MSSQL are SELECT-only. Nothing here writes to the legacy DB.
  */
+import { readFileSync } from "node:fs";
 import sqlsrv from "mssql";
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import * as dotenv from "dotenv";
@@ -221,10 +222,45 @@ export interface Target {
   isTest: boolean;
 }
 
+/**
+ * Resolves the target database by READING THE FILE, never via process.env.
+ *
+ * This used to be `dotenv.config({ path: useTest ? ".env.test" : ".env" })`
+ * followed by reading process.env.DATABASE_URL, and it silently sent --test
+ * runs to PRODUCTION. Every runner calls loadLegacyEnv() first for the MSSQL
+ * credentials, which loads .env and sets DATABASE_URL to the primary database.
+ * dotenv does NOT overwrite an already-set variable (override defaults to
+ * false), so the later .env.test load was a no-op — while the banner still
+ * printed "TEST BRANCH". A --test --commit run wrote 311 rows and renumbered
+ * 36 rows on primary on 2026-08-05 before the mismatched host was noticed.
+ *
+ * Parsing the file directly removes the dependency on load order entirely, and
+ * the assertion below makes the failure loud rather than silent if the two
+ * files ever point at the same database.
+ */
 export function connectTarget(useTest: boolean): Target {
-  dotenv.config({ path: useTest ? ".env.test" : ".env" });
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error(`DATABASE_URL missing from ${useTest ? ".env.test" : ".env"}`);
+  const path = useTest ? ".env.test" : ".env";
+  const read = (p: string): string | undefined => {
+    try {
+      return dotenv.parse(readFileSync(p)).DATABASE_URL;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const url = read(path);
+  if (!url) throw new Error(`DATABASE_URL missing from ${path}`);
+
+  if (useTest) {
+    const primary = read(".env");
+    if (primary && new URL(primary).host === new URL(url).host) {
+      throw new Error(
+        `REFUSING TO RUN: --test resolved to the same host as .env ` +
+          `(${new URL(url).host}). A "test" run must never target production.`
+      );
+    }
+  }
+
   return { sql: neon(url), host: new URL(url).host, isTest: useTest };
 }
 

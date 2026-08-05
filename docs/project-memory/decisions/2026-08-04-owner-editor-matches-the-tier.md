@@ -1,10 +1,20 @@
 ---
 name: owner-editor-matches-the-tier
-description: A business owner's editor shows only the fields their plan displays publicly, accepting that a Free editor is thin
+description: A business owner's editor shows only the fields their plan displays publicly — narrowed 2026-08-05 to exclude findability fields
 type: decision
 date: 2026-08-04
 status: accepted
 ---
+
+> **Scope narrowed 2026-08-05 — read this first.** This record still governs
+> **email, website, hours, logo, social links and contact name**: those are
+> plan-gated in every form, and a Free owner does not get them. It NO LONGER
+> governs **description, kosher status or category**, which are collected on
+> every plan because the directory's own search, filters and browse pages read
+> them. The governing rule and the audit behind it are in
+> [[forms-collect-what-the-directory-needs]]. Do not "reconcile" the two by
+> re-gating description, and do not extend this record to new fields without
+> classifying them on that axis first.
 
 **Decision:** The owner's editor shows **only the fields their subscription tier
 displays publicly**. A Free owner edits phone, address, city, postal code, dining type and one
@@ -41,3 +51,16 @@ who can. That is the cost of the tier boundary being the editor boundary.
 Existing over-limit data is **grandfathered** — a business downgraded from
 Standard to Free keeps its three categories, and the editor blocks adding more
 rather than forcing a purge the owner cannot complete.
+
+**Update 2026-08-05:** the rejected alternative above — "showing every field with
+'displays on Standard and above' beside the gated ones" — was partially adopted,
+but only for the fields the directory needs to function. The objection ("invites
+an owner to spend time on fields nobody will see") was accepted for everything
+else, which is why email stays gated even though ungating it was briefly
+implemented and then reverted. Note also that this record's stated cost — "a Free
+listing's email and hours will go stale, because the owner has no way to correct
+them" — is unchanged: admins reach a submitter through the **account** email now
+surfaced in the admin edit dialog, not through `businesses.email`.
+`canAutoApproveBusinesses` and claim rules are unaffected.
+
+Related: [[forms-collect-what-the-directory-needs]], [[category-required-admins-exempt]]
