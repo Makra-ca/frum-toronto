@@ -1,7 +1,7 @@
 # Business claiming and owner editing
 
 **Date:** 2026-08-04
-**Status:** Revision 10 — supersession, status values, the claim CTA and its caching consequence.
+**Status:** Revision 11 — two overstated negatives corrected.
 
 Completes the sketch parked in `docs/project-memory/TODO-business-claim-flow.md`.
 Decisions carried from 2026-07-31 are marked **(July)**.
@@ -553,7 +553,7 @@ editing that route**: two more count queries and two more `categories` entries,
 pointing at `/admin/businesses/claims` and `/admin/businesses/changes`.
 
 *(That cron has never actually run — `CRON_SECRET` is unset and it returns 401 to
-Vercel's own scheduler. See `SECURITY-FINDINGS-2026-08-04.md` item 1. The digest
+Vercel's own scheduler. See `docs/project-memory/SECURITY-FINDINGS-2026-08-04.md` item 1. The digest
 work here is worthless until that is fixed.)*
 
 ### Approval-time re-validation
@@ -592,11 +592,13 @@ shape already in `createBusinessSchema`, which is the only place it exists).
 The editor lives on `/dashboard/business/[id]`, which calls
 **`GET /api/businesses/[id]`** — not `my-businesses`, which serves the list page.
 
-That route returns identity, video, non-profit, category and four plan flags
-(`showVideo`, `showShoutouts`, `showInHomepageBanner`, `showInHomepageSidebar`).
-It returns **none of the editable fields**: no phone, email, website, address,
-city, postal code, description, hours, logo, contact name, social links or
-additional categories.
+That route returns identity, video, non-profit, **dining type**, the main
+category, and four plan flags (`showVideo`, `showShoutouts`,
+`showInHomepageBanner`, `showInHomepageSidebar`).
+
+Of the editable fields it returns only those two — dining type and the main
+category. Missing: phone, email, website, address, city, postal code,
+description, hours, logo, contact name, social links and additional categories.
 
 So there is a **read** path to build as well as the write paths in Part 0.
 Extend `GET /api/businesses/[id]` with the editable fields and the remaining
@@ -701,8 +703,9 @@ it, leaving a dining type on a non-restaurant listing.
 
 ### The digest queries do not follow the existing pattern
 
-The eleven existing counts in `cron/notification-digest/route.ts` all read
-`approval_status`. The two new ones read **`status = 'pending'`** on the new
+Ten of the eleven existing counts in `cron/notification-digest/route.ts` read
+`approval_status`; the eleventh (business videos) reads
+`video_status = 'ready' AND video_approval_status = 'pending'`. The two new ones read **`status = 'pending'`** on the new
 tables instead, so the pattern does not transfer verbatim. Note also that
 `categories` is filtered on `count > 0`, so an empty queue correctly contributes
 nothing.
