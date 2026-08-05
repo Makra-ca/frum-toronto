@@ -3,7 +3,7 @@ name: dead-toggles-get-wired-not-removed
 description: The three permission toggles that do nothing will be made to work rather than deleted from the dialog
 type: decision
 date: 2026-08-03
-status: partially-superseded
+status: accepted
 ---
 
 > **Partially superseded 2026-08-04** by

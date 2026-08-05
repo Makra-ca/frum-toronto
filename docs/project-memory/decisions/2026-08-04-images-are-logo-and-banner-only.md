@@ -26,6 +26,12 @@ So the gallery is not a field to gate; it is an entire subsystem — upload,
 ordering, deletion, storage, rendering — that would have been smuggled into the
 scope by a single word in a list.
 
+**Chose over** including the photo gallery, which was in the first draft of the
+editable list. Rejected on evidence rather than effort: `business_photos` has no
+API, no UI, no rendering and zero rows, so "gate the photo limit" would have
+meant building an entire subsystem smuggled in by one word in a list. Also chose
+over keeping banner, which renders only in homepage ads.
+
 **Consequences:** Uploads go directly to Blob storage when the file is picked,
 before the form is submitted, so the file exists at a public URL before it
 reaches the review queue. The pending row stores that URL; approving swaps it
