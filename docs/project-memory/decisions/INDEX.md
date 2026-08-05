@@ -5,6 +5,11 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-05 | Session update re-reads claims from the database, not the client | [session-update-rereads-claims-from-the-database](2026-08-05-session-update-rereads-claims-from-the-database.md) |
+| 2026-08-05 | Security findings written up with evidence, not fixed | [security-findings-written-up-not-fixed](2026-08-05-security-findings-written-up-not-fixed.md) |
+| 2026-08-05 | The business work is two plans; finishing the fields comes first | [business-work-split-into-two-plans](2026-08-05-business-work-split-into-two-plans.md) |
+| 2026-08-05 | Stop spec review when the errors stop changing decisions | [stop-spec-review-when-errors-stop-changing-decisions](2026-08-05-stop-spec-review-when-errors-stop-changing-decisions.md) |
+| 2026-08-05 | The remember skill is installed globally | [remember-skill-installed-globally](2026-08-05-remember-skill-installed-globally.md) |
 | 2026-08-05 | Tagline is ads copy, not a listing field; owners edit description | [tagline-is-ads-copy-not-a-listing-field](2026-08-05-tagline-is-ads-copy-not-a-listing-field.md) |
 | 2026-08-04 | Claim before edit; only approved listings can be claimed | [claim-before-edit](2026-08-04-claim-before-edit.md) |
 | 2026-08-04 | An owner's pending edit is stored separately so the listing stays live | [listing-stays-live-during-review](2026-08-04-listing-stays-live-during-review.md) |
