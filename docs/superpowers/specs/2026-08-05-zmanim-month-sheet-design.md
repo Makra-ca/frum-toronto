@@ -149,9 +149,18 @@ column reads 05:43:50 — about fifteen minutes later. §5.1 labels the row "Tzo
 and nothing indicates which of the two Alos columns applies, so a reader scanning the
 wrong one eats a quarter of an hour into the fast.
 
-Resolution: two dedicated **Fast begins / Fast ends** values on fast-day rows, sourced from
-the hebcal events so the sheet cannot disagree with the site. Rendered via §5.3's footnote
-mechanism rather than as two more columns that are empty 360 days a year.
+Resolution: two dedicated **Fast begins / Fast ends** values on fast-day rows, rendered via
+§5.3's footnote mechanism rather than as two more columns that are empty 360 days a year.
+
+**Derive them from `Zmanim` directly** — `alotHaShachar()` and `tzeit(7.083)` — **not from
+hebcal's `Fast begins`/`Fast ends` events.** An earlier draft of this section said to use
+the events "so the sheet cannot disagree with the site". That justification was **false**:
+`Fast begins` and `Fast ends` appear nowhere in `src/`, so there is no site value to agree
+with. And hebcal's event times arrive **pre-rounded to `:00` seconds**, which trips the
+§6.1 invariant — real `tzeit(7.083)` on 2026-09-14 is `20:04:23`, hebcal's event is
+`20:04:00`, so routing it through `roundZman` would short-circuit and print **8:04 PM
+instead of 8:05 PM**: a minute lenient on a time that ends a fast, on a printed sheet.
+Deriving from `Zmanim` keeps the rounding policy intact.
 
 **Yom Kippur is different:** hebcal emits no `Fast begins`/`Fast ends` for it, using Candle
 lighting and Havdalah instead — both of which the sheet already has columns for.
@@ -185,10 +194,18 @@ footnote's date lies outside the requested range, it is omitted.
 > (measured: 8 of 8 consecutive days in August 2026). Misheyakir is the earliest time one
 > may put on tallis and tefillin, so early is the unsafe direction.
 >
+> Measured at `TORONTO_LOCATION`'s actual coordinates (43.6629, −79.3957):
+>
 > ```
-> 2026-08-01  true 05:21:44   with `true` → 5:21 AM      with `false` → 5:22 AM
-> 2026-08-04  true 05:24:59   with `true` → 5:24 AM      with `false` → 5:25 AM
+> 2026-08-01  true 05:21:46   with `true` → 5:21 AM      with `false` → 5:22 AM
+> 2026-08-02  true 05:22:51   with `true` → 5:22 AM      with `false` → 5:23 AM
+> 2026-08-03  true 05:23:56   with `true` → 5:23 AM      with `false` → 5:24 AM
+> 2026-08-04  true 05:25:01   with `true` → 5:25 AM      with `false` → 5:26 AM
 > ```
+>
+> An earlier revision of this table was measured at 43.65 / −79.38 — *near* Toronto but not
+> the constant the code actually uses — and reported 05:24:59 for 4 August, one second and
+> one displayed minute out. Measure at `TORONTO_LOCATION`, not at a rounded-off pair.
 >
 > `alotHaShachar72()` takes no such argument and is verified to be exactly fixed 72 clock
 > minutes before sunrise (0 ms deviation at both solstices), so it is safe as written.

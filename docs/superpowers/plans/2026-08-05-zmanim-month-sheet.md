@@ -15,10 +15,28 @@
 ## Before you start — five things that will bite you
 
 1. **`npx vitest run --project unit <path>`** runs a single unit test file. The unit project is pinned to `TZ=UTC` deliberately (that is what Vercel runs); do not "fix" a test by changing the timezone.
-2. **`@hebcal/core` is ESM-only.** `require()` fails. In throwaway scripts use a `.mjs` file importing `./node_modules/@hebcal/core/dist/esm/index.js`. In app/test code the normal `import { ... } from "@hebcal/core"` works.
-3. **`roundZman` is a no-op on any value already at `:00` seconds** (`src/lib/zmanim-format.ts:58`). A pre-rounded zman therefore silently loses its rounding policy. This caused two real bugs. Never hand it a pre-rounded value.
-4. **Never use `new Date()` for "today"** in this feature. Use `todayInLocation(location)` from `src/lib/zmanim-day.ts`. Server-local time is UTC on Vercel; the project has shipped two production bugs from this.
-5. **Commit messages must not mention Claude or AI.** Match the existing log style.
+2. **`@hebcal/core` is ESM-only, and `npx tsx` CANNOT run anything that imports it.** You get
+   `ERR_PACKAGE_PATH_NOT_EXPORTED: No "exports" main defined`. Renaming to `.mts` does not
+   help, and this is still true after the 6.9.1 upgrade (its `exports` map has an `import`
+   condition only). For any repo script that touches zmanim code use:
+
+   ```bash
+   TZ=UTC npx vite-node -c vitest.config.mts <script.ts>
+   ```
+
+   The `-c` is required — it supplies the `@` path alias. `TZ=UTC` is required so a
+   generator produces the same values as the test that consumes it.
+
+   For quick throwaway probes, a `.mjs` file at the repo root importing
+   `./node_modules/@hebcal/core/dist/esm/index.js` works with plain `node`.
+   In app and test code, the normal `import { ... } from "@hebcal/core"` is fine.
+3. **Measure at `TORONTO_LOCATION`** (`43.6629, -79.3957` — `src/lib/zmanim-location.ts`),
+   never at a rounded-off `43.65, -79.38`. A ~0.02° difference moves a zman by ~2 seconds,
+   which is enough to flip a displayed minute. An earlier draft of this plan asserted the
+   wrong time for 4 August for exactly this reason.
+4. **`roundZman` is a no-op on any value already at `:00` seconds** (`src/lib/zmanim-format.ts:58`). A pre-rounded zman therefore silently loses its rounding policy. This caused two real bugs. Never hand it a pre-rounded value.
+5. **Never use `new Date()` for "today"** in this feature. Use `todayInLocation(location)` from `src/lib/zmanim-day.ts`. Server-local time is UTC on Vercel; the project has shipped two production bugs from this.
+6. **Commit messages must not mention Claude or AI.** Match the existing log style.
 
 ---
 
@@ -84,8 +102,9 @@ for (const loc of [TORONTO_LOCATION, JERUSALEM]) {
     }
     row.candleLighting = r.candleLighting?.toISOString() ?? null;
     row.havdalah = r.havdalah?.toISOString() ?? null;
-    row.hebrewDate = r.hebrewDate;
-    row.parsha = r.parsha;
+    // hebrewDate and parsha are deliberately NOT captured: the test does not
+    // assert them, and a snapshot field nobody checks invites the assumption
+    // that it is covered.
     snapshot[key] = row;
   }
 }
@@ -97,7 +116,7 @@ console.log(`wrote ${Object.keys(snapshot).length} days`);
 
 - [ ] **Step 2: Generate the snapshot**
 
-Run: `npx tsx scripts/generate-zmanim-snapshot.ts`
+Run: `TZ=UTC npx vite-node -c vitest.config.mts scripts/generate-zmanim-snapshot.ts`
 Expected: `wrote 732 days`
 
 - [ ] **Step 3: Write the test that reads it**
@@ -131,6 +150,13 @@ describe("zmanim output has not changed", () => {
         expect(expected, `missing snapshot key ${key}`).toBeDefined();
 
         const r = getZmanimForDate(d, loc);
+        // Catch REMOVED keys too: iterating only the runtime object would let a
+        // deleted zman pass silently.
+        const expectedKeys = Object.keys(expected).filter(
+          (k) => !["candleLighting", "havdalah", "hebrewDate", "parsha"].includes(k)
+        );
+        expect(Object.keys(r.zmanim).sort()).toEqual(expectedKeys.sort());
+
         for (const [k, v] of Object.entries(r.zmanim)) {
           const got = (v as Date).toISOString();
           if (got !== expected[k]) drift.push(`${key} ${k}: ${expected[k]} -> ${got}`);
@@ -193,11 +219,13 @@ import { DailyLearning } from "./node_modules/@hebcal/core/dist/esm/index.js";
 import "./node_modules/@hebcal/learning/dist/esm/index.js";
 const hd = new HDate(new Date(Date.UTC(2026, 7, 1, 12)));
 console.log("registered:", DailyLearning.getCalendars());
-console.log("2026-08-01:", DailyLearning.lookup("dafYomi", hd, false)?.render("en"));
+// getDesc(), NOT render() — render() prefixes "Daf Yomi: ".
+console.log("2026-08-01:", DailyLearning.lookup("dafYomi", hd, false)?.getDesc());
 ```
 
 Run: `node _tmp_daf.mjs && rm _tmp_daf.mjs`
-Expected: the calendar list includes `dafYomi`, and the lookup renders **`Chulin 93`**.
+Expected: the calendar list includes `dafYomi`, and the lookup prints **`Chullin 93`**
+(hebcal spells it with two L's; the old sheet printed "Chulin" — see Task 3).
 
 If the import path or export name differs, adjust — the package's entry point is the only unknown here. If `lookup` returns `null`, the registry did not receive the calendar; check that the `@hebcal/learning` side-effect import ran.
 
@@ -232,10 +260,15 @@ const day = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d, 
 describe("dafYomiForDate", () => {
   // Golden values transcribed from the old FrumToronto sheet, August 2026.
   it.each([
-    [day(2026, 8, 1), "Chulin 93"],
-    [day(2026, 8, 2), "Chulin 94"],
-    [day(2026, 8, 13), "Chulin 105"],
-    [day(2026, 8, 31), "Chulin 123"],
+    // Daf numbers transcribed from the old sheet, August 2026. The SPELLING is
+    // hebcal's: it renders "Chullin", the old sheet printed "Chulin". The daf
+    // numbers are what prove the right calendar and il flag; the spelling is a
+    // display question, deliberately not hand-mapped (a tractate-name lookup
+    // table is a maintenance liability for one doubled letter).
+    [day(2026, 8, 1), "Chullin 93"],
+    [day(2026, 8, 2), "Chullin 94"],
+    [day(2026, 8, 13), "Chullin 105"],
+    [day(2026, 8, 31), "Chullin 123"],
   ])("%s -> %s", (date, expected) => {
     expect(dafYomiForDate(date)).toBe(expected);
   });
@@ -264,7 +297,7 @@ import { HDate, DailyLearning } from "@hebcal/core";
 import "@hebcal/learning";
 
 /**
- * Daf Yomi for a civil date, e.g. "Chulin 93".
+ * Daf Yomi for a civil date, e.g. "Chullin 93" (hebcal's spelling).
  *
  * `date` must already be anchored (noon UTC) — see src/lib/zmanim-day.ts.
  * Returns null before the Daf Yomi cycle began (1923), which the sheet renders
@@ -272,7 +305,9 @@ import "@hebcal/learning";
  */
 export function dafYomiForDate(date: Date): string | null {
   const ev = DailyLearning.lookup("dafYomi", new HDate(date), false);
-  return ev ? ev.render("en") : null;
+  // getDesc(), not render(): render("en") returns "Daf Yomi: Chullin 93" — the
+  // prefix belongs in the column heading, not in every cell.
+  return ev ? ev.getDesc() : null;
 }
 ```
 
@@ -281,7 +316,9 @@ export function dafYomiForDate(date: Date): string | null {
 Run: `npx vitest run --project unit tests/unit/daf-yomi.test.ts`
 Expected: PASS, 5 tests.
 
-If the four golden values fail, **do not change the expected strings** — they come from the published old sheet. A mismatch means the wrong calendar or the wrong `il` flag.
+If a **daf number** is wrong, do not change it — the numbers come from the published old
+sheet and a mismatch means the wrong calendar or `il` flag. The **spelling** is hebcal's
+and is expected to differ from the old sheet ("Chullin" vs "Chulin").
 
 - [ ] **Step 5: Commit**
 
@@ -334,22 +371,38 @@ describe("moladFootnotesInRange", () => {
     expect(moladFootnotesInRange(day(2026, 8, 1), day(2026, 8, 10))).toEqual([]);
   });
 
-  // The zero-distance case: molad weekday == Rosh Chodesh weekday. Walking back
-  // to "the preceding occurrence" would land a full week early. 9 of 247 months
-  // in 5780-5799 hit this.
-  it("returns Rosh Chodesh itself when the molad falls on that weekday", () => {
-    const all = [];
-    for (let m = 0; m < 12; m++) {
-      all.push(...moladFootnotesInRange(day(2026, m + 1, 1), day(2026, m + 1, 28)));
-    }
-    for (const f of all) {
-      const gap = Math.round(
-        (f.sofZmanCivilDate.getTime() - f.moladCivilDate.getTime()) / 86_400_000
-      );
-      // 14d 18h 22m always lands 14 or 15 civil days later, never more.
-      expect(gap).toBeGreaterThanOrEqual(14);
-      expect(gap).toBeLessThanOrEqual(15);
-    }
+  // THE ZERO-DISTANCE CASE — molad weekday == Rosh Chodesh weekday, so the walk
+  // back is 0 days. Reading the rule as "the PRECEDING occurrence" lands a full
+  // week early. About 1 month in 28 hits this.
+  //
+  // These two months are real instances, and the expected dates below are what
+  // discriminates: the buggy `((...) % 7) || 7` variant yields 2032-12-25 and
+  // 2033-09-17 respectively. A test that only checks the molad->sofZman GAP
+  // cannot detect the bug at all, because both dates shift together.
+  it.each([
+    [day(2033, 1, 1), "2033-01-01"],   // Sh'vat 5793 — buggy variant: 2032-12-25
+    [day(2033, 9, 24), "2033-09-24"],  // Tishrei 5794 — buggy variant: 2033-09-17
+  ])("walks back 0 days when the molad falls on Rosh Chodesh itself (%s)", (probe, expected) => {
+    const found = moladFootnotesInRange(
+      new Date(probe.getTime() - 3 * 86_400_000),
+      new Date(probe.getTime() + 3 * 86_400_000)
+    ).find((f) => iso(f.moladCivilDate) === expected);
+    expect(found, `no molad on ${expected}`).toBeDefined();
+  });
+
+  // Spec section 11.2 also requires these.
+  it("handles a molad whose sof zman crosses a Gregorian month boundary", () => {
+    const f = moladFootnotesInRange(day(2026, 8, 1), day(2026, 9, 30));
+    const crossing = f.find(
+      (x) => x.moladCivilDate.getUTCMonth() !== x.sofZmanCivilDate.getUTCMonth()
+    );
+    expect(crossing).toBeDefined();
+  });
+
+  it("handles a leap year with Adar I and Adar II", () => {
+    // 5784 is a leap year: 13 months.
+    const names = moladFootnotesInRange(day(2024, 2, 1), day(2024, 4, 30)).map((f) => f.monthName);
+    expect(names.some((n) => /Adar/.test(n))).toBe(true);
   });
 });
 ```
@@ -368,6 +421,7 @@ Expected: FAIL — cannot resolve `@/lib/kiddush-levana`.
 // that constructs `Molad` or `HDate` for them, so the constructor trap below
 // has exactly one home.
 import { HDate, Molad } from "@hebcal/core";
+import { anchorCalendarDate } from "@/lib/zmanim-day";
 
 /** One chelek = 1/1080 of an hour = 3⅓ seconds. */
 const CHELEK_MS = 3_600_000 / 1080;
@@ -405,7 +459,13 @@ function clockLabel(d: Date): string {
  * occurrence" goes back a full seven days and prints the footnote a week early.
  */
 function moladCivilDate(roshChodesh: HDate, moladDow: number): Date {
-  const rc = roshChodesh.greg();
+  // anchorCalendarDate FIRST. HDate.greg() returns LOCAL midnight, so reading
+  // getUTCDate() off it shifts a day on any positive-offset machine — measured:
+  // in Asia/Tokyo and Pacific/Auckland the zero-distance months come out a FULL
+  // WEEK early (Sh'vat 5793 -> 2032-12-25 instead of 2033-01-01). The unit
+  // project is pinned TZ=UTC, so no test would ever catch this; it bites only a
+  // developer's machine. This is exactly what src/lib/zmanim-day.ts exists for.
+  const rc = anchorCalendarDate(roshChodesh.greg());
   const back = (rc.getUTCDay() - moladDow + 7) % 7;
   return new Date(Date.UTC(rc.getUTCFullYear(), rc.getUTCMonth(), rc.getUTCDate() - back, 12));
 }
@@ -530,17 +590,37 @@ describe("misheyakir 45 minutes", () => {
   // reaches roundZman already at :00, roundZman returns early, and the "up"
   // direction never applies — printing a minute EARLY for an earliest-permitted
   // time. Reintroducing `true` turns these back to 5:21/5:24.
+  // Measured at TORONTO_LOCATION's real coordinates (43.6629, -79.3957).
+  // With `true` these read 5:21 and 5:25 — a minute early.
   it.each([
     [day(2026, 8, 1), "5:22 AM"],
-    [day(2026, 8, 4), "5:25 AM"],
+    [day(2026, 8, 4), "5:26 AM"],
   ])("rounds up rather than truncating (%s)", (d, expected) => {
     const { zmanim } = getZmanimForDate(d, TORONTO_LOCATION);
     expect(formatZmanByKey("misheyakir45", zmanim.misheyakir45, TZ)).toBe(expected);
   });
+});
 
-  it("carries real seconds, so the rounding policy can apply", () => {
-    const { zmanim } = getZmanimForDate(day(2026, 8, 1), TORONTO_LOCATION);
-    expect(zmanim.misheyakir45.getSeconds()).not.toBe(0);
+// The INVARIANT, not two hand-picked dates (spec section 6.1). A zman that
+// reaches roundZman already at :00 seconds silently loses its rounding policy —
+// its ZMAN_DIRECTION entry stays present and the coverage test keeps passing,
+// which is how this shipped to production twice.
+//
+// havdalah is excluded: it is now the same Date object as tzait by construction
+// (commit e78c6dc), so it is covered by tzait's own row here.
+describe("no zman reaches roundZman pre-rounded", () => {
+  it("every zman carries real seconds on at least most days of a month", () => {
+    const preRounded: Record<string, number> = {};
+    for (let d = 1; d <= 31; d++) {
+      const { zmanim } = getZmanimForDate(day(2026, 8, d), TORONTO_LOCATION);
+      for (const [k, v] of Object.entries(zmanim)) {
+        if ((v as Date).getSeconds() === 0) preRounded[k] = (preRounded[k] ?? 0) + 1;
+      }
+    }
+    // A genuine :00 lands about 1 day in 60 by chance. A zman that is
+    // systematically pre-rounded shows up at or near 31.
+    const systematic = Object.entries(preRounded).filter(([, n]) => n > 3);
+    expect(systematic).toEqual([]);
   });
 });
 
@@ -602,7 +682,7 @@ Expected: PASS, 6 tests.
 
 The snapshot now legitimately gains two fields.
 
-Run: `npx tsx scripts/generate-zmanim-snapshot.ts && npx vitest run --project unit`
+Run: `TZ=UTC npx vite-node -c vitest.config.mts scripts/generate-zmanim-snapshot.ts && npx vitest run --project unit`
 Expected: all pass.
 
 > Regenerating is correct **only** because we intentionally added fields. If the snapshot ever fails for a value you did not intend to change, that is a regression — investigate, do not regenerate.
@@ -762,12 +842,22 @@ describe("getZmanimForRange", () => {
     expect(getZmanimForRange(day(2026, 8, 1), day(2026, 8, 1), TORONTO_LOCATION)).toHaveLength(1);
   });
 
-  it("keeps every day anchored at noon UTC across a DST transition", () => {
+  // NOTE: ZmanimResponse.date is a locale-formatted ENGLISH STRING, not a Date,
+  // so asserting on it proves nothing about anchoring — a setDate() version
+  // yields 5 distinct strings too. Assert on the underlying instants instead.
+  it("keeps every day exactly 24h apart across a DST transition", () => {
     // Toronto DST ends 2026-11-01.
     const rows = getZmanimForRange(day(2026, 10, 30), day(2026, 11, 3), TORONTO_LOCATION);
     expect(rows).toHaveLength(5);
-    const dates = rows.map((r) => r.date);
-    expect(new Set(dates).size).toBe(5); // no duplicated or skipped civil day
+
+    // chatzot is a real Date on each row; consecutive days must not drift by an
+    // hour across the transition, which is what setDate() would do.
+    const noons = rows.map((r) => r.zmanim.chatzot.getTime());
+    const gaps = noons.slice(1).map((t, i) => t - noons[i]);
+    for (const g of gaps) {
+      // Solar noon shifts a few minutes a day, but never by ~an hour.
+      expect(Math.abs(g - 86_400_000)).toBeLessThan(10 * 60_000);
+    }
   });
 
   it("returns an empty array when to is before from", () => {
@@ -957,7 +1047,13 @@ export function parseLocationParamsOrToronto(searchParams: URLSearchParams): Zma
 }
 ```
 
-Then in `src/app/api/zmanim/route.ts`: delete the private `parseLocation` function and replace its call site with `parseLocationParams(searchParams)`, importing it from `@/lib/zmanim-location-params`. The 400 behaviour is unchanged.
+Then in `src/app/api/zmanim/route.ts`: delete the private `parseLocation` function and
+replace its call site with `parseLocationParams(searchParams)`, importing it from
+`@/lib/zmanim-location-params`. The 400 behaviour is unchanged.
+
+**Clean up the imports** — `type ZmanimLocation` becomes unused once the function is gone.
+`TORONTO_LOCATION` is still used further down the file, so keep it. `npx eslint` in Step 4
+will fail on the unused import otherwise.
 
 - [ ] **Step 4: Run to verify it passes, and that the API is unaffected**
 
@@ -1158,6 +1254,17 @@ describe("buildSheetLines", () => {
     expect(rc!.kind === "day" && rc!.labels.join(" ")).toMatch(/Rosh Chodesh/);
   });
 
+  // The whole justification for labelsForDate replacing specialDay: a day that
+  // is both Rosh Chodesh and Chanukah must keep BOTH labels, where specialDay
+  // (last-write-wins) collapses them to one arbitrary string.
+  it("keeps both labels on a day that is Rosh Chodesh and Chanukah", () => {
+    const dec = buildSheetLines(day(2026, 12, 1), day(2026, 12, 31), TORONTO_LOCATION, day(2026, 12, 1));
+    const multi = dec.filter(
+      (l) => l.kind === "day" && l.labels.length > 1
+    );
+    expect(multi.length).toBeGreaterThan(0);
+  });
+
   it("puts daf yomi on every row", () => {
     expect(rows(august).every((r) => r.kind === "day" && typeof r.dafYomi === "string")).toBe(true);
   });
@@ -1195,7 +1302,7 @@ export function toHebcalLocation(loc: ZmanimLocation): Location {
 // Pure. Turns a date range into the exact ordered list of lines the sheet
 // renders, so ZmanimSheet.tsx contains no date arithmetic and makes no
 // placement decisions.
-import { HDate, HebrewCalendar, TimedEvent } from "@hebcal/core";
+import { HDate, HebrewCalendar, Zmanim } from "@hebcal/core";
 import {
   getZmanimForRange,
   labelsForDate,
@@ -1204,7 +1311,7 @@ import {
 } from "@/lib/zmanim";
 import { dafYomiForDate } from "@/lib/daf-yomi";
 import { moladFootnotesInRange } from "@/lib/kiddush-levana";
-import { todayInLocation, anchorCalendarDate } from "@/lib/zmanim-day";
+import { todayInLocation, anchorCalendarDate, addAnchoredDays } from "@/lib/zmanim-day";
 import { formatZman } from "@/lib/zmanim-format";
 import { TORONTO_LOCATION, type ZmanimLocation } from "@/lib/zmanim-location";
 
@@ -1240,11 +1347,23 @@ function stripHebrewYear(s: string): string {
  * at Alos 16.1° while the adjacent Alos 72 column sits ~15 minutes later.
  */
 function fastLine(date: Date, location: ZmanimLocation): string | null {
-  // BOTH `location` and `candlelighting: true` are required. Verified:
-  //   location + candlelighting:true  -> Fast begins=05:29  Fast ends=20:04
-  //   location only                   -> no fast events emitted at all
-  //   candlelighting without location -> THROWS
-  //     "options.candlelighting requires valid options.location"
+  // Detect WHETHER this is a fast day from hebcal's events, but compute the
+  // TIMES ourselves.
+  //
+  // hebcal's Fast begins/Fast ends eventTime arrives PRE-ROUNDED to :00 seconds,
+  // which trips the invariant in rule 4: roundZman would short-circuit and the
+  // direction below would never apply. Measured for Tzom Gedaliah 2026-09-14:
+  // real tzeit(7.083) = 20:04:23, hebcal's event = 20:04:00 — so routing the
+  // event through roundZman prints 8:04 PM instead of 8:05 PM, a minute LENIENT
+  // on a time that ends a fast, on a sheet pinned to a wall.
+  //
+  // An earlier draft used the events "so the sheet cannot disagree with the
+  // site". That was wrong: "Fast begins"/"Fast ends" appear NOWHERE in src/, so
+  // there is no site value to agree with.
+  //
+  // BOTH `location` and `candlelighting: true` are required for hebcal to emit
+  // these at all. Verified: location alone emits nothing; candlelighting without
+  // a location THROWS "options.candlelighting requires valid options.location".
   const events = HebrewCalendar.calendar({
     start: date,
     end: date,
@@ -1253,29 +1372,22 @@ function fastLine(date: Date, location: ZmanimLocation): string | null {
     candlelighting: true,
   });
 
-  let begins: Date | null = null;
-  let ends: Date | null = null;
+  let hasBegins = false;
+  let hasEnds = false;
   for (const ev of events) {
     const d = ev.getDesc();
-    if (ev instanceof TimedEvent && ev.eventTime) {
-      if (d === "Fast begins") begins = ev.eventTime;
-      if (d === "Fast ends") ends = ev.eventTime;
-    }
+    if (d === "Fast begins") hasBegins = true;
+    if (d === "Fast ends") hasEnds = true;
   }
-  if (!begins && !ends) return null;
+  if (!hasBegins && !hasEnds) return null;
 
-  // Directions are semantically correct — the fast BEGINS as a deadline (stop
-  // eating by then, so round down) and ENDS as a permitted-from time (round up).
-  //
-  // In practice both arrive from hebcal already at :00 seconds, so roundZman is
-  // a no-op on them — the third instance of the pre-rounding pattern in this
-  // codebase. Here it is HARMLESS and intended: we are deliberately mirroring
-  // hebcal's own published fast times so the sheet cannot disagree with the
-  // site, rather than deriving our own from a degree. Do not "fix" it by
-  // recomputing from tzeit(7.083) — that would reintroduce the disagreement.
+  const z = new Zmanim(toHebcalLocation(location), date, false);
   const parts: string[] = [];
-  if (begins) parts.push(`Fast begins ${formatZman(begins, location.tzid, "down")}`);
-  if (ends) parts.push(`Fast ends ${formatZman(ends, location.tzid, "up")}`);
+  // The fast BEGINS as a deadline — stop eating by then — so round DOWN.
+  if (hasBegins) parts.push(`Fast begins ${formatZman(z.alotHaShachar(), location.tzid, "down")}`);
+  // The fast ENDS as a permitted-from time, so round UP. 7.083 degrees is the
+  // shiur hebcal itself uses for this row.
+  if (hasEnds) parts.push(`Fast ends ${formatZman(z.tzeit(7.083), location.tzid, "up")}`);
   return parts.join("  ·  ");
 }
 
@@ -1304,7 +1416,9 @@ export function buildSheetLines(
   const lines: SheetLine[] = [];
   const start = anchorCalendarDate(from);
   for (let i = 0; i < days.length; i++) {
-    const date = new Date(start.getTime() + i * 86_400_000);
+    // addAnchoredDays, not raw millisecond arithmetic — same result today, but
+    // the helper is the one place this convention is documented.
+    const date = addAnchoredDays(start, i);
     lines.push({
       kind: "day",
       date,
@@ -1332,10 +1446,14 @@ export function buildSheetLines(
 Run: `npx vitest run --project unit tests/unit/zmanim-sheet.test.ts`
 Expected: PASS, 9 tests.
 
-Reference values for Tzom Gedaliah, 2026-09-14 Toronto, measured from hebcal:
-`Fast begins 05:29`, `Fast ends 20:04`. Note that 20:04 is `tzeit(7.083°)` — 8 minutes
-earlier than our Tzeis 8.5° column (20:12) and 37 earlier than Tzeis 72 (20:41), which is
-precisely why the fast times cannot be read off the existing columns.
+Reference values for Tzom Gedaliah, 2026-09-14 at `TORONTO_LOCATION`:
+`alotHaShachar() = 05:28:54` → prints **5:28** (rounded down, a deadline);
+`tzeit(7.083) = 20:04:23` → prints **8:05 PM** (rounded up, permitted-from).
+
+Note 20:04:23 is 8 minutes before our Tzeis 8.5° column (20:12:23) and 37 before Tzeis 72
+(20:41:30) — precisely why the fast times cannot be read off the existing columns. Note
+also that our 8:05 PM is deliberately one minute later than hebcal's own pre-rounded
+20:04:00 event: rounding up is the safe direction for a time that ends a fast.
 
 - [ ] **Step 5: Commit**
 
@@ -1378,9 +1496,11 @@ September is a **partial** sample: transcribe only the holiday and fast rows (Ro
 // tests/unit/zmanim-old-sheet-parity.test.ts
 import { describe, it, expect } from "vitest";
 import { buildSheetLines } from "@/lib/zmanim-sheet";
+import { getZmanimForDate } from "@/lib/zmanim";
 import { formatZmanByKey } from "@/lib/zmanim-format";
 import { TORONTO_LOCATION } from "@/lib/zmanim-location";
 import { OLD_SHEET_2026_08 } from "../fixtures/old-sheet-2026-08";
+import { OLD_SHEET_2026_09 } from "../fixtures/old-sheet-2026-09";
 
 const TZ = TORONTO_LOCATION.tzid;
 const day = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
@@ -1415,7 +1535,10 @@ describe("parity with the old FrumToronto sheet (August 2026)", () => {
 
     const mismatches: string[] = [];
     const check = (label: string, ours: string | null, theirs: string | undefined) => {
-      if (!theirs || !ours) return;
+      if (!theirs) return; // column not transcribed for this row
+      // A null `ours` means the column stopped being computed — that must fail,
+      // not pass silently.
+      if (!ours) { mismatches.push(`${label}: we produced no value`); return; }
       const delta = minutesApart(ours, theirs);
       if (delta > TOLERANCE) mismatches.push(`${label}: ours ${ours} vs sheet ${theirs} (${delta}m)`);
     };
@@ -1441,6 +1564,49 @@ describe("parity with the old FrumToronto sheet (August 2026)", () => {
     if (expected.dafYomi) expect(row.dafYomi).toBe(expected.dafYomi);
 
     expect(mismatches).toEqual([]);
+  });
+});
+
+// The month that actually matters. August 2026 has ZERO chag and ZERO fast
+// events (measured), so it only exercises the ordinary weekday case. This is the
+// sample the spec says to keep if transcription effort has to be cut.
+describe("parity with the old sheet (September/October 2026 — the fall holidays)", () => {
+  const lines = buildSheetLines(day(2026, 9, 1), day(2026, 10, 31), TORONTO_LOCATION, day(2026, 9, 1));
+  const rows = lines.filter((l) => l.kind === "day");
+
+  it.each(OLD_SHEET_2026_09)("$date", (expected) => {
+    const row = rows.find(
+      (r) => r.kind === "day" && r.date.toISOString().slice(0, 10) === expected.date
+    );
+    expect(row, `no row for ${expected.date}`).toBeDefined();
+    // Same comparison body as August — extract a shared helper rather than
+    // duplicating it; it is spelled out above only for readability.
+  });
+});
+
+// The Misheyakir 10.2 degree column is EXCLUDED from the fixtures above (spec
+// section 11.1) because the old sheet holds only 11-degree values. Comparing it
+// to our own output would be circular — the test and the code would share any
+// bug and agree. It is therefore checked against an INDEPENDENT source.
+//
+// This is the only external check on decision 14.4, which moves a printed time
+// about six minutes for every reader of the old sheet.
+describe("misheyakir 10.2 degrees against MyZmanim", () => {
+  // TODO(implementer): look these up on myzmanim.com for Toronto and fill in.
+  // Do NOT generate them from our own code — that defeats the purpose.
+  const MYZMANIM: Array<[string, string]> = [
+    // ["2026-08-01", "5:06 AM"],
+  ];
+
+  it("has reference values recorded", () => {
+    expect(MYZMANIM.length, "fill in MyZmanim reference values before shipping").toBeGreaterThan(0);
+  });
+
+  it.each(MYZMANIM)("%s", (date, theirs) => {
+    const [y, m, d] = date.split("-").map(Number);
+    const { zmanim } = getZmanimForDate(day(y, m, d), TORONTO_LOCATION);
+    const ours = formatZmanByKey("misheyakir", zmanim.misheyakir, TZ)!;
+    expect(minutesApart(ours, theirs)).toBeLessThanOrEqual(1);
   });
 });
 ```
@@ -1485,6 +1651,8 @@ import { buildSheetLines } from "@/lib/zmanim-sheet";
 import { parseMonthParam } from "@/lib/zmanim-month-param";
 import { parseLocationParamsOrToronto } from "@/lib/zmanim-location-params";
 import { ZmanimSheet } from "./ZmanimSheet";
+// print.css is created in Task 13. If you are doing Task 12 first, add this
+// import at the END of Task 13 — `npm run dev` fails on a missing module.
 import "./print.css";
 
 // Redundant while next.config.ts has no cacheComponents, and deliberately so:
@@ -1541,7 +1709,15 @@ Requirements (spec §10):
 
 - [ ] **Step 3: `MonthPicker.tsx`** — `"use client"`; month `<select>`, year input, `Go`, `‹`/`›`, and `<LocationPicker>`. Navigates with `router.push` preserving location params; writes location to both the URL and localStorage via the existing hook.
 
+**`ZmanimSheet` must render `<MonthPicker>` above the table**, inside the
+`.zmanim-sheet-print` wrapper and marked `no-print`. It is the spec's core UI (§4); a route
+that ships without it has no month control at all. `page.tsx` renders only `<ZmanimSheet>`,
+so the picker reaching the page depends entirely on this.
+
 - [ ] **Step 4: Verify it builds and renders**
+
+First create an empty `src/app/(public)/zmanim/month/print.css` so the import resolves —
+Task 13 fills it in.
 
 Run: `npm run dev`, then open `http://localhost:3000/zmanim/month`
 Expected: August 2026 renders with 31 rows; `?month=2026-09` switches months; `?month=garbage` still renders the current month.
@@ -1640,7 +1816,89 @@ one is removed."
 
 ---
 
-### Task 15: Final verification
+### Task 15: Extend the server-timezone relocation test
+
+Spec §11.3. `tests/unit/zmanim-calc.test.ts:207` already relocates the "server" across
+`UTC / Asia/Tokyo / Asia/Kolkata / America/Toronto / America/Los_Angeles` via
+`process.env.TZ`. Two of this feature's units must join that sweep.
+
+This is not ceremony: `moladCivilDate` reads `getUTCDate()` off `HDate.greg()`, which
+returns **local** midnight. Measured before the `anchorCalendarDate` fix, Asia/Tokyo and
+Pacific/Auckland put Sh'vat 5793's molad on **2032-12-25 instead of 2033-01-01** — a full
+week out. The unit project is pinned `TZ=UTC`, so nothing else in the suite can catch it.
+
+**Files:**
+- Modify: `tests/unit/zmanim-calc.test.ts`
+
+- [ ] **Step 1: Add to the existing relocation describe block**
+
+```ts
+it.each(["UTC", "Asia/Tokyo", "Asia/Kolkata", "America/Toronto", "America/Los_Angeles"])(
+  "molad civil dates are identical with the server in %s",
+  async (tz) => {
+    const original = process.env.TZ;
+    process.env.TZ = tz;
+    try {
+      const { moladFootnotesInRange } = await import("@/lib/kiddush-levana");
+      const f = moladFootnotesInRange(
+        new Date(Date.UTC(2032, 11, 29, 12)),
+        new Date(Date.UTC(2033, 0, 4, 12))
+      );
+      // Sh'vat 5793 — a zero-distance month, the case that shifts a full week
+      // when greg()'s local midnight is read as UTC.
+      expect(f.map((x) => x.moladCivilDate.toISOString().slice(0, 10))).toContain("2033-01-01");
+    } finally {
+      process.env.TZ = original;
+    }
+  }
+);
+
+it.each(["UTC", "Asia/Tokyo", "America/Los_Angeles"])(
+  "getZmanimForRange returns the same civil days in %s",
+  async (tz) => {
+    const original = process.env.TZ;
+    process.env.TZ = tz;
+    try {
+      const { getZmanimForRange } = await import("@/lib/zmanim");
+      const rows = getZmanimForRange(
+        new Date(Date.UTC(2026, 7, 1, 12)),
+        new Date(Date.UTC(2026, 7, 5, 12)),
+        TORONTO_LOCATION
+      );
+      expect(rows).toHaveLength(5);
+      expect(rows[0].date).toContain("August 1");
+    } finally {
+      process.env.TZ = original;
+    }
+  }
+);
+```
+
+> **`process.env.TZ` set mid-process does not always take effect** — Node caches the zone.
+> Follow whatever mechanism `zmanim-calc.test.ts:207` already uses (it works there); if a
+> relocation assertion passes suspiciously easily, verify it fails with the bug
+> reintroduced before trusting it.
+
+- [ ] **Step 2: Run**
+
+Run: `npx vitest run --project unit tests/unit/zmanim-calc.test.ts`
+Expected: PASS.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add tests/unit/zmanim-calc.test.ts
+git commit -m "test(zmanim): relocate the server for range and molad derivation
+
+HDate.greg() returns local midnight, so reading getUTCDate() off it shifts
+a day on any positive-offset machine - Sh'vat 5793's molad landed a full
+week early in Asia/Tokyo. The unit project is pinned TZ=UTC, so only this
+sweep can catch that class of defect."
+```
+
+---
+
+### Task 16: Final verification
 
 - [ ] **Step 1: Full suite**
 
