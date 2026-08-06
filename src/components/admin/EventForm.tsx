@@ -18,7 +18,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Upload, ExternalLink, X } from "lucide-react";
+import { Loader2, Upload, ExternalLink, X, Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { OrganizationAutocomplete } from "@/components/events/OrganizationAutocomplete";
 import {
@@ -128,6 +133,10 @@ export function EventForm({
   const isCreateMode = !initialData?.id;
 
   const [shuls, setShuls] = useState<Shul[]>([]);
+  // Controlled so the note opens on click as well as hover. A hover-only
+  // tooltip never opens on a touch screen, and the admin panel has a mobile
+  // layout.
+  const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUploadingFlyer, setIsUploadingFlyer] = useState(false);
   const [conflicts, setConflicts] = useState<ConflictingEvent[]>([]);
@@ -634,7 +643,31 @@ export function EventForm({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-4">
+        <div className="flex items-center justify-end gap-3 pt-4">
+          {/* Only when editing. On a new event there is no status to preserve,
+              and the form is not told the current one — hence the wording
+              below is deliberately status-agnostic: saving never touches
+              approval, whatever it currently is. */}
+          {initialData?.id && (
+            <Tooltip open={isNoteOpen} onOpenChange={setIsNoteOpen}>
+              <TooltipTrigger
+                type="button"
+                onClick={() => setIsNoteOpen((v) => !v)}
+                aria-label="What does updating do?"
+                className="mr-auto inline-flex items-center gap-1.5 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Info className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>Does this approve it?</span>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="start">
+                <strong className="block pb-1">No — this only saves changes.</strong>
+                Updating an event never changes its approval status and never
+                notifies anyone. A pending event stays pending; a published one
+                stays published. To publish a pending event, close this and use
+                the <strong>Approve</strong> button on the events list.
+              </TooltipContent>
+            </Tooltip>
+          )}
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
