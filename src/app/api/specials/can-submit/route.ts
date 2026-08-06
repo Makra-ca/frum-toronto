@@ -34,7 +34,14 @@ export async function GET() {
       });
     }
 
-    // Get list of approved businesses for the dropdown
+    // Businesses this user may post a special for.
+    //
+    // Admins see every approved listing; anyone else sees only their own. This
+    // matches the ownership check in POST /api/specials — offering a business
+    // the caller cannot post for would just produce a 403 at submit time.
+    const ownershipFilter =
+      user?.role === "admin" ? undefined : eq(businesses.userId, userId);
+
     const approvedBusinesses = await db
       .select({
         id: businesses.id,
@@ -44,7 +51,8 @@ export async function GET() {
       .where(
         and(
           eq(businesses.isActive, true),
-          eq(businesses.approvalStatus, "approved")
+          eq(businesses.approvalStatus, "approved"),
+          ...(ownershipFilter ? [ownershipFilter] : [])
         )
       )
       .orderBy(businesses.name);

@@ -103,9 +103,15 @@ export async function POST(request: NextRequest) {
 
     const { businessId, title, description, fileUrl, fileType, startDate, endDate } = result.data;
 
-    // Verify the business exists
+    // Verify the business exists AND belongs to this user.
+    //
+    // SECURITY: this only checked existence. Combined with can-submit, which
+    // hands the client every approved business as a dropdown, any holder of
+    // canPostSpecials could publish promotional content under a competitor's
+    // name. Every other business-scoped route uses this idiom; this was the
+    // sole outlier.
     const [business] = await db
-      .select({ id: businesses.id, name: businesses.name })
+      .select({ id: businesses.id, name: businesses.name, userId: businesses.userId })
       .from(businesses)
       .where(eq(businesses.id, businessId))
       .limit(1);
@@ -114,6 +120,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Business not found" },
         { status: 400 }
+      );
+    }
+
+    if (user?.role !== "admin" && business.userId !== userId) {
+      return NextResponse.json(
+        { error: "You can only post specials for your own business" },
+        { status: 403 }
       );
     }
 

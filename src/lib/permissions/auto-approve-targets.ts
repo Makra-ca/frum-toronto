@@ -19,6 +19,18 @@
 export type BusinessApprovalInput = {
   /** Waiting on PayPal. Nothing is paid for yet, so nothing may go live. */
   pendingPayment: boolean;
+  /**
+   * The requested plan's monthly price, as stored (a decimal string).
+   *
+   * SECURITY: `subscriptionPlanId` is client-supplied on business creation and
+   * nothing used to compare it against a price, so POSTing Elite with
+   * `pendingPayment` omitted landed a $120/mo listing in the ordinary review
+   * queue — with no signal to the approving admin that it was never paid for.
+   *
+   * Anything that is not a parseable zero is treated as paid. Fail closed: an
+   * unknown price must not grant a free pass.
+   */
+  planPriceMonthly?: string | null;
   /** Legacy flag, still the live path for business creation. */
   isTrusted: boolean | null | undefined;
   canAutoApproveBusinesses: boolean | null | undefined;
@@ -35,8 +47,17 @@ export function resolveBusinessApprovalStatus({
   pendingPayment,
   isTrusted,
   canAutoApproveBusinesses,
+  planPriceMonthly,
 }: BusinessApprovalInput): "pending_payment" | "approved" | "pending" {
   if (pendingPayment) return "pending_payment";
+
+  // A paid plan always awaits payment, whatever the caller claimed and
+  // whatever permissions they hold. Permission to skip REVIEW is not
+  // permission to skip PAYING.
+  const price = Number.parseFloat(planPriceMonthly ?? "");
+  const isFree = Number.isFinite(price) && price === 0;
+  if (!isFree) return "pending_payment";
+
   if (canAutoApproveBusinesses || isTrusted) return "approved";
   return "pending";
 }

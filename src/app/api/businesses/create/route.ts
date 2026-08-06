@@ -152,6 +152,9 @@ export async function POST(request: NextRequest) {
       pendingPayment: Boolean(data.pendingPayment),
       isTrusted: user?.isTrusted,
       canAutoApproveBusinesses: user?.canAutoApproveBusinesses,
+      // subscriptionPlanId is client-supplied, so the price decides — not the
+      // caller's claim about whether payment is pending.
+      planPriceMonthly: plan?.priceMonthly,
     });
 
     // Create the business

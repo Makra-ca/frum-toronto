@@ -10,6 +10,8 @@ import { createTestUser, cleanupTestUsers } from "./utils/test-db";
  *
  * Each now attaches to the one real approval step in its area:
  *   businesses    -> businesses/create, alongside the existing isTrusted check
+ *                    (a free plan price is now explicit: a paid plan always
+ *                     awaits payment regardless of these flags)
  *   ask the rabbi -> comment moderation (questions are answered, not approved)
  *   shuls         -> a request to manage a shul is granted without review
  */
@@ -44,6 +46,7 @@ describe("canAutoApproveBusinesses", () => {
         pendingPayment: false,
         isTrusted: false,
         canAutoApproveBusinesses: false,
+        planPriceMonthly: "0.00",
       })
     ).toBe("pending");
   });
@@ -55,6 +58,7 @@ describe("canAutoApproveBusinesses", () => {
         pendingPayment: false,
         isTrusted: false,
         canAutoApproveBusinesses: true,
+        planPriceMonthly: "0.00",
       })
     ).toBe("approved");
   });
@@ -65,6 +69,7 @@ describe("canAutoApproveBusinesses", () => {
         pendingPayment: false,
         isTrusted: true,
         canAutoApproveBusinesses: false,
+        planPriceMonthly: "0.00",
       })
     ).toBe("approved");
   });

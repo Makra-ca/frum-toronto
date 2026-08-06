@@ -5,6 +5,7 @@ import { blogPosts } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { blogEditSchema } from "@/lib/validations/submission-edits";
 import { applyEdit, SubmissionEditError } from "@/lib/submissions/apply-edit";
+import { canEditRow } from "@/lib/submissions/ownership";
 import { assertCanPost } from "@/lib/auth/require-verified";
 import { notifyAdminOfTrustedEdit } from "@/lib/notifications";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
@@ -148,6 +149,21 @@ export async function PATCH(
     // submitter a link built from the row setApprovalStatus reads, and blog's
     // public path is /blog/<slug>. Writing the slug afterwards sends a link to
     // the old one, which 404s.
+    // SECURITY: ownership is checked HERE, not only inside applyEdit.
+    //
+    // The slug write below must precede applyEdit (see above), but applyEdit is
+    // where ownership was checked — so PATCHing any post id rewrote that post's
+    // slug and only then returned 403. neon-http has no transactions, so the
+    // write was already committed, and public reads are by slug, which 404'd
+    // the victim's post permanently. applyEdit still checks; this is the guard
+    // that has to run before anything is written.
+    if (!(await canEditRow("blog", post as Record<string, unknown>, userId, session.user.role))) {
+      return NextResponse.json(
+        { error: "You can only edit your own posts" },
+        { status: 403 }
+      );
+    }
+
     const newTitle = result.data.title;
     if (newTitle && newTitle !== post.title) {
       await db
