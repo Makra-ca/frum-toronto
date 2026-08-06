@@ -6,75 +6,20 @@ import {
   getZmanimForWeek,
   getUpcomingShabbat,
 } from "@/lib/zmanim";
-import { TORONTO_LOCATION, type ZmanimLocation } from "@/lib/zmanim-location";
+import { TORONTO_LOCATION } from "@/lib/zmanim-location";
+import { parseLocationParams } from "@/lib/zmanim-location-params";
 import { formatInstant } from "@/lib/datetime";
 
 // revalidate hint; handler is dynamic because it reads query params —
 // each location is computed fresh (no cross-location cache poisoning)
 export const revalidate = 3600;
 
-function parseLocation(
-  searchParams: URLSearchParams
-): { location: ZmanimLocation } | { error: string } {
-  const latParam = searchParams.get("lat");
-  const lonParam = searchParams.get("lon");
-  const tzidParam = searchParams.get("tzid");
-
-  // No location params provided → default to Toronto (backward compatible)
-  if (latParam === null && lonParam === null && tzidParam === null) {
-    return { location: TORONTO_LOCATION };
-  }
-
-  // At least one location param present → require a complete, valid set.
-  // Guard against empty/whitespace strings: Number("") === 0 would otherwise
-  // coerce blank coords to a valid (0, 0) location instead of a 400.
-  const lat = Number(latParam);
-  const lon = Number(lonParam);
-
-  if (
-    latParam === null ||
-    latParam.trim() === "" ||
-    !Number.isFinite(lat) ||
-    lat < -90 ||
-    lat > 90
-  ) {
-    return { error: "Invalid or missing 'lat' (must be a number between -90 and 90)" };
-  }
-
-  if (
-    lonParam === null ||
-    lonParam.trim() === "" ||
-    !Number.isFinite(lon) ||
-    lon < -180 ||
-    lon > 180
-  ) {
-    return { error: "Invalid or missing 'lon' (must be a number between -180 and 180)" };
-  }
-
-  if (tzidParam === null || tzidParam.trim().length === 0) {
-    return { error: "Invalid or missing 'tzid' (must be a non-empty IANA timezone id)" };
-  }
-
-  const label = searchParams.get("label") || "Selected location";
-  const isIsrael = searchParams.get("il") === "1";
-
-  return {
-    location: {
-      lat,
-      lon,
-      tzid: tzidParam,
-      label,
-      isIsrael,
-    },
-  };
-}
-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get("mode") || "today";
   const dateParam = searchParams.get("date");
 
-  const parsed = parseLocation(searchParams);
+  const parsed = parseLocationParams(searchParams);
   if ("error" in parsed) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
