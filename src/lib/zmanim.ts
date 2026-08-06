@@ -98,7 +98,9 @@ export function getZmanimForDate(
   let parsha: string | null = null;
   let specialDay: string | null = null;
   let candleLighting: Date | null = null;
-  let havdalah: Date | null = null;
+  // Whether hebcal emits a Havdalah for this day. The TIME is not taken from
+  // the event — see where `havdalah` is assigned below.
+  let hasHavdalah = false;
   let isShabbat = false;
   let isYomTov = false;
 
@@ -129,10 +131,11 @@ export function getZmanimForDate(
 
     // Check for Havdalah. getDesc() is plain "Havdalah"; the "(50 min)" suffix
     // and the time only appear in render(). Same defect as candle lighting.
+    //
+    // Only the EXISTENCE of a havdalah is taken from the event. Its time comes
+    // from tzait below.
     if (desc.startsWith("Havdalah")) {
-      if (ev instanceof TimedEvent) {
-        havdalah = ev.eventTime || null;
-      }
+      hasHavdalah = true;
     }
 
     // Check for special days (holidays, fast days)
@@ -177,6 +180,21 @@ export function getZmanimForDate(
     // common "72 minutes" tzeis. NOT a degree-based value.
     tzait72: new Date(zmanim.sunset().getTime() + 72 * 60 * 1000),
   };
+
+  // Havdalah IS tzeis 8.5° — `havdalahDeg: 8.5` above is what hebcal was asked
+  // to use, and `tzait` below is the same calculation. So take the same Date
+  // object rather than hebcal's event time, which arrives pre-rounded to the
+  // NEAREST minute.
+  //
+  // That pre-rounding was a real bug, not a nicety. `roundZman` returns early
+  // when a value already sits at :00 seconds, so the "up" direction registered
+  // for havdalah never applied to it, while `tzait` — carrying real seconds —
+  // was rounded up as intended. On five of ten consecutive Saturdays the two
+  // rows of the same week card printed different minutes for the one moment.
+  //
+  // Sharing the Date makes them equal by construction, not by coincidence.
+  // See tests/unit/zmanim-havdalah-consistency.test.ts.
+  const havdalah: Date | null = hasHavdalah ? zmanimTimes.tzait : null;
 
   // Format the English date. `dayDate` is anchored at noon UTC and already
   // represents the intended civil day, so it is formatted in UTC — converting

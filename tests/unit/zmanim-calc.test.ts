@@ -5,6 +5,7 @@ import {
   getUpcomingShabbat,
   formatZmanTime,
 } from '@/lib/zmanim';
+import { formatZmanByKey } from '@/lib/zmanim-format';
 import { TORONTO_LOCATION, type ZmanimLocation } from '@/lib/zmanim-location';
 
 const miami: ZmanimLocation = {
@@ -100,9 +101,24 @@ describe('candle lighting and havdalah are extracted from hebcal events', () => 
   it('returns a havdalah time on Shabbos', () => {
     const r = getZmanimForDate(shabbos, TORONTO_LOCATION);
     expect(r.havdalah).toBeInstanceOf(Date);
-    // 8.5-degree nightfall (tzeis 9:38:41), which hebcal rounds to the whole
-    // minute. Was 9:38 PM under the previous fixed `havdalahMins: 50`.
-    expect(formatZmanTime(r.havdalah, TORONTO_LOCATION.tzid)).toBe('9:39 PM');
+
+    // Asserted through formatZmanByKey — the formatter the API and the page
+    // actually use. formatZmanTime TRUNCATES and applies no rounding policy, so
+    // asserting through it pinned the raw stored value rather than the rendered
+    // one, and broke when the stored value legitimately changed.
+    //
+    // 8.5-degree nightfall, raw 9:38:34 PM, rounded UP because havdalah is a
+    // permitted-from time. 9:39 PM is what the site displayed before this
+    // assertion changed and what it displays now — the user-visible value is
+    // unchanged. Was 9:38 PM under the older fixed `havdalahMins: 50`.
+    expect(formatZmanByKey('havdalah', r.havdalah, TORONTO_LOCATION.tzid)).toBe('9:39 PM');
+  });
+
+  it('reports havdalah and tzeis as the same instant', () => {
+    // Both are 8.5-degree nightfall, so they are one moment and must never
+    // print as two. See tests/unit/zmanim-havdalah-consistency.test.ts.
+    const r = getZmanimForDate(shabbos, TORONTO_LOCATION);
+    expect(r.havdalah!.getTime()).toBe(r.zmanim.tzait.getTime());
   });
 
   it('returns no candle lighting on an ordinary weekday', () => {
