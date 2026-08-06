@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { createTestUser, cleanupTestUsers } from "./utils/test-db";
 
 /**
@@ -86,15 +86,25 @@ describe("findSpamCandidates", () => {
     // if the row is absent, so this cannot become a false alarm on a fresh
     // database — but on a copy of production it is the assertion that matters.
     const [rochel] = await db
-      .select({ id: users.id, emailVerified: users.emailVerified })
+      .select({ id: users.id })
       .from(users)
       .where(eq(users.email, "rochel@frumtoronto.com"))
       .limit(1);
 
     if (!rochel) return;
 
-    // Sanity: she IS unverified, so this is not passing for the wrong reason.
-    expect(rochel.emailVerified).toBeNull();
+    // Deliberately does NOT assert she is unverified. She was when this was
+    // written, and the account was marked verified on 2026-08-06 — pinning that
+    // state would make this fail the next time the test branch is refreshed
+    // from production, for a reason unrelated to what it tests.
+    //
+    // Ownership is the load-bearing exclusion and it holds either way: the
+    // account owns 1,395 blog posts.
+    const [posts] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(blogPosts)
+      .where(eq(blogPosts.authorId, rochel.id));
+    expect(Number(posts.n)).toBeGreaterThan(0);
 
     const ids = (await findSpamCandidates()).map((c) => c.id);
     expect(ids).not.toContain(rochel.id);
