@@ -83,9 +83,10 @@ An arbitrary range is supported, but the month is the anchor because:
 | Civil day | Day number under a month heading |
 | Hebrew date | e.g. `18 Av` |
 
-**None of these four columns can be sourced from `ZmanimResponse` as it exists today** —
-the labels and Daf Yomi are missing outright, and the day letter, day number and Hebrew
-date are only available inside pre-formatted English strings. See §6.6.
+**No column can be sourced *completely* from `ZmanimResponse` as it exists today.** The
+parsha is available (`ZmanimResponse.parsha`), but the labels and Daf Yomi that share its
+column are missing outright, and the day letter, day number and Hebrew date exist only
+inside pre-formatted English strings. See §6.7.
 
 ### 5.2 Time columns (seventeen)
 
@@ -271,7 +272,33 @@ from first principles would get a different number than the one verified above.
 zman. We do the same — the `+ N Chalakim` suffix on both footnote lines comes from
 `Molad.getChalakim()`, so both lines agree with the old sheet.
 
-### 6.5 Range function
+### 6.5 `kiddush-levana.ts` owns every `Molad` and `HDate` construction
+
+Both footnote lines (§5.3) need the molad's weekday, hour, minute **and** chalakim, plus
+its civil date and the derived sof zman. So this module's interface is the rendered lines,
+not raw parts:
+
+```ts
+export interface MoladFootnotes {
+  monthName: string;           // "Elul"
+  moladCivilDate: Date;        // 2026-08-13, per the §6.3 walk-back
+  moladLine: string;           // "The Molad for Elul will take place: Thursday 8:15 AM + 0 Chalakim - August 13"
+  sofZmanCivilDate: Date;      // 2026-08-28
+  sofZmanLine: string;         // "Sof Zman Kiddush Levanoh: Friday 2:37 AM + 0 Chalakim"
+}
+
+/** Every footnote whose date falls inside [from, to], already ordered. */
+export function moladFootnotesInRange(from: Date, to: Date): MoladFootnotes[];
+```
+
+Taking a civil range rather than a Hebrew month keeps `HDate` in here too — otherwise
+`zmanim-sheet.ts` would need it to work out which Hebrew months the range spans.
+
+**This is the point: `Molad` is constructed in exactly one module.** §6.3's trap — the
+constructor takes `(year, month)` numbers, and passing an `HDate` returns `NaN` from every
+getter *without throwing* — then has one place to go wrong instead of two.
+
+### 6.6 Range function
 
 `getZmanimForRange(from: Date, to: Date, location: ZmanimLocation): ZmanimResponse[]`
 joins `getZmanimForDate` and the existing noon-UTC anchoring helpers in
@@ -280,7 +307,7 @@ at exactly 12:00 UTC across a DST transition.
 
 `getZmanimForWeek` is left in place and unchanged.
 
-### 6.6 The sheet's row input type
+### 6.7 The sheet's row input type
 
 `getZmanimForRange` returns `ZmanimResponse[]`, which **cannot supply the left block**.
 Four concrete gaps, all verified against `src/lib/zmanim.ts`:
@@ -293,11 +320,11 @@ Four concrete gaps, all verified against `src/lib/zmanim.ts`:
    both Rosh Chodesh and Chanukah collapses to one arbitrary label. The sheet's densest
    column is precisely the one needing several labels per row.
 3. **Daf Yomi has no home in the type at all.**
-4. **No machine-readable date.** `ZmanimResponse.date` is a *locale-formatted English
-   string* (`"Thursday, August 13, 2026"`), and `hebrewDate` is `HDate.toString()`, which
-   **includes the year** (`"18 Av 5786"`). The sheet needs a day letter, a bare civil day
-   number and `18 Av` — deriving those would mean string-parsing inside the component,
-   contradicting §7's "no date arithmetic in the component".
+4. **No machine-readable date.** For 2026-08-13, `ZmanimResponse.date` is a
+   *locale-formatted English string* (`"Thursday, August 13, 2026"`) and `hebrewDate` is
+   `HDate.toString()`, which **includes the year** (`"30 Av 5786"`). The sheet needs a day
+   letter, a bare civil day number and `30 Av` — deriving those would mean string-parsing
+   inside the component, contradicting §7's "no date arithmetic in the component".
 
 Resolved by an explicit type, so the sheet's units have a stated interface rather than an
 implied one:
@@ -307,11 +334,11 @@ implied one:
 export interface SheetRow {
   kind: "day";
   date: Date;                  // the anchored civil date — drives day letter + day number
-  hebrewDateShort: string;     // "18 Av", year stripped
+  hebrewDateShort: string;     // "30 Av", year stripped
   zmanim: ZmanimResponse;      // all times + parsha
   labels: string[];            // ALL applicable: Rosh Chodesh, Yom Tov, fast days
   dafYomi: string | null;      // null when the column is disabled (§6.2)
-  isToday: boolean;            // per §6.7
+  isToday: boolean;            // per §6.8
 }
 
 export interface FootnoteLine {
@@ -332,7 +359,7 @@ event description for a date, including `flags.ROSH_CHODESH`. **`specialDay` on
 `ZmanimResponse` is left exactly as-is** — it is consumed by the week view and the API,
 and changing its shape would ripple into both for no benefit here.
 
-### 6.7 "Today" is resolved in the location, not on the server
+### 6.8 "Today" is resolved in the location, not on the server
 
 `ZmanimSheet` is a server component, so `new Date()` inside it is the **server's** clock —
 UTC on Vercel. `isToday` must come from `todayInLocation(location)` in
@@ -348,7 +375,7 @@ The page must also stay dynamic rather than being prerendered at build time with
 — it makes the guarantee survive a future Cache Components opt-in instead of depending on
 one config flag staying unset.
 
-### 6.8 Measured performance
+### 6.9 Measured performance
 
 Benchmarked on this machine against the real library:
 
@@ -364,7 +391,7 @@ was initially assumed. ~34 ms per month is negligible server-side, so performanc
 no constraint on the design and no caching layer is warranted.
 
 Note that batching `HebrewCalendar.calendar()` once for the whole range is ~40% cheaper
-than the per-day call, but §6.5 specifies `getZmanimForRange` as a loop over
+than the per-day call, but §6.6 specifies `getZmanimForRange` as a loop over
 `getZmanimForDate`, which calls it per day. That is a **deliberate choice** — the
 0.8 ms/month saving is not worth a second code path diverging from the well-tested
 single-day function. The measurement is recorded here only so a later reader does not
@@ -380,8 +407,8 @@ src/lib/zmanim.ts                 + alotHaShachar72, misheyakir45
                                   + labelsForDate(date, location) → string[]
 src/lib/zmanim-format.ts          + 2 entries in ZMAN_DIRECTION
 src/lib/zmanim-location-params.ts NEW  parseLocationParams + …OrToronto (§8)
-src/lib/kiddush-levana.ts         NEW  pure; molad → sof zman kiddush levanah
-src/lib/zmanim-sheet.ts           NEW  pure; SheetRow[] + footnote placement
+src/lib/kiddush-levana.ts         NEW  pure; both footnote lines for a date range (§6.5)
+src/lib/zmanim-sheet.ts           NEW  pure; SheetLine[] — rows + interleaved footnotes
 src/lib/zmanim-sheet-range.ts     NEW  pure; parses/validates month & range params
 
 src/app/api/zmanim/route.ts                 imports the extracted parser; 400 unchanged
@@ -395,10 +422,10 @@ src/app/(public)/zmanim/ZmanimPageContent.tsx  + view toggle; − duplicate labe
 
 | Unit | Input → Output | Depends on | Testable via |
 |---|---|---|---|
-| `kiddush-levana.ts` | `(hebrewYear, hebrewMonth)` → `{ moladCivilDate, sofZmanDate, chalakim }` | `@hebcal/core` Molad | pure |
+| `kiddush-levana.ts` | `(from, to)` → `MoladFootnotes[]`, lines already rendered | `@hebcal/core` Molad + HDate — **the only module that constructs either** | pure |
 | `zmanim-location-params.ts` | `URLSearchParams` → `ZmanimLocation` or error | `zmanim-location.ts` | pure |
 | `zmanim-sheet-range.ts` | `URLSearchParams` → `{ from, to }` | nothing | pure |
-| `zmanim-sheet.ts` | `(ZmanimResponse[], labels[], dafYomi[], today)` → `SheetLine[]` | `kiddush-levana.ts`, `@hebcal/core` Molad | pure |
+| `zmanim-sheet.ts` | `(ZmanimResponse[], labels[], dafYomi[], today)` → `SheetLine[]` | `kiddush-levana.ts` only — no direct hebcal use | pure |
 | `ZmanimSheet.tsx` | `SheetLine[]` → HTML | `zmanim-sheet.ts` | rendering only |
 
 Every unit's interface is stated above, so none requires reading its internals to use.
@@ -606,7 +633,7 @@ stops the first red run from being ambiguous.
 
 | Module | Cases |
 |---|---|
-| `kiddush-levana.ts` | Elul 5786 → Fri 2026-08-28 02:37 (verified above); a month where the result crosses a Gregorian month boundary; a leap-year (Adar I/II) month |
+| `kiddush-levana.ts` | Elul 5786 → Fri 2026-08-28 02:37 (verified above); both rendered lines match the old sheet's strings verbatim; a range containing zero footnotes, one, and two; a month where the result crosses a Gregorian month boundary; a leap-year (Adar I/II) month |
 | Molad derivation | Elul 5786 → Thu 2026-08-13; **a zero-distance month, where molad dow equals Rosh Chodesh dow (§6.3) — must not go back seven days**; a molad falling in the previous Gregorian month |
 | `zmanim-location-params.ts` | valid set → location; missing/blank/out-of-range lat/lon → error; **`tzid="Nowhere/Fake"` → error, not a `RangeError` downstream**; `…OrToronto` returns Toronto for every error case |
 | `zmanim-sheet-range.ts` | every row of the §8 validation table, including unrecognised `view` |
