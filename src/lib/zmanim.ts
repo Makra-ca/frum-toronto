@@ -302,3 +302,44 @@ export function getUpcomingShabbat(
     date: saturday,
   };
 }
+
+/**
+ * Every label applicable to a date: Yom Tov, Rosh Chodesh, fast days, Chol
+ * Hamoed.
+ *
+ * `ZmanimResponse.specialDay` cannot serve the sheet: it omits
+ * flags.ROSH_CHODESH entirely, and it is a single last-write-wins string, so a
+ * day that is both Rosh Chodesh and Chanukah collapses to one arbitrary label.
+ * It is left exactly as-is because the week view and the API consume it.
+ */
+export function labelsForDate(
+  date: Date,
+  location: ZmanimLocation = TORONTO_LOCATION,
+): string[] {
+  const dayDate = anchorCalendarDate(date);
+  const events = HebrewCalendar.calendar({
+    start: dayDate,
+    end: dayDate,
+    location: toHebcalLocation(location),
+    il: location.isIsrael,
+    sedrot: false,
+    candlelighting: false,
+  });
+
+  const WANTED =
+    flags.CHAG |
+    flags.ROSH_CHODESH |
+    flags.MINOR_FAST |
+    flags.MAJOR_FAST |
+    flags.MINOR_HOLIDAY |
+    flags.CHOL_HAMOED;
+
+  const labels: string[] = [];
+  for (const ev of events) {
+    if (ev.getFlags() & WANTED) {
+      const desc = ev.getDesc();
+      if (!labels.includes(desc)) labels.push(desc);
+    }
+  }
+  return labels;
+}
