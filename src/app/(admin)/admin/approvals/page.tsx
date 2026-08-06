@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { db } from "@/lib/db";
-import { simchas, classifieds, tehillimList, simchaTypes, classifiedCategories } from "@/lib/db/schema";
-import { eq, desc, inArray } from "drizzle-orm";
+import { simchas, classifieds, tehillimList, simchaTypes, classifiedCategories, events } from "@/lib/db/schema";
+import { eq, asc, desc, inArray } from "drizzle-orm";
 import { PENDING_STATUSES } from "@/lib/submissions/statuses";
 import { ApprovalsClient } from "./approvals-client";
 
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function ApprovalsPage() {
-  const [pendingSimchas, pendingClassifieds, pendingTehillim] = await Promise.all([
+  const [pendingSimchas, pendingClassifieds, pendingTehillim, pendingEvents] = await Promise.all([
     db
       .select({
         id: simchas.id,
@@ -59,13 +59,38 @@ export default async function ApprovalsPage() {
       .from(tehillimList)
       .where(inArray(tehillimList.approvalStatus, PENDING_STATUSES))
       .orderBy(desc(tehillimList.updatedAt), desc(tehillimList.id)),
+
+    // Events had no approve control ANYWHERE in the admin panel — not here, not
+    // on the events table, not in the edit form. The API routes existed and
+    // worked; nothing called them. Ordered by start time ascending, not by
+    // submission date: the one about to happen is the urgent one.
+    db
+      .select({
+        id: events.id,
+        title: events.title,
+        description: events.description,
+        location: events.location,
+        startTime: events.startTime,
+        organization: events.organization,
+        approvalStatus: events.approvalStatus,
+        createdAt: events.createdAt,
+        updatedAt: events.updatedAt,
+      })
+      .from(events)
+      .where(inArray(events.approvalStatus, PENDING_STATUSES))
+      .orderBy(asc(events.startTime), asc(events.id)),
   ]);
 
   const counts = {
     simchas: pendingSimchas.length,
     classifieds: pendingClassifieds.length,
     tehillim: pendingTehillim.length,
-    total: pendingSimchas.length + pendingClassifieds.length + pendingTehillim.length,
+    events: pendingEvents.length,
+    total:
+      pendingSimchas.length +
+      pendingClassifieds.length +
+      pendingTehillim.length +
+      pendingEvents.length,
   };
 
   return (
@@ -73,6 +98,7 @@ export default async function ApprovalsPage() {
       simchas={pendingSimchas}
       classifieds={pendingClassifieds}
       tehillim={pendingTehillim}
+      events={pendingEvents}
       counts={counts}
     />
   );

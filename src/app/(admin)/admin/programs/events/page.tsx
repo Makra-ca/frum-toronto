@@ -43,6 +43,8 @@ export default function AdminEventsPage() {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [deletingEvent, setDeletingEvent] = useState<CalendarEvent | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [moderatingId, setModeratingId] = useState<number | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>("upcoming");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -82,9 +84,27 @@ export default function AdminEventsPage() {
     }
   }, [statusFilter, typeFilter, debouncedSearch]);
 
+  // Fetched separately from the list so the badge is a true total, not a count
+  // of whatever the current type filter and search happen to leave visible.
+  const refreshPendingCount = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/events?status=pending");
+      if (response.ok) {
+        const data = await response.json();
+        setPendingCount(Array.isArray(data) ? data.length : 0);
+      }
+    } catch {
+      // A badge is not worth an error toast.
+    }
+  }, []);
+
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
+
+  useEffect(() => {
+    refreshPendingCount();
+  }, [refreshPendingCount]);
 
   async function handleSubmit(data: EventFormSubmitData) {
     setIsSubmitting(true);
@@ -143,6 +163,55 @@ export default function AdminEventsPage() {
     }
   }
 
+  /**
+   * Approve or reject a pending event.
+   *
+   * These endpoints have existed and worked all along — `approvals-client.tsx`
+   * was their only caller and it never passed "events", so five submissions
+   * (including two Bais Yaakov graduations) sat unreachable. Approving here
+   * goes through setApprovalStatus, so the one-broadcast-ever guard applies.
+   */
+  async function handleModerate(
+    event: CalendarEvent,
+    action: "approve" | "reject"
+  ) {
+    // Optional by decision: a blank answer is a real answer and the submitter's
+    // email supplies fallback copy. null means the admin cancelled, which is
+    // not the same thing and must reject nothing.
+    let rejectionReason: string | null = null;
+    if (action === "reject") {
+      const answer = window.prompt(
+        "Why wasn't this approved? (optional — the submitter sees this)"
+      );
+      if (answer === null) return;
+      rejectionReason = answer.trim() || null;
+    }
+
+    setModeratingId(event.id);
+    try {
+      const response = await fetch(
+        `/api/admin/content/events/${event.id}/${action}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rejectionReason }),
+        }
+      );
+
+      if (!response.ok) throw new Error(`Failed to ${action} event`);
+
+      toast.success(action === "approve" ? "Event approved" : "Event rejected");
+      // Refetched rather than patched in place: the current filter may exclude
+      // the new status, so the row should disappear if it no longer belongs.
+      fetchEvents();
+      refreshPendingCount();
+    } catch {
+      toast.error(`Failed to ${action} event`);
+    } finally {
+      setModeratingId(null);
+    }
+  }
+
   function handleEdit(event: CalendarEvent) {
     setEditingEvent(event);
     setIsDialogOpen(true);
@@ -184,6 +253,14 @@ export default function AdminEventsPage() {
           <TabsList>
             <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
             <TabsTrigger value="past">Past</TabsTrigger>
+            <TabsTrigger value="pending">
+              Awaiting review
+              {pendingCount > 0 && (
+                <span className="ml-1.5 rounded-full bg-yellow-100 px-1.5 text-xs font-medium text-yellow-800">
+                  {pendingCount}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="all">All</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -244,6 +321,8 @@ export default function AdminEventsPage() {
           events={events}
           onEdit={handleEdit}
           onDelete={handleDeleteClick}
+          onModerate={handleModerate}
+          moderatingId={moderatingId}
         />
       </div>
 

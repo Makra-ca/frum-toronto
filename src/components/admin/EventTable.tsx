@@ -10,7 +10,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, MapPin, Clock } from "lucide-react";
+import { Pencil, Trash2, MapPin, Clock, Check, X, Loader2 } from "lucide-react";
+import { isPending } from "@/lib/submissions/statuses";
 import { EVENT_TYPES } from "@/lib/validations/content";
 import type { CalendarEvent } from "@/types/content";
 import { formatInstant } from "@/lib/datetime";
@@ -19,6 +20,15 @@ interface EventTableProps {
   events: CalendarEvent[];
   onEdit: (event: CalendarEvent) => void;
   onDelete: (event: CalendarEvent) => void;
+  /**
+   * Approve/reject a pending event. Optional so the table still renders
+   * without moderation controls, but the events page passes it — until this
+   * existed there was NO approve control for events anywhere in the admin
+   * panel, while the API routes had worked all along.
+   */
+  onModerate?: (event: CalendarEvent, action: "approve" | "reject") => void;
+  /** id of the event currently being approved or rejected. */
+  moderatingId?: number | null;
 }
 
 function formatDate(date: Date | string): string {
@@ -48,7 +58,13 @@ function isPastEvent(date: Date | string): boolean {
   return new Date(date) < new Date();
 }
 
-export function EventTable({ events, onEdit, onDelete }: EventTableProps) {
+export function EventTable({
+  events,
+  onEdit,
+  onDelete,
+  onModerate,
+  moderatingId,
+}: EventTableProps) {
   if (events.length === 0) {
     return (
       <div className="text-center py-12 bg-gray-50 rounded-lg">
@@ -141,6 +157,39 @@ export function EventTable({ events, onEdit, onDelete }: EventTableProps) {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      {/*
+                        isPending(), not === "pending": a corrected submission
+                        carries `pending_edit`, and a literal comparison would
+                        leave every edited event permanently unreviewable.
+                      */}
+                      {onModerate && isPending(event.approvalStatus) && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-green-700 hover:bg-green-50"
+                            disabled={moderatingId === event.id}
+                            onClick={() => onModerate(event, "approve")}
+                            title="Approve"
+                          >
+                            {moderatingId === event.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Check className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:bg-red-50"
+                            disabled={moderatingId === event.id}
+                            onClick={() => onModerate(event, "reject")}
+                            title="Reject"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
@@ -221,6 +270,35 @@ export function EventTable({ events, onEdit, onDelete }: EventTableProps) {
                   </div>
                 )}
               </div>
+
+              {onModerate && isPending(event.approvalStatus) && (
+                <div className="flex gap-2 mb-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-green-700 hover:bg-green-50"
+                    disabled={moderatingId === event.id}
+                    onClick={() => onModerate(event, "approve")}
+                  >
+                    {moderatingId === event.id ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4 mr-1" />
+                    )}
+                    Approve
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-red-600 hover:bg-red-50"
+                    disabled={moderatingId === event.id}
+                    onClick={() => onModerate(event, "reject")}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Reject
+                  </Button>
+                </div>
+              )}
 
               <div className="flex gap-2">
                 <Button

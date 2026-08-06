@@ -3,7 +3,8 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { events, shuls } from "@/lib/db/schema";
 import { eventSchema } from "@/lib/validations/content";
-import { eq, desc, ilike, or, and, gte, lt, sql } from "drizzle-orm";
+import { eq, desc, ilike, or, and, gte, lt, sql, inArray } from "drizzle-orm";
+import { PENDING_STATUSES } from "@/lib/submissions/statuses";
 import { sendEventLiveEmail } from "@/lib/email/send";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status"); // upcoming, past, all
+    const status = searchParams.get("status"); // upcoming, past, all, pending
     const eventType = searchParams.get("type");
     const search = searchParams.get("search");
 
@@ -25,11 +26,17 @@ export async function GET(request: NextRequest) {
     const conditions = [];
     const now = new Date();
 
-    // Filter by status (time-based)
+    // Filter by status (time-based, except "pending")
     if (status === "upcoming") {
       conditions.push(gte(events.startTime, now));
     } else if (status === "past") {
       conditions.push(lt(events.startTime, now));
+    } else if (status === "pending") {
+      // Deliberately NOT time-filtered: an event submitted for a date that has
+      // already passed is still stuck in the queue, and hiding it is how five
+      // of them went unnoticed. PENDING_STATUSES, not "pending", so a corrected
+      // submission (`pending_edit`) is included.
+      conditions.push(inArray(events.approvalStatus, PENDING_STATUSES));
     }
 
     // Filter by event type

@@ -39,10 +39,22 @@ interface Tehillim {
   createdAt: Date | null;
 }
 
+interface EventItem {
+  id: number;
+  title: string;
+  description: string | null;
+  location: string | null;
+  startTime: Date | null;
+  organization: string | null;
+  approvalStatus: string | null;
+  createdAt: Date | null;
+}
+
 interface Counts {
   simchas: number;
   classifieds: number;
   tehillim: number;
+  events: number;
   total: number;
 }
 
@@ -50,6 +62,7 @@ interface ApprovalsClientProps {
   simchas: Simcha[];
   classifieds: Classified[];
   tehillim: Tehillim[];
+  events: EventItem[];
   counts: Counts;
 }
 
@@ -57,16 +70,18 @@ export function ApprovalsClient({
   simchas: initialSimchas,
   classifieds: initialClassifieds,
   tehillim: initialTehillim,
+  events: initialEvents,
   counts,
 }: ApprovalsClientProps) {
   const [simchas, setSimchas] = useState(initialSimchas);
   const [classifieds, setClassifieds] = useState(initialClassifieds);
   const [tehillimList, setTehillimList] = useState(initialTehillim);
+  const [events, setEvents] = useState(initialEvents);
   const [loading, setLoading] = useState<{ type: string; id: number; action: string } | null>(null);
   const [permanentChecked, setPermanentChecked] = useState<Record<number, boolean>>({});
 
   const handleAction = async (
-    type: "simchas" | "classifieds" | "tehillim",
+    type: "simchas" | "classifieds" | "tehillim" | "events",
     id: number,
     action: "approve" | "reject"
   ) => {
@@ -104,6 +119,8 @@ export function ApprovalsClient({
           setClassifieds((prev) => prev.filter((item) => item.id !== id));
         } else if (type === "tehillim") {
           setTehillimList((prev) => prev.filter((item) => item.id !== id));
+        } else if (type === "events") {
+          setEvents((prev) => prev.filter((item) => item.id !== id));
         }
       } else {
         toast.error(`Failed to ${action} ${type.slice(0, -1)}`);
@@ -132,10 +149,27 @@ export function ApprovalsClient({
           </CardContent>
         </Card>
       ) : (
-        <Tabs defaultValue="simchas" className="w-full mt-6">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+        <Tabs
+          // Opens on whichever tab actually has something waiting, so the
+          // queue does not present an empty Simchas tab while five events sit
+          // unreviewed one click away.
+          defaultValue={
+            simchas.length > 0
+              ? "simchas"
+              : events.length > 0
+                ? "events"
+                : classifieds.length > 0
+                  ? "classifieds"
+                  : "tehillim"
+          }
+          className="w-full mt-6"
+        >
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 mb-6">
             <TabsTrigger value="simchas">
               Simchas ({simchas.length})
+            </TabsTrigger>
+            <TabsTrigger value="events">
+              Events ({events.length})
             </TabsTrigger>
             <TabsTrigger value="classifieds">
               Classifieds ({classifieds.length})
@@ -294,6 +328,85 @@ export function ApprovalsClient({
                             onReject={() => handleAction("tehillim", item.id, "reject")}
                           />
                         </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="events">
+            {events.length === 0 ? (
+              <EmptyState message="No pending events" />
+            ) : (
+              <div className="grid gap-4">
+                {events.map((event) => (
+                  <Card key={event.id}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <CardTitle className="text-lg">{event.title}</CardTitle>
+                          {event.organization && (
+                            <Badge variant="outline" className="mt-1">
+                              {event.organization}
+                            </Badge>
+                          )}
+                        </div>
+                        <Badge className="bg-yellow-100 text-yellow-800 shrink-0">
+                          {event.approvalStatus === "pending_edit"
+                            ? "Edited"
+                            : "Pending"}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-700 mb-3">
+                        {/*
+                          formatInstant, not formatDateOnly: events.start_time is
+                          a real moment, and the site shows every time in
+                          Toronto regardless of where it is being read.
+                        */}
+                        {event.startTime && (
+                          <span className="inline-flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-gray-400" />
+                            {formatInstant(event.startTime, {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        )}
+                        {event.location && <span>{event.location}</span>}
+                      </div>
+
+                      {event.description && (
+                        <p className="text-sm text-gray-600 mb-4 line-clamp-4 whitespace-pre-line">
+                          {event.description}
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between pt-4 border-t">
+                        <span className="text-xs text-gray-400">
+                          Submitted{" "}
+                          {event.createdAt
+                            ? formatInstant(event.createdAt, {
+                                month: "numeric",
+                                day: "numeric",
+                                year: "numeric",
+                              })
+                            : "N/A"}
+                        </span>
+                        <ActionButtons
+                          type="events"
+                          id={event.id}
+                          loading={loading}
+                          onApprove={() => handleAction("events", event.id, "approve")}
+                          onReject={() => handleAction("events", event.id, "reject")}
+                        />
                       </div>
                     </CardContent>
                   </Card>

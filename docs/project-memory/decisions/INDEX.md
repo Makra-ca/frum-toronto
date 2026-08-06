@@ -5,6 +5,10 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-06 | Identity on a submission comes from the account, never the request body | [submitted-identity-comes-from-the-account](2026-08-06-submitted-identity-comes-from-the-account.md) |
+| 2026-08-06 | The last-admin guard asks about the outcome, not "is this me" | [last-admin-guard-is-about-outcome](2026-08-06-last-admin-guard-is-about-outcome.md) |
+| 2026-08-06 | Newsletter click destinations are signed, not allowlisted | [newsletter-links-are-signed-not-allowlisted](2026-08-06-newsletter-links-are-signed-not-allowlisted.md) |
+| 2026-08-06 | A validation rule on a column applies to every write path, not just create | [create-and-edit-schemas-must-agree](2026-08-06-create-and-edit-schemas-must-agree.md) |
 | 2026-08-05 | Corrections are proposals stored beside the live row, never over it | [corrections-are-proposals-not-overwrites](2026-08-05-corrections-are-proposals-not-overwrites.md) |
 | 2026-08-05 | Every type stays live while a correction waits — one rule | [everything-stays-live-during-review](2026-08-05-everything-stays-live-during-review.md) |
 | 2026-08-05 | Corrections are reviewed whole; per-field stays for businesses only | [corrections-reviewed-whole-not-per-field](2026-08-05-corrections-reviewed-whole-not-per-field.md) |
