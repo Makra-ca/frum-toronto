@@ -9,7 +9,7 @@ import {
 /**
  * Build a @hebcal/core Location from a ZmanimLocation.
  */
-function toHebcalLocation(loc: ZmanimLocation): Location {
+export function toHebcalLocation(loc: ZmanimLocation): Location {
   return new Location(
     loc.lat,
     loc.lon,
