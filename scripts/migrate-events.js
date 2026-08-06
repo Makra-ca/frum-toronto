@@ -31,6 +31,39 @@ const CATEGORY_MAP = {
 // Categories to migrate
 const CATEGORIES_TO_MIGRATE = Object.keys(CATEGORY_MAP).map(Number);
 
+// ---------------------------------------------------------------------------
+// CLI options
+//
+// DRY RUN BY DEFAULT, matching every script in scripts/legacy-import/. This
+// script originally had no dry run at all and wrote on sight.
+//
+//   node scripts/migrate-events.js                      # preview live events
+//   node scripts/migrate-events.js --commit             # write them, approved
+//   node scripts/migrate-events.js --onhold             # preview on-hold events
+//   node scripts/migrate-events.js --onhold --commit    # write them, PENDING
+//   ... --exclude=7312,7328                             # skip known duplicates
+//
+// TIMEZONE: combineDateAndTime() uses setHours(), which reads the MACHINE's
+// timezone. The original February import ran on a Toronto machine, so the 44
+// existing rows encode Toronto local time. Run this on a Toronto machine (or
+// with TZ=America/Toronto) or the new rows will disagree with the old ones by
+// the UTC offset.
+// ---------------------------------------------------------------------------
+const ARGS = process.argv.slice(2);
+const COMMIT = ARGS.includes('--commit');
+const ONHOLD_MODE = ARGS.includes('--onhold');
+const EXCLUDE = new Set(
+  (ARGS.find((a) => a.startsWith('--exclude=')) || '')
+    .replace('--exclude=', '')
+    .split(',')
+    .map((s) => parseInt(s.trim(), 10))
+    .filter((n) => Number.isFinite(n))
+);
+
+// On-hold rows were never public on the old site, so they arrive for review
+// rather than going straight onto the calendar.
+const APPROVAL_STATUS = ONHOLD_MODE ? 'pending' : 'approved';
+
 /**
  * Convert OLE/Excel date to JavaScript Date
  * OLE date base is Dec 30, 1899
@@ -67,10 +100,27 @@ function parseTimeString(timeStr) {
     return { isAllDay: true };
   }
 
+  // A meridiem written once at the END of a range applies to the whole range.
+  // "6:00-10:00 pm" is 6 PM to 10 PM, but the regex only attaches "pm" to the
+  // token it directly follows, so the leading 6:00 arrived bare and defaulted
+  // to 6 AM. Bnos Bais Yaakov PTA was about to be published as a 6 AM event.
+  const trailingMeridiem = (normalized.match(/(am|pm|a\.m\.|p\.m\.)\s*$/) || [])[1];
+
   function parseMatch(match) {
     let hour = parseInt(match[1]);
     const minute = parseInt(match[2] || '0');
-    const meridiem = (match[3] || '').toLowerCase().replace(/\./g, '');
+    let meridiem = (match[3] || '').toLowerCase().replace(/\./g, '');
+
+    // Fall back to the range-level meridiem, then to PM. The old site stored
+    // plenty of bare times ("9:00" for a melave malkah, "6:00-10:00" for a
+    // PTA) and this is a community calendar: an unqualified evening-ish hour
+    // is virtually always PM. An explicit "am" is always honoured.
+    if (!meridiem && trailingMeridiem) {
+      meridiem = trailingMeridiem.replace(/\./g, '');
+    }
+    if (!meridiem && hour >= 1 && hour <= 11) {
+      meridiem = 'pm';
+    }
 
     if (meridiem === 'pm' && hour < 12) {
       hour += 12;
@@ -157,7 +207,7 @@ async function migrateEvents() {
         LEFT JOIN FrumToronto.dbo.DirectoryListings dl ON d.Address = dl.ID AND d.Address > 0
         WHERE d.dte >= ${oleToday}
           AND d.Category IN (${CATEGORIES_TO_MIGRATE.join(',')})
-          AND (d.onhold = 0 OR d.onhold IS NULL)
+          AND ${ONHOLD_MODE ? 'd.onhold = 1' : '(d.onhold = 0 OR d.onhold IS NULL)'}
         ORDER BY d.dte ASC
       `);
 
@@ -178,13 +228,22 @@ async function migrateEvents() {
 
     let inserted = 0;
     let skipped = 0;
+    let excluded = 0;
     let errors = 0;
+    const preview = [];
 
     for (const event of events) {
       try {
         // Skip if already migrated
         if (existingOldIds.has(event.id)) {
           skipped++;
+          continue;
+        }
+
+        // Skip ids named on --exclude (known duplicates of rows already here)
+        if (EXCLUDE.has(event.id)) {
+          console.log(`  Excluding old id ${event.id}: ${cleanText(event.title, 60)}`);
+          excluded++;
           continue;
         }
 
@@ -232,6 +291,24 @@ async function migrateEvents() {
         // Map category to event type
         const eventType = CATEGORY_MAP[event.Category] || 'community';
 
+        // On a dry run, record what WOULD be written and move on.
+        if (!COMMIT) {
+          preview.push({
+            oldId: event.id,
+            title: cleanText(event.title, 44),
+            startsToronto: new Date(startTime).toLocaleString('en-US', {
+              timeZone: 'America/Toronto',
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            }),
+            allDay: timeInfo.isAllDay,
+            type: eventType,
+            status: APPROVAL_STATUS,
+          });
+          inserted++;
+          continue;
+        }
+
         // Insert into PostgreSQL
         await pgClient.query(
           `INSERT INTO events (
@@ -251,7 +328,7 @@ async function migrateEvents() {
             cleanText(event.ContactEmail, 255),
             cleanText(event.ContactNumber, 40),
             cleanText(event.Cost, 150),
-            'approved', // All migrated events are approved
+            APPROVAL_STATUS, // 'approved' normally; 'pending' in --onhold mode
             true,
             event.id,
             new Date().toISOString(),
@@ -269,13 +346,21 @@ async function migrateEvents() {
       }
     }
 
+    if (!COMMIT && preview.length) {
+      console.log('\n--- would insert ---');
+      console.table(preview);
+    }
+
     console.log('\n============================================');
-    console.log('MIGRATION COMPLETE');
+    console.log(COMMIT ? 'MIGRATION COMPLETE' : 'DRY RUN — nothing was written');
     console.log('============================================');
-    console.log(`Inserted: ${inserted}`);
-    console.log(`Skipped (already exists): ${skipped}`);
+    console.log(`Mode: ${ONHOLD_MODE ? 'ON-HOLD rows' : 'live rows'} -> approval_status='${APPROVAL_STATUS}'`);
+    console.log(`${COMMIT ? 'Inserted' : 'Would insert'}: ${inserted}`);
+    console.log(`Skipped (already migrated): ${skipped}`);
+    console.log(`Excluded (--exclude): ${excluded}`);
     console.log(`Errors: ${errors}`);
     console.log(`Total processed: ${events.length}`);
+    if (!COMMIT) console.log('\nRe-run with --commit to write.');
 
   } catch (err) {
     console.error('Migration failed:', err);

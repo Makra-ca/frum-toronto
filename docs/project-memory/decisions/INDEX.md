@@ -62,3 +62,4 @@ for the format.
 | 2026-08-02 | Publisher is chosen from a list; renames are exact, never fuzzy | [publisher-is-chosen-not-typed](2026-08-02-publisher-is-chosen-not-typed.md) |
 | 2026-08-02 | Series headings appear only once most series have a back catalogue | [group-only-when-it-earns-its-place](2026-08-02-group-only-when-it-earns-its-place.md) |
 | 2026-08-02 | A series link shows that series alone; an unknown slug is an empty state | [filtered-view-hides-the-other-section](2026-08-02-filtered-view-hides-the-other-section.md) |
+| 2026-08-06 | A legacy event time with no am/pm is PM; a trailing meridiem covers the range | [bare-legacy-times-are-pm](2026-08-06-bare-legacy-times-are-pm.md) |
