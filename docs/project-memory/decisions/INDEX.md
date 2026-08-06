@@ -5,6 +5,10 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-05 | Corrections are proposals stored beside the live row, never over it | [corrections-are-proposals-not-overwrites](2026-08-05-corrections-are-proposals-not-overwrites.md) |
+| 2026-08-05 | Every type stays live while a correction waits — one rule | [everything-stays-live-during-review](2026-08-05-everything-stays-live-during-review.md) |
+| 2026-08-05 | Corrections are reviewed whole; per-field stays for businesses only | [corrections-reviewed-whole-not-per-field](2026-08-05-corrections-reviewed-whole-not-per-field.md) |
+| 2026-08-05 | Businesses joins the shared corrections table later, not now | [businesses-join-corrections-later](2026-08-05-businesses-join-corrections-later.md) |
 | 2026-08-05 | Forms collect what the directory needs to browse and search; plans gate the rest | [forms-collect-what-the-directory-needs](2026-08-05-forms-collect-what-the-directory-needs.md) |
 | 2026-08-05 | Kosher status is never plan-gated — it feeds a filter and a facet | [kosher-is-never-plan-gated](2026-08-05-kosher-is-never-plan-gated.md) |
 | 2026-08-05 | One shared businessInCategory() predicate; no call site filters on category_id | [one-predicate-for-category-membership](2026-08-05-one-predicate-for-category-membership.md) |
@@ -38,7 +42,7 @@ for the format.
 | 2026-07-31 | One config-driven edit form, not six hand-built pages *(provisional — unseen)* | [one-config-driven-edit-form](2026-07-31-one-config-driven-edit-form.md) |
 | 2026-07-31 | Per-shul notifications parked; no way to follow a shul | [parked-per-shul-notifications](2026-07-31-parked-per-shul-notifications.md) |
 | 2026-07-31 | A shul manager's edit keeps their shul's event live, but cannot publish or email | [shul-manager-edits-keep-events-live](2026-07-31-shul-manager-edits-keep-events-live.md) |
-| 2026-07-31 | Blog adopts the unpublish rule; main author granted auto-approve | [blog-adopts-unpublish-rule](2026-07-31-blog-adopts-unpublish-rule.md) |
+| 2026-07-31 | ~~Blog adopts the unpublish rule~~ *(superseded)*; main author granted auto-approve | [blog-adopts-unpublish-rule](2026-07-31-blog-adopts-unpublish-rule.md) |
 | 2026-07-31 | Date-vs-instant is declared per type, never inferred at runtime | [declare-column-kind-never-infer-it](2026-07-31-declare-column-kind-never-infer-it.md) |
 | 2026-07-31 | "Past" is by day for things that happen, by moment for things that expire | [is-past-day-for-events-instant-for-expiries](2026-07-31-is-past-day-for-events-instant-for-expiries.md) |
 | 2026-07-31 | setApprovalStatus is the single writer of approval_status | [single-writer-for-approval-status](2026-07-31-single-writer-for-approval-status.md) |

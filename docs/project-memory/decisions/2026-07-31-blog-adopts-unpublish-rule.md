@@ -3,8 +3,13 @@ name: blog-adopts-unpublish-rule
 description: Blog follows the same editing rule as every other type, with auto-approve granted to the main author as the mitigation
 type: decision
 date: 2026-07-31
-status: accepted
+status: superseded
 ---
+
+> **Superseded 2026-08-05** by [[everything-stays-live-during-review]]. The
+> reasoning here assumed an edit overwrites the approved version, which
+> [[corrections-are-proposals-not-overwrites]] prevents outright. Blog now keeps
+> its post live while a correction waits, like everything else.
 
 **Decision:** Blog's rule — "only pending or rejected posts can be edited" —
 is replaced by the site-wide one: editing a published post unpublishes it until
