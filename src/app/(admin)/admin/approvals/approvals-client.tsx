@@ -5,7 +5,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Loader2, Infinity, Clock } from "lucide-react";
+import { Check, X, Loader2, Infinity, Clock, Pencil } from "lucide-react";
+import { ApprovalEditDialog } from "@/components/admin/approvals/ApprovalEditDialog";
+import type { ApprovalType } from "@/components/admin/approvals/approval-edit-fields";
 import { toast } from "sonner";
 import { formatInstant, formatDateOnly } from "@/lib/datetime";
 
@@ -79,6 +81,22 @@ export function ApprovalsClient({
   const [events, setEvents] = useState(initialEvents);
   const [loading, setLoading] = useState<{ type: string; id: number; action: string } | null>(null);
   const [permanentChecked, setPermanentChecked] = useState<Record<number, boolean>>({});
+  const [editing, setEditing] = useState<{ type: ApprovalType; id: number } | null>(null);
+
+  /**
+   * Merge a saved correction back into whichever list it came from, so the card
+   * shows the corrected values without a page reload — the admin is mid-queue
+   * and should not lose their place to see their own edit.
+   */
+  const applyEdit = (type: ApprovalType, id: number, updated: Record<string, unknown>) => {
+    const merge = <T extends { id: number }>(list: T[]) =>
+      list.map((item) => (item.id === id ? { ...item, ...updated } : item));
+
+    if (type === "simchas") setSimchas((prev) => merge(prev));
+    else if (type === "classifieds") setClassifieds((prev) => merge(prev));
+    else if (type === "tehillim") setTehillimList((prev) => merge(prev));
+    else if (type === "events") setEvents((prev) => merge(prev));
+  };
 
   const handleAction = async (
     type: "simchas" | "classifieds" | "tehillim" | "events",
@@ -139,6 +157,16 @@ export function ApprovalsClient({
         <h1 className="text-3xl font-bold text-gray-900">Approvals</h1>
         <p className="text-gray-600 mt-1">Review pending community submissions</p>
       </div>
+
+      {editing && (
+        <ApprovalEditDialog
+          type={editing.type}
+          id={editing.id}
+          open
+          onOpenChange={(o) => !o && setEditing(null)}
+          onSaved={(updated) => applyEdit(editing.type, editing.id, updated)}
+        />
+      )}
 
       {counts.total === 0 ? (
         <Card className="mt-6">
@@ -211,6 +239,7 @@ export function ApprovalsClient({
                           loading={loading}
                           onApprove={() => handleAction("simchas", simcha.id, "approve")}
                           onReject={() => handleAction("simchas", simcha.id, "reject")}
+                          onEdit={() => setEditing({ type: "simchas", id: simcha.id })}
                         />
                       </div>
                     </CardContent>
@@ -259,6 +288,7 @@ export function ApprovalsClient({
                           loading={loading}
                           onApprove={() => handleAction("classifieds", classified.id, "approve")}
                           onReject={() => handleAction("classifieds", classified.id, "reject")}
+                          onEdit={() => setEditing({ type: "classifieds", id: classified.id })}
                         />
                       </div>
                     </CardContent>
@@ -326,6 +356,7 @@ export function ApprovalsClient({
                             loading={loading}
                             onApprove={() => handleAction("tehillim", item.id, "approve")}
                             onReject={() => handleAction("tehillim", item.id, "reject")}
+                            onEdit={() => setEditing({ type: "tehillim", id: item.id })}
                           />
                         </div>
                       </div>
@@ -406,6 +437,7 @@ export function ApprovalsClient({
                           loading={loading}
                           onApprove={() => handleAction("events", event.id, "approve")}
                           onReject={() => handleAction("events", event.id, "reject")}
+                          onEdit={() => setEditing({ type: "events", id: event.id })}
                         />
                       </div>
                     </CardContent>
@@ -434,17 +466,26 @@ function ActionButtons({
   loading,
   onApprove,
   onReject,
+  onEdit,
 }: {
   type: string;
   id: number;
   loading: { type: string; id: number; action: string } | null;
   onApprove: () => void;
   onReject: () => void;
+  /** Correct the item before approving. Absent means the tab is read-only. */
+  onEdit?: () => void;
 }) {
   const isLoading = loading?.type === type && loading?.id === id;
 
   return (
     <div className="flex gap-2">
+      {onEdit && (
+        <Button size="sm" variant="outline" onClick={onEdit} disabled={isLoading}>
+          <Pencil className="h-4 w-4 mr-1" />
+          Edit
+        </Button>
+      )}
       <Button
         size="sm"
         variant="outline"
