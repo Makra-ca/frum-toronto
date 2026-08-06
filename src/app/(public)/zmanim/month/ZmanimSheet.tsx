@@ -11,7 +11,7 @@ import type { MonthRange } from "@/lib/zmanim-month-param";
 import type { ZmanimLocation } from "@/lib/zmanim-location";
 import { MonthPicker } from "./MonthPicker";
 
-// Only the per-day zmanim, not candleLighting/havdalah — those are their own
+// Only the per-day zmanim, not candleLighting — that has its own column.
 // columns and live beside `zmanim`, not inside it.
 type TimesKey = keyof ZmanimTimes & ZmanKey;
 
@@ -39,10 +39,17 @@ const ZMAN_COLUMNS: { key: TimesKey; heading: string }[] = [
   { key: "tzait72", heading: "Tzeis 72 min" },
 ];
 
-// 3 identity columns + the zmanim + candle lighting + havdalah + notes.
+// 3 identity columns + the zmanim + candle lighting + notes.
+//
+// There is deliberately NO Havdalah column. Since src/lib/zmanim.ts made
+// `havdalah` the SAME Date object as `tzait` (commit e78c6dc), a Havdalah
+// column would print a value byte-identical to Tzeis 8.5° on every row it
+// appeared — the same number twice under two headings, on a chart where
+// horizontal space is the scarce resource. The old sheet had no such column
+// either. The legend explains the relationship instead.
 // Derived rather than written as a literal, so a column added above cannot
 // leave the footnote rows short and break the table's row structure.
-const COLUMN_COUNT = 3 + ZMAN_COLUMNS.length + 3;
+const COLUMN_COUNT = 3 + ZMAN_COLUMNS.length + 2;
 
 // Sticky left identity block. On a table this wide the scanning failure is
 // horizontal — scroll to Tzeis and the row you are reading is anonymous — so
@@ -145,12 +152,6 @@ export function ZmanimSheet({
               </th>
               <th
                 scope="col"
-                className="border-b border-gray-200 px-2 py-2 text-right font-semibold text-gray-800 whitespace-nowrap"
-              >
-                Havdalah 8.5°
-              </th>
-              <th
-                scope="col"
                 className="border-b border-gray-200 px-2 py-2 text-left font-semibold text-gray-800"
               >
                 Notes / Daf Yomi
@@ -214,9 +215,6 @@ export function ZmanimSheet({
                   ))}
                   <td className="border-b border-gray-200 px-2 py-1 text-right tabular-nums whitespace-nowrap text-orange-700">
                     {formatZmanByKey("candleLighting", line.zmanim.candleLighting, location.tzid) ?? ""}
-                  </td>
-                  <td className="border-b border-gray-200 px-2 py-1 text-right tabular-nums whitespace-nowrap text-blue-700">
-                    {formatZmanByKey("havdalah", line.zmanim.havdalah, location.tzid) ?? ""}
                   </td>
                   <td className="border-b border-gray-200 px-2 py-1 text-gray-700">{notes}</td>
                 </tr>
