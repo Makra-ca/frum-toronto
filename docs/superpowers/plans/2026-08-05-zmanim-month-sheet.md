@@ -391,12 +391,19 @@ describe("moladFootnotesInRange", () => {
   });
 
   // Spec section 11.2 also requires these.
+  // NOTE: Aug-Sep 2026 contains NO crossing — Elul 08-13 -> 08-28 and Tishrei
+  // 09-11 -> 09-26 both stay inside their month. For part of each year the
+  // molad sits early enough in the Gregorian month that a ~15-day offset cannot
+  // cross. Use a window where one genuinely occurs, and pin both dates rather
+  // than merely asserting one was found.
   it("handles a molad whose sof zman crosses a Gregorian month boundary", () => {
-    const f = moladFootnotesInRange(day(2026, 8, 1), day(2026, 9, 30));
+    const f = moladFootnotesInRange(day(2027, 9, 1), day(2027, 10, 31));
     const crossing = f.find(
       (x) => x.moladCivilDate.getUTCMonth() !== x.sofZmanCivilDate.getUTCMonth()
     );
     expect(crossing).toBeDefined();
+    expect(iso(crossing!.moladCivilDate)).toBe("2027-09-30");
+    expect(iso(crossing!.sofZmanCivilDate)).toBe("2027-10-15");
   });
 
   it("handles a leap year with Adar I and Adar II", () => {
@@ -482,7 +489,10 @@ export function moladFootnotesInRange(from: Date, to: Date): MoladFootnotes[] {
   for (let hy = scanFrom.getFullYear(); hy <= scanTo.getFullYear(); hy++) {
     const monthsInYear = HDate.monthsInYear(hy);
     for (let hm = 1; hm <= monthsInYear; hm++) {
-      const molad = new Molad(hy, hm); // (year, month) — an HDate yields NaN, silently
+      // (year, month) NUMBERS. Passing an HDate throws
+      // "TypeError: HDate called with bad arg: NaN" on core 6.9.1 — it failed
+      // SILENTLY with NaN getters on 6.0.6, so older notes describe it that way.
+      const molad = new Molad(hy, hm);
       const rc = new HDate(1, hm, hy);
       const monthName = rc.getMonthName();
 
@@ -527,7 +537,7 @@ export function moladFootnotesInRange(from: Date, to: Date): MoladFootnotes[] {
 - [ ] **Step 4: Run to verify it passes**
 
 Run: `npx vitest run --project unit tests/unit/kiddush-levana.test.ts`
-Expected: PASS, 4 tests.
+Expected: PASS, **7 tests** — the `it.each` block contributes 2, not 1.
 
 The two golden strings are transcribed from the published sheet. If they mismatch, the bug is here — do not edit the expectations.
 

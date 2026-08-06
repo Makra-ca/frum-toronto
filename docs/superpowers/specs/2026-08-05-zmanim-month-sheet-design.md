@@ -298,8 +298,14 @@ serve as the gate. Parity testing and regression testing need different toleranc
 
 ### 6.3 Molad
 
-`new Molad(year, month)` — note the constructor takes **year and month numbers, not an
-`HDate`**; passing an `HDate` returns `NaN` from every getter without throwing.
+`new Molad(year, month)` — the constructor takes **year and month numbers, not an
+`HDate`**.
+
+On `@hebcal/core` **6.0.6** passing an `HDate` returned `NaN` from every getter **without
+throwing** — silent garbage. On **6.9.1**, which this feature upgrades to (§6.2), the same
+mistake throws `TypeError: HDate called with bad arg: NaN` from `calculateMolad`. Verified
+on both. So the upgrade converts a silent failure into a loud one; the warning is kept
+because the mistake is still easy to make, not because it still fails quietly.
 
 Verified against the old sheet:
 
