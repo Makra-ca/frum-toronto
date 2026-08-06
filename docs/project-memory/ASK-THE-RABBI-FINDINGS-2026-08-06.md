@@ -4,6 +4,8 @@
 **Databases:** production Neon (`ep-still-truth-ahj20cmx`) and legacy MSSQL `FrumShared.dbo.BlogEntries` category 98 (`216.105.90.65`, read-only)
 **Status:** import complete · 40 rows changed that the Rabbi has since asked us not to change · rollback prepared, **not run**
 
+> **Running log of every decision and action is at the bottom — see §10.**
+
 ---
 
 ## 1. The short version
@@ -219,3 +221,83 @@ Fixed in commit `9c9918d` — the target is now parsed from the env file directl
 | `9c9918d` | `fix(legacy-import): --test could silently target production` |
 | `f53f169` | `feat(ask-the-rabbi): import the 311 questions the 2025 migration missed` |
 | `fa26d6b` | `chore(ask-the-rabbi): snapshot from the test-branch import run` |
+
+---
+
+## 10. Decision and action log
+
+Chronological. Every choice made, who made it, and whether it has been executed.
+
+### Decisions taken
+
+| # | Decision | Made by | Status |
+|---|---|---|---|
+| D1 | Import the 311 missing questions from the old database | Daniel | **Done** |
+| D2 | Duplicate re-posts are skipped, not renumbered — 10 of them | Daniel | **Done** |
+| D3 | `#5264` (genuinely two different questions) resolved by cascade renumbering | Daniel | **Done — to be reversed, see D8** |
+| D4 | Bylines on imported rows match the existing archive value | Daniel | **Done** |
+| D5 | Both list surfaces sort by `publishedAt DESC NULLS LAST` | Daniel | **Done, deployed** |
+| D6 | The 7 unnumbered imports keep `question_number` NULL, matching the archive | Daniel | **Done** |
+| D7 | Repair all answer-less rows — 7 split + 2 byline | Daniel | **Done** |
+| D8 | Restore the 40 changed rows after the Rabbi's instruction arrived | Daniel | **NOT RUN** |
+| D9 | Back up before restoring, using per-row `bak_*` columns | Daniel | **Done** |
+| D10 | Fix `#6024`'s Q/A boundary | Daniel | **Done, verified live** |
+| D11 | Do NOT invent credit lines on `6012`–`6014` — ask Alan for the source | assistant, accepted | Open |
+| D12 | Entity repair (4,436 rows) and `question_number` recovery wait for the Vaad | Daniel | Parked |
+
+### Actions executed against production
+
+| When | Action | Result |
+|---|---|---|
+| 5 Aug | Imported 311 questions (`#5702`–`#6011`) | 5,520 → 5,831 rows |
+| 5 Aug | Renumbered 36 rows + row 2011 | **To be reversed** |
+| 5 Aug | Re-split 7 rows, re-derived 2 byline rows | 6 of the 7 were newly imported |
+| 6 Aug | Added and populated `bak_*` columns | 5,831 rows, 0 mismatches |
+| 6 Aug | Fixed `#6024`'s Q/A boundary (id 5527) | Verified live on prod |
+
+### Still open
+
+1. **Answer the Rabbi's pending submission** (`ask_the_rabbi_submissions` id 5) — he submitted through our own form and is waiting.
+2. **Run the 40-row restore** — pending Daniel's call on rows 22, 769, 5301.
+3. **Get the original 31 July email** for the 14 missing shailos and the `6012`–`6014` credit lines.
+4. **Listing order for the 9 hand-entered questions** — see §11.
+5. Entity repair and number recovery — after the Vaad.
+
+---
+
+## 11. Listing order: `6019` above `6024`
+
+Reported 6 Aug. The public listing shows:
+
+```
+6019 - A Good Moon Blessing!      ← should be second
+6024 - Dance at the Right Wedding!
+6018 – The Last Meal?
+6017 – Really! The Last Drink?
+6016 - An Alcohol Problem?
+```
+
+**Only one pair is wrong.** `6018` down to `6012` are in correct order; `6019` and `6024` are swapped.
+
+**Cause.** The listing sorts by `published_at DESC`, and for hand-entered questions `published_at` is the moment somebody pasted it — not the Rabbi's sequence:
+
+| Title | Entered | `question_number` column |
+|---|---|---|
+| `#6019` | 2026-08-03 09:53 | 8213 |
+| `#6024` | 2026-07-30 10:05 | 8212 |
+
+`6024` was typed **first**, `6019` **four days later**, so entry order is the reverse of the Rabbi's numbering. Everything else lines up because `6012`–`6018` were typed in one sitting, in order.
+
+This does not affect the 5,822 imported rows: their `published_at` is the legacy post date, which *is* the Rabbi's real sequence.
+
+**Note the `question_number` column is no help here** — the nine hold 8205–8213, auto-assigned as "highest + 1" from the corrupt 8203. Sorting the archive by it is not an option either, because 3,918 rows have it NULL.
+
+**Options**
+
+| | Effect | Cost |
+|---|---|---|
+| A. Set the nine to their real numbers (`6012`–`6019`, `6024` — all verified free) | Fixes next/previous ordering | Does **not** fix the listing, which sorts by date |
+| B. Adjust `#6019`'s `published_at` to sit before `#6024`'s | Fixes the listing | Changes a date to one the row never had |
+| C. Both | Listing and navigation both correct | Both of the above |
+
+Recommended: **C**. A is worth doing regardless — the numbers are simply wrong. B is defensible because `published_at` on these nine never recorded anything meaningful; it is a data-entry timestamp, not a publication date.
