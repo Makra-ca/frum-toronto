@@ -116,6 +116,33 @@ except #8 appeared on the old sheet. That is how the counts in §1 hold.
 The old sheet had no separate Havdalah column because havdalah *is* Tzeis 8.5° in our
 system (`zmanim.ts` uses `havdalahDeg: 8.5`). No column is needed.
 
+That was true of the underlying moment but **was not true of the printed number** until
+`e78c6dc`. hebcal pre-rounded its Havdalah event to the nearest minute while `tzeit(8.5)`
+was rounded up, so five of ten consecutive Saturdays showed two different minutes for the
+one moment — on the same week card. `havdalah` is now the same `Date` object as `tzait`,
+so the Tzeis 8.5° column and the site's havdalah agree by construction. **The sheet must
+read the column from `zmanim.tzait` and must not re-derive it from a hebcal event.**
+
+### 5.2.1 Fast days need two columns the seventeen do not provide
+
+hebcal emits `Fast begins` and `Fast ends` events, and **`Fast ends` is `tzeit(7.083°)`,
+which is not among the seventeen columns.** For Tzom Gedaliah 2026 the site publishes
+20:04, while the sheet's nearest offerings are Tzeis 8.5° = 20:12 and Tzeis 72 = 20:41 —
+8 and 37 minutes late.
+
+The fast *start* is worse, because the sheet is actively misleading rather than merely
+incomplete. The fast begins at Alos 16.1° (05:28:51), but the adjacent **Alos 72 min**
+column reads 05:43:50 — about fifteen minutes later. §5.1 labels the row "Tzom Gedaliah"
+and nothing indicates which of the two Alos columns applies, so a reader scanning the
+wrong one eats a quarter of an hour into the fast.
+
+Resolution: two dedicated **Fast begins / Fast ends** values on fast-day rows, sourced from
+the hebcal events so the sheet cannot disagree with the site. Rendered via §5.3's footnote
+mechanism rather than as two more columns that are empty 360 days a year.
+
+**Yom Kippur is different:** hebcal emits no `Fast begins`/`Fast ends` for it, using Candle
+lighting and Havdalah instead — both of which the sheet already has columns for.
+
 Candle lighting is blank on every row except Fridays and Yom Tov eves. Hebcal applies
 the **local** custom by coordinate with no configuration from us — 18 min in Toronto,
 40 in Jerusalem, 30 in Haifa — so the heading reads `Candle Lighting`, not
@@ -140,6 +167,31 @@ footnote's date lies outside the requested range, it is omitted.
 
 `alotHaShachar72` and `misheyakir45` are added to the `ZmanimTimes` interface in
 `src/lib/zmanim.ts`.
+
+> **`misheyakir45` MUST be `sunriseOffset(-45, false)`, not `(-45, true)`.**
+>
+> That second argument is named `roundMinute`, but it **truncates** seconds rather than
+> rounding. A truncated value arrives at `roundZman` already sitting at `:00`, and
+> `roundZman` returns early on a zero remainder — so the `"up"` direction below never
+> applies and the column prints **a minute early on every row whose seconds are non-zero**
+> (measured: 8 of 8 consecutive days in August 2026). Misheyakir is the earliest time one
+> may put on tallis and tefillin, so early is the unsafe direction.
+>
+> ```
+> 2026-08-01  true 05:21:44   with `true` → 5:21 AM      with `false` → 5:22 AM
+> 2026-08-04  true 05:24:59   with `true` → 5:24 AM      with `false` → 5:25 AM
+> ```
+>
+> `alotHaShachar72()` takes no such argument and is verified to be exactly fixed 72 clock
+> minutes before sunrise (0 ms deviation at both solstices), so it is safe as written.
+
+**The general invariant, which this is one instance of:** no zman may reach `roundZman`
+already rounded, or its entry in `ZMAN_DIRECTION` becomes decorative. The identical defect
+shipped to production via hebcal's pre-rounded Havdalah event and was fixed separately in
+`e78c6dc`; `tests/unit/zmanim-havdalah-consistency.test.ts` now guards the invariant. Any
+new zman added to the sheet must be checked against it — the existing `ZMAN_DIRECTION`
+coverage test asserts a direction is *assigned*, never that it is *applied*, and passed
+throughout both bugs.
 
 Both are permitted-from times, so both get `"up"` in `ZMAN_DIRECTION`
 (`src/lib/zmanim-format.ts`). The existing test at
@@ -179,35 +231,45 @@ change @hebcal/noaa      0.9.2  => 0.12.2
 change temporal-polyfill 0.3.0  => 1.0.3
 ```
 
-`@hebcal/noaa` is the **solar-position library that computes every zman on this site** —
-nine minor versions, and the one library whose output was verified second-by-second
-against MyZmanim for Toronto, New York and Jerusalem. A single new column therefore puts
-every existing time on the site at risk.
+`@hebcal/noaa` is the **solar-position library that computes every zman on this site**, and
+it jumps nine minor versions on a pre-1.0 package. That looked alarming enough to reorder
+this entire spec around gating it.
 
-**Sequencing consequence (§13):** the fixture comparison (§11.1) and the existing zmanim
-test suite must be **green on the current tree first**, then re-run immediately after the
-upgrade. Any changed value is a blocker, not a curiosity — it means the upgrade moved a
-halachic time.
+**It was measured, and it is a non-issue.** Both versions were installed side by side in a
+scratch directory and diffed:
 
-Spike outcomes, in order of preference:
+| Surface | Values compared | Differences |
+|---|---|---|
+| zmanim — 366 days × Toronto + Jerusalem × 15 times | 10,980 | **0 displayed minutes** (2 raw values moved 1 s) |
+| calendar — 731 days × `HDate`, `gematriya`, `OmerEvent`, `HebrewCalendar`, `flags` | 5,848 | **0** |
 
-1. Upgrade is clean (no zmanim values change) → take it, ship the column.
-2. Values change → do not upgrade. **Compute Daf Yomi standalone**, without
-   `@hebcal/learning` at all: the cycle is fixed arithmetic from a known epoch (cycle 14
-   began 2020-01-05 at Berachos 2) over a static masechta-length table.
+That covers every `@hebcal/core` API this codebase uses; there are exactly nine import
+sites and all are represented. **Take the upgrade.**
 
-   There is **no middle option**. `@hebcal/learning` declares `@hebcal/core@^6.9.1` as a
-   hard dependency, not a peer, so "import Daf Yomi from it while pinning core at 6.0.6"
-   forces npm to nest learning's own core 6.9.1. `DailyLearning` is a **static registry**,
-   so learning would register into the nested core while the app reads from the top-level
-   one — `lookup()` returns `null` and nothing throws. Taking the package means taking the
-   upgrade.
-3. Neither is workable → ship the sheet without the Daf Yomi column.
+Two lessons worth keeping, because both are cheap to repeat:
 
-The API shape is a secondary unknown, confirmed in the same spike:
+1. A version delta is not a risk measurement. Three pages of mitigation were written here
+   from `0.9.2 → 0.12.2` before anyone ran the comparison, which took ten minutes.
+2. "The diff found value changes" is not a finding without a magnitude. Two values moved by
+   one second; nothing a reader can see changed at all.
+
+**There is no middle option, should the upgrade ever need reverting.**
+`@hebcal/learning` declares `@hebcal/core@^6.9.1` as a hard dependency, not a peer, so
+"import Daf Yomi from it while pinning core at 6.0.6" forces npm to nest learning's own
+core 6.9.1. `DailyLearning` is a **static registry**, so learning would register into the
+nested core while the app reads from the top-level one — `lookup()` returns `null` and
+nothing throws. Taking the package means taking the upgrade; the only alternative is
+computing Daf Yomi standalone from the fixed cycle epoch (2020-01-05, Berachos 2) over a
+static masechta-length table.
+
+One unknown remains, confirmed by a short spike before the column is built:
 `DailyLearning.lookup("dafYomi", hd, il)` must return `Chulin 93` for 2026-08-01.
 
-This decision point is recorded here so the outcome is chosen, not defaulted into.
+**Regression gate.** Re-run the existing zmanim suite plus a **self-snapshot diffed at zero
+tolerance** — not the old-sheet fixture. §11.1's fixture carries a ±1 minute tolerance for
+rounding, which is precisely the size of change this upgrade would produce, so it cannot
+serve as the gate. Parity testing and regression testing need different tolerances; see
+§11.1.
 
 ### 6.3 Molad
 
@@ -370,10 +432,19 @@ confusion, and `zmanim-day.ts` exists because of them.
 
 The page must also stay dynamic rather than being prerendered at build time with a frozen
 "today". Reading `searchParams` achieves this today (`next.config.ts` has no
-`cacheComponents`), but `page.tsx` also carries an explicit
-`export const dynamic = "force-dynamic"`. That is redundant right now and deliberately so
-— it makes the guarantee survive a future Cache Components opt-in instead of depending on
-one config flag staying unset.
+`cacheComponents`), and `page.tsx` also carries an explicit
+`export const dynamic = "force-dynamic"` so the guarantee survives a future Cache
+Components opt-in rather than depending on one config flag staying unset.
+
+> **This has a cost that falls on the week view, and it is an argument against the shared
+> route.** Route segment config applies to the **whole segment**. Both views share
+> `/zmanim/page.tsx`, and that page is **static today** — verified: no dynamic export, a
+> static `metadata` object, a synchronous component wrapping a client component that
+> fetches. Adding `force-dynamic` for the sheet's benefit therefore makes the week view
+> dynamic too, for no gain to it.
+>
+> A separate `/zmanim/month` route removes the problem entirely: each segment gets its own
+> config. This was not known when the shared-route decision was taken. **Open item, §14.**
 
 ### 6.9 Measured performance
 
@@ -598,12 +669,49 @@ A twenty-one-column table needs the same structure that makes the print version 
   print rules solve with `display: table-header-group`.
 - The horizontal scroll container marked `tabindex="0"` with an accessible name, so it is
   reachable by keyboard rather than mouse-only.
+- **A sticky LEFT identity block** (day letter, civil day, Hebrew date), not only a sticky
+  header. On a twenty-one-column table the scanning failure is horizontal: scroll right to
+  Tzeis and you can no longer tell which row you are on. This matters more than the sticky
+  `<thead>`.
+
+### Containing the horizontal scroll
+
+This feature introduces the widest element on the site into a `container mx-auto px-4`
+page, and the project has a documented recurring "grey space on the right of mobile" bug.
+CLAUDE.md prescribes a prophylactic:
+
+```css
+html, body { overflow-x: hidden; max-width: 100vw; }
+```
+
+**That rule is not present** — verified, there is no `overflow-x` anywhere in
+`globals.css`, `layout.tsx`, or `src/components/layout/`. So the documented guard is
+absent precisely as the widest element on the site arrives.
+
+`overflow-x: auto` on the wrapper is **not** what prevents blow-out; `min-w-0` /
+`max-w-full` on it is, because a grid or flex child defaults to `min-width: auto` and
+refuses to shrink below its content. Both go on the scroll container, and §11.4 verifies
+that the page **body** does not scroll horizontally at 375px — only the table does.
 
 ---
 
 ## 11. Testing
 
-### 11.1 Old-sheet fixture (the important one)
+### 11.0 Two different jobs, two different tolerances
+
+Conflating these produced a gate that could not catch what it guarded.
+
+| | Purpose | Source of truth | Tolerance |
+|---|---|---|---|
+| **Regression** | our output did not change | a **self-snapshot** of the current tree | **zero** |
+| **Parity** | we agree with the old sheet | the transcribed screenshots | ±1 min (§9.3) |
+
+The regression gate is what the hebcal upgrade runs against. It is free, needs no
+transcription, and is exact. The parity fixture answers a different question — *are we
+faithful to what the community read for years* — and must be loose enough to tolerate our
+own stringent rounding, which makes it useless as a regression gate.
+
+### 11.1 Old-sheet parity fixture
 
 The ticket screenshots are a **complete published fixture**: Toronto, August 2026, all 31
 days, every column, produced by the system we are reproducing. These values are
@@ -623,11 +731,29 @@ Allowed deltas, asserted explicitly rather than loosened globally:
 Any other difference fails. This is a far stronger test than hand-written expectations,
 because it validates against an independent implementation.
 
-**Transcription policy:** ~527 cells are being read off screenshots by hand, so some
-mismatches will be transcription errors rather than code defects. On any single-cell
-mismatch, re-read the screenshot first and correct the fixture if it was mistyped. A
-mismatch across a whole column or a whole row is a code defect. Recording this up front
-stops the first red run from being ambiguous.
+**Transcription policy:** cells are read off screenshots by hand, so some mismatches will
+be transcription errors rather than code defects. On any single-cell mismatch, re-read the
+screenshot first and correct the fixture if it was mistyped. A mismatch across a whole
+column or a whole row is a code defect. Note that the most likely *systematic*
+transcription failure — misreading column order — presents as a whole-column mismatch and
+so would be misfiled as a code defect by that rule; check alignment first when a full
+column disagrees.
+
+**August 2026 is close to the least informative month available.** Measured: **zero** chag
+events and **zero** fast events, no DST transition, one Hebrew-month crossing. It validates
+the ordinary weekday case and nothing else. The rows most likely to carry a damaging
+printed error are all absent:
+
+- Two-day Yom Tov, where the second night's candle lighting is *after* tzeis rather than
+  before shkia. (Verified that hebcal emits this correctly — Sep 12 2026 = 8:16 PM,
+  post-shkia — but the sheet's rendering of it is untested by an August fixture.)
+- Fast days, per §5.2.1.
+- A DST boundary.
+
+So parity is sampled at **two** months: August 2026 (the full transcription, an easy month
+read end to end) plus a **partial September/October 2026** covering Rosh Hashana, Tzom
+Gedaliah, Yom Kippur and Sukkos. If transcription effort has to be cut, cut August — the
+hard month is the one worth having.
 
 ### 11.2 Unit tests
 
@@ -649,7 +775,25 @@ Toronto/LA. `getZmanimForRange` and the footnote-placement logic are added to th
 relocation test. Two production bugs in this area survived precisely because they do not
 reproduce on an America/Toronto dev machine.
 
-### 11.4 Manual verification
+### 11.4 Rabbinic sign-off — required before the print button ships
+
+This document makes at least four halachic editorial decisions, all currently made by a
+developer:
+
+1. Misheyakir printed at 10.2° where the community read 11° for years (§9.1).
+2. Adding Sof Zman Tefilah (MA), which the old sheet omitted (§9.2) — justified in this
+   spec as "reads as an oversight", which is a guess about someone else's luach.
+3. Collapsing Havdalah into the Tzeis 8.5° column (§5.2).
+4. Stringent-direction rounding throughout — including havdalah, where CLAUDE.md itself
+   records the open concern that we land ~1 minute **lenient** of Chabad for a time that
+   *ends* Shabbos. This spec does not resolve that, and printing amplifies it.
+
+On screen a wrong time is corrigible on the next page load. On a wall it is wrong for a
+month. **A rav who used the old sheet reviews the column set, the headings and the shitos
+before printing is enabled.** Not a formality — items 1 and 4 are exactly the kind of thing
+that generates a complaint, and item 4 is a known open question rather than a settled one.
+
+### 11.5 Manual verification
 
 Print preview in a real browser at both A4 and Letter, landscape and portrait; a shared
 URL opened in a second browser profile to confirm the location travels; horizontal scroll
@@ -702,8 +846,42 @@ any UI exists.
 
 ## 14. Open items for the owner
 
-1. **§9.2** — keep Sof Zman Tefilah (MA), or strict parity and drop it?
-2. **§6.2** — the Daf Yomi column transitively upgrades `@hebcal/noaa`, which computes
-   every zman on the site. If the upgrade shifts any verified time, confirm the fallback
-   preference: compute Daf Yomi standalone (keeps the column, no upgrade), or ship
-   without the column.
+Raised by adversarial review (three lenses) after the design was approved. Each reopens a
+decision or adds one; none is resolved unilaterally.
+
+1. **§9.1 — Misheyakir: add 11° as a THIRD column?** The earlier choice was framed as
+   10.2° *or* 11°, and 10.2° was chosen for site consistency. That was a false dilemma: the
+   sheet already carries two Misheyakir columns, so adding `timeAtAngle(11, true)` is one
+   line. It restores old-sheet parity, leaves the week view untouched, and closes the hole
+   in §11.1 where the degree column has to be excluded from parity comparison for having
+   nothing comparable to compare against. *Recommended.*
+
+2. **§6.8 — separate `/zmanim/month` route instead of a view toggle?** The toggle was
+   chosen before it was known that `force-dynamic` applies to the whole route segment and
+   would make the currently-static week view dynamic. A separate route also answers the
+   ticket better: *"do you still have"* is a discoverability complaint, and `?view=sheet`
+   is not linkable, nameable, or indexable. *Recommended.*
+
+3. **§4 — keep the custom range, or month-only?** The range selector has no requester (the
+   ticket said *month*), and costs `zmanim-sheet-range.ts`, seven rows of validation, and
+   its own tests. It also cannot express the one multi-month span a shul actually prints —
+   the Tishrei season — because that exceeds 31 days. *Weak recommendation: month-only,
+   add ranges if asked.*
+
+4. **§11.4 — rav sign-off before print ships.** *Recommended.*
+
+5. **§9.2** — keep Sof Zman Tefilah (MA), or strict parity and drop it?
+
+6. **Phasing.** Ship the sheet using only the 14 already-verified zmanim first (answering
+   the ticket), then add footnotes, the two new zmanim and Daf Yomi? Or build it whole?
+   §13 currently sequences six of ten steps before anything is user-visible.
+
+**No longer an open item:** the `@hebcal/noaa` upgrade was measured clean across every API
+this codebase uses (§6.2). Take it.
+
+### Also worth fixing, independent of this feature
+
+`ZmanimPageContent.tsx:266,280` renders buttons titled **"Previous month" / "Next month"**
+that jump the anchor by a month and then render **seven day cards**. Someone clicking those
+expecting a month gets a week — which is a plausible origin for the ticket that started
+this work.
