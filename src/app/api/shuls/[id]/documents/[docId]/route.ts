@@ -6,7 +6,9 @@ import { eq, and } from "drizzle-orm";
 import { canUserManageShul } from "@/lib/auth/permissions";
 import { del } from "@vercel/blob";
 import { z } from "zod";
+import { isUploadedImageUrl } from "@/lib/safe-url";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 // Notification prep only — never let a name lookup fail the request
 async function getShulName(shulId: number): Promise<string> {
@@ -26,7 +28,22 @@ const updateDocumentSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   type: z.enum(["newsletter", "tefillah"]).optional(),
   description: z.string().optional().nullable(),
-  fileUrl: z.string().url().optional(),
+  /*
+    Same allowlist as the create route, and for the same reason: this value is
+    rendered into an <iframe src> on the public shul page, and z.string().url()
+    accepts "data:text/html;base64,..." — it validates syntax, not destination.
+
+    This was create-only, which is no protection at all: uploading a real PDF
+    and then PATCHing the row to a data: URL reaches exactly the same place.
+    That is the third time an allowlist has been enforced on create and skipped
+    on edit (shiva attachmentUrl, blog slug, this) — the create and edit schemas
+    for one column need to agree.
+  */
+  fileUrl: z
+    .string()
+    .max(500)
+    .refine(isUploadedImageUrl, "Upload the file rather than linking to one elsewhere")
+    .optional(),
   fileSize: z.number().optional().nullable(),
 });
 
@@ -40,6 +57,12 @@ export async function PATCH(
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // The create route gates on this; editing and deleting a live document did
+    // not. A JWT outlives a block, so without this a disabled shul manager
+    // keeps full control of the shul's public documents.
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
 
     const { id, docId } = await params;
     const shulId = parseInt(id);
@@ -96,6 +119,12 @@ export async function DELETE(
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // The create route gates on this; editing and deleting a live document did
+    // not. A JWT outlives a block, so without this a disabled shul manager
+    // keeps full control of the shul's public documents.
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
 
     const { id, docId } = await params;
     const shulId = parseInt(id);

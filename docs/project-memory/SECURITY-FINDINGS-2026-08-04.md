@@ -1,6 +1,8 @@
 # Security findings — 2026-08-04
 
-Nothing in this document is fixed except item 0. No remediation has been applied.
+**Status as of 2026-08-06: items 0–11 are fixed; item 12 is partly fixed.**
+Details are recorded under each finding and summarised at the bottom. The Low
+list is untouched.
 
 **How this started.** A design spec of mine claimed "`token.role` is only set at
 sign-in". A reviewer checked it, found it false, and that led to a live privilege
@@ -156,18 +158,18 @@ consequence was missed.
 
 ---
 
-## Medium
+## Medium — all fixed 2026-08-06 (item 12 partly)
 
-| # | Finding | Note |
-|---|---|---|
-| 5 | **Shiurim have no shul-ownership check and publish instantly** | `shiurim/route.ts:210,245` — `shulId` written raw, `approvalStatus` omitted from the insert so it takes the schema default `approved`. `community/events/route.ts:48-56` does it correctly |
-| 6 | **ATR comment delete fails open on a stale claim** | The DB fallback runs only when the token says `false`; a `true` token is never re-checked. Not forgeable since item 0 is fixed, but revoking the capability doesn't bite until the token refreshes |
-| 7 | **Open redirect in newsletter click tracking** | `newsletter/track/click/route.ts` — `new URL()` validates syntax, not destination. Agent verified live: `?url=…` 307s to an arbitrary host from your domain. Phishing that passes a domain check, aimed at a list trained to click |
-| 8 | **Shul document URL allowlist is create-only** | `shuls/[id]/documents/[docId]/route.ts:29` uses `z.string().url()`, which accepts `data:` and `javascript:` URLs. The value renders into an `<iframe src>` on the public shul page. The create route deliberately uses `isUploadedImageUrl` and comments on why. Same create-only bug already fixed once for shiva `attachmentUrl` |
-| 9 | **ATR submit takes name and email from the body** | `userId` is session-derived correctly, but the displayed identity and the admin `replyTo` are attacker-chosen |
-| 10 | **`assertCanPost` missing on mutating handlers** | Present on blog GET but not PATCH/DELETE; absent from `shuls/[id]` PUT, both davening child routes, both document child routes, three business handlers. A blocked account's JWT still works, so a banned user can keep editing live content |
-| 11 | **Admin `users/[id]` PATCH has no schema** | `role` is an unvalidated string (fails closed, so integrity not escalation). No self-demotion guard and no last-admin guard — and there is exactly **1 active admin** |
-| 12 | **`logAudit()` has zero callers** | The `audit_log` table, its admin page and the helper all exist and record nothing. Item 0's escalation window is unreconstructible because of this |
+| # | Finding | Note | Fix |
+|---|---|---|---|
+| 5 | **Shiurim have no shul-ownership check and publish instantly** | `shiurim/route.ts:210,245` — `shulId` written raw, `approvalStatus` omitted from the insert so it takes the schema default `approved`. `community/events/route.ts:48-56` does it correctly | `canUserManageShul` now gates `shulId`, admins exempt, matching the events route. `approvalStatus: "approved"` is now stated rather than inherited from the column default — publishing at once is right here (only admins and permission-holders reach the insert) but it should say so. `tests/shiurim-shul-ownership.test.ts` |
+| 6 | **ATR comment delete fails open on a stale claim** | The DB fallback runs only when the token says `false`; a `true` token is never re-checked. Not forgeable since item 0 is fixed, but revoking the capability doesn't bite until the token refreshes | Defers to the shared `canManageAtr(session)`, which always resolves from the database. One definition of "ATR manager" instead of two |
+| 7 | **Open redirect in newsletter click tracking** | `newsletter/track/click/route.ts` — `new URL()` validates syntax, not destination. Agent verified live: `?url=…` 307s to an arbitrary host from your domain. Phishing that passes a domain check, aimed at a list trained to click | Destination now carries an HMAC minted at send time (`src/lib/newsletter/click-signature.ts`, `NEXTAUTH_SECRET`). A host allowlist was rejected — newsletters link to arbitrary business sites, so there is no list to write. **Zero cost to existing mail: 0 newsletter sends and 0 recipient logs exist**, so no pre-signature link is in anyone's inbox. Also removed a double `decodeURIComponent` that corrupted any destination containing a literal `%`. `tests/unit/newsletter-click-signature.test.ts` |
+| 8 | **Shul document URL allowlist is create-only** | `shuls/[id]/documents/[docId]/route.ts:29` uses `z.string().url()`, which accepts `data:` and `javascript:` URLs. The value renders into an `<iframe src>` on the public shul page. The create route deliberately uses `isUploadedImageUrl` and comments on why. Same create-only bug already fixed once for shiva `attachmentUrl` | Edit schema now uses the same `isUploadedImageUrl` refine as create. **Third instance of this exact shape** (shiva `attachmentUrl`, blog slug, this): a control applied on create and skipped on edit. `tests/shul-document-edit-guards.test.ts`, verified red against the old code |
+| 9 | **ATR submit takes name and email from the body** | `userId` is session-derived correctly, but the displayed identity and the admin `replyTo` are attacker-chosen | Both now read from the account row; dropped from the request schema entirely. The modal's Name/Email inputs are read-only, since an editable field the server ignores is a lie. `tests/atr-submit-identity.test.ts` |
+| 10 | **`assertCanPost` missing on mutating handlers** | Present on blog GET but not PATCH/DELETE; absent from `shuls/[id]` PUT, both davening child routes, both document child routes, three business handlers. A blocked account's JWT still works, so a banned user can keep editing live content | Added to blog PATCH + DELETE, `shuls/[id]` PUT, davening `[scheduleId]` PUT + DELETE, documents `[docId]` PATCH + DELETE, shoutout `[shoutoutId]` PATCH, `video/uploaded` POST, and **both upload routes** (a blocked account could push 30 MB into Blob on demand). Deliberately NOT added to `user/notification-preferences` (a blocked user must still be able to stop email), `newsletter/unsubscribe`, the auth routes or the anonymous counters |
+| 11 | **Admin `users/[id]` PATCH has no schema** | `role` is an unvalidated string (fails closed, so integrity not escalation). No self-demotion guard and no last-admin guard — and there is exactly **1 active admin** | Full Zod schema (role and `commentPermission` as enums, everything else boolean). Last-admin guard extracted to `src/lib/permissions/last-admin.ts` — framed as an **outcome**, not "is this me", because demoting a *different* last admin locks everyone out identically. `tests/unit/last-admin.test.ts` + `tests/admin-user-patch-guards.test.ts` |
+| 12 | **`logAudit()` has zero callers** | The `audit_log` table, its admin page and the helper all exist and record nothing. Item 0's escalation window is unreconstructible because of this | **Partly fixed.** First call site is admin `users/[id]` PATCH, with a before/after diff — every grant, demotion and block passes through there, which is exactly what item 0 needed. **Still not audited: approve/reject.** `setApprovalStatus` is the single writer for all eight types and would cover them in one call, but it takes no actor — threading a session through its ~15 call sites is a separate change |
 
 ## Low
 
@@ -213,6 +215,31 @@ Worth recording so the coverage is auditable rather than assumed.
   `and(eq(id), eq(shulId))`.
 - **The submissions library** is DB-sourced throughout with an atomic broadcast
   claim; no client-reachable path re-triggers a mass email.
+
+---
+
+## What is left
+
+- **The whole Low list**, unchanged.
+- **Approve/reject auditing** — see item 12.
+- **Item 2's deeper half.** A paid plan can no longer reach the review queue
+  unpaid, but the downstream gates still read the joined `subscription_plans`
+  row rather than an active `businessSubscriptions` row. Only
+  `businesses/[id]/shoutouts/route.ts` checks the subscription. So a plan that
+  goes unpaid after activation keeps its capabilities until something changes
+  the plan id.
+
+## A shape worth naming
+
+Three of the fixed findings, plus yesterday's three, were the same defect: **a
+control enforced when a row is created and skipped when it is edited.** Shiva
+`attachmentUrl`, the blog slug, shul document `fileUrl`, `assertCanPost` on
+eight edit handlers.
+
+The create route usually carries a comment explaining exactly why the control
+matters. The edit route, written later, does not. Worth checking for
+deliberately when adding any new validated field: **the create and edit schemas
+for one column have to agree.**
 
 ---
 

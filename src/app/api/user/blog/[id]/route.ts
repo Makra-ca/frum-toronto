@@ -48,11 +48,9 @@ export async function GET(
       );
     }
 
-    // The same gate as every other edit route, and as creating a post. It was
-    // absent here, which mattered more once blog adopted the unpublish rule: a
-    // user whose account has been disabled — whose JWT outlives the block,
-    // which is the case this check exists for — could still rewrite the HTML of
-    // their live published post.
+    // Loading your own post for editing. The gate that matters is on PATCH and
+    // DELETE below — an earlier fix put this comment's reasoning here, on the
+    // read, and left both writes open.
     const notAllowed = await assertCanPost(session.user.id);
     if (notAllowed) return notAllowed;
 
@@ -105,6 +103,13 @@ export async function PATCH(
         { status: 401 }
       );
     }
+
+    // The same gate as every other edit route, and as creating a post. A user
+    // whose account has been disabled keeps a working JWT — which is the whole
+    // case this check exists for — so without it they could still rewrite the
+    // HTML of their live published post.
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
 
     const { id } = await params;
     const postId = parseInt(id);
@@ -262,6 +267,9 @@ export async function DELETE(
         { status: 401 }
       );
     }
+
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
 
     const { id } = await params;
     const postId = parseInt(id);

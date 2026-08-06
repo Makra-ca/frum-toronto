@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { businesses } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,12 @@ export async function POST(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // The paired /video route gates on this at both ends; this callback in the
+    // middle did not, so the one step that actually advances videoStatus was
+    // the unguarded one.
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
 
     const { id } = await params;
     const businessId = parseInt(id);

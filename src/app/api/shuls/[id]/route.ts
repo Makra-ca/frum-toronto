@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { canUserManageShul } from "@/lib/auth/permissions";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { normalizeExternalUrl } from "@/lib/safe-url";
+import { assertCanPost } from "@/lib/auth/require-verified";
 import { z } from "zod";
 
 interface RouteParams {
@@ -95,6 +96,11 @@ export async function PUT(request: Request, { params }: RouteParams) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // A shul listing goes live with no admin review, so this is one of the
+    // higher-value write surfaces a blocked account retained access to.
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
 
     const { id } = await params;
     const shulId = parseInt(id);

@@ -7,6 +7,7 @@ import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import { canManageAtr } from "@/lib/auth/atr-permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -264,18 +265,13 @@ export async function DELETE(
     }
 
     const userId = parseInt(session.user.id);
-    const isAdmin = session.user.role === "admin";
 
-    // Check if user is an ATR manager (from DB, since JWT may lag on permission changes)
-    let isManager = isAdmin || session.user.canManageAskTheRabbi;
-    if (!isManager) {
-      const [dbUser] = await db
-        .select({ canManageAskTheRabbi: users.canManageAskTheRabbi })
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
-      isManager = dbUser?.canManageAskTheRabbi === true;
-    }
+    // The database fallback below used to run only when the token said `false`,
+    // so a token saying `true` was never re-checked — REVOKING the capability
+    // did not bite until that user's session refreshed. Deferring to the shared
+    // helper, which always resolves from the database, closes it in the
+    // direction that matters and keeps one definition of "ATR manager".
+    const isManager = await canManageAtr(session);
 
     const [comment] = await db
       .select({ id: askTheRabbiComments.id, authorId: askTheRabbiComments.authorId, parentId: askTheRabbiComments.parentId })

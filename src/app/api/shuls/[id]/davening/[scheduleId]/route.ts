@@ -5,6 +5,7 @@ import { daveningSchedules, shuls } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { canUserManageShul } from "@/lib/auth/permissions";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 interface RouteParams {
   params: Promise<{ id: string; scheduleId: string }>;
@@ -32,6 +33,12 @@ export async function PUT(request: Request, { params }: RouteParams) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // The create route (../route.ts POST) gates on this; editing and deleting
+    // an existing time did not, so a disabled manager could still rewrite the
+    // shul's published davening times.
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
 
     const { id, scheduleId } = await params;
     const shulId = parseInt(id);
@@ -95,6 +102,12 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // The create route (../route.ts POST) gates on this; editing and deleting
+    // an existing time did not, so a disabled manager could still rewrite the
+    // shul's published davening times.
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
 
     const { id, scheduleId } = await params;
     const shulId = parseInt(id);

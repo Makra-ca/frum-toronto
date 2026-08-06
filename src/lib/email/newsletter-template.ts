@@ -1,3 +1,5 @@
+import { signClickDestination } from "@/lib/newsletter/click-signature";
+
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 interface NewsletterTemplateOptions {
@@ -27,7 +29,12 @@ function wrapLinksWithTracking(content: string, sendId: number, subscriberId: nu
       ) {
         return match;
       }
-      const trackingUrl = `${APP_URL}/api/newsletter/track/click?sid=${sendId}&sub=${subscriberId}&url=${encodeURIComponent(url)}`;
+      // The signature is what stops the tracking endpoint being an open
+      // redirect — see src/lib/newsletter/click-signature.ts. It covers `url`
+      // exactly as written here, which is what the endpoint reads back out of
+      // the query string.
+      const sig = signClickDestination(url);
+      const trackingUrl = `${APP_URL}/api/newsletter/track/click?sid=${sendId}&sub=${subscriberId}&url=${encodeURIComponent(url)}&sig=${sig}`;
       return `href="${trackingUrl}"`;
     }
   );

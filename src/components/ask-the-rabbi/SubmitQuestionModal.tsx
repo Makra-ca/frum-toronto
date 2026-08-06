@@ -109,15 +109,8 @@ export function SubmitQuestionModal({ trigger }: SubmitQuestionModalProps) {
   };
 
   const handleSubmit = async () => {
-    // Validation
-    if (!name.trim()) {
-      toast.error("Please enter your name");
-      return;
-    }
-    if (!email.trim()) {
-      toast.error("Please enter your email");
-      return;
-    }
+    // Name and email are not validated here any more — they are display-only,
+    // and the server reads both from the account.
     if (!question.trim() || question.trim().length < 10) {
       toast.error("Please enter your question (at least 10 characters)");
       return;
@@ -129,8 +122,6 @@ export function SubmitQuestionModal({ trigger }: SubmitQuestionModalProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim(),
           question: question.trim(),
           imageUrl,
         }),
@@ -237,27 +228,26 @@ export function SubmitQuestionModal({ trigger }: SubmitQuestionModalProps) {
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              {/*
+                Read-only: the server takes the name and reply address from the
+                account, so an editable field here would be a lie. They were
+                editable, and whatever was typed became the identity shown to
+                the rabbi and the address the answer was sent to.
+              */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Name *</Label>
-                  <Input
-                    id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name"
-                  />
+                  <Label htmlFor="name">Name</Label>
+                  <Input id="name" value={name} readOnly disabled />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your@email.com"
-                  />
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" value={email} readOnly disabled />
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground -mt-2">
+                Your answer will be sent to this address. To change it, update
+                your account details.
+              </p>
 
               <div className="space-y-2">
                 <Label htmlFor="question">Your Question *</Label>

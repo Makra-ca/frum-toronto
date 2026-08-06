@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { auth } from "@/lib/auth/auth";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 // Client-side direct-to-Blob upload token route.
 //
@@ -23,6 +24,18 @@ const ALLOWED_CONTENT_TYPES = [
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const body = (await request.json()) as HandleUploadBody;
+
+  // Checked here rather than inside onBeforeGenerateToken because a throw in
+  // there surfaces as a generic 400, losing the `email_unverified` code the UI
+  // uses to offer "resend verification". Every form that uploads is gated on
+  // assertCanPost at submit time; without it here, a blocked account could
+  // still push 30 MB into our Blob store on demand.
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const notAllowed = await assertCanPost(session.user.id);
+  if (notAllowed) return notAllowed;
 
   try {
     const jsonResponse = await handleUpload({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put, del } from "@vercel/blob";
 import { auth } from "@/lib/auth/auth";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 // Maximum file sizes
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB
@@ -27,6 +28,9 @@ export async function POST(request: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    // Same gate as /api/upload/blob: a blocked account keeps a working JWT.
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { businesses, businessShoutouts } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
+import { assertCanPost } from "@/lib/auth/require-verified";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,11 @@ export async function PATCH(
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // The create route gates on this; the edit route did not, and a shoutout
+    // edit reaches the newsletter the same way a new one does.
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
 
     const { id, shoutoutId } = await params;
     const businessId = parseInt(id);

@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { askTheRabbiSubmissions } from "@/lib/db/schema";
+import { askTheRabbiSubmissions, users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
 
+/**
+ * `name` and `email` are deliberately NOT in this schema.
+ *
+ * They used to be taken from the request body. `userId` was session-derived and
+ * correct, but the *displayed* identity in the admin queue, and the `replyTo`
+ * the admin's answer is addressed to, were both whatever the submitter typed —
+ * so a question could arrive signed as someone else, with the rabbi's reply
+ * routed to an address of the sender's choosing.
+ *
+ * Both now come from the account. The form already prefilled them from the
+ * session, so this changes nothing for an honest submission.
+ */
 const submitSchema = z.object({
-  name: z.string().min(1, "Name is required").max(200),
-  email: z.string().email("Valid email is required").max(255),
   question: z.string().min(10, "Question must be at least 10 characters").max(5000),
   imageUrl: z.string().max(500).optional().nullable(),
 });
@@ -40,13 +51,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, email, question, imageUrl } = result.data;
+    const { question, imageUrl } = result.data;
+
+    const userId = parseInt(session.user.id);
+    const [account] = await db
+      .select({
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!account?.email) {
+      // assertCanPost already proved the row exists and is active, so this is
+      // unreachable in practice — but the reply address must never be blank.
+      return NextResponse.json(
+        { error: "Your account has no email address on file." },
+        { status: 400 }
+      );
+    }
+
+    const email = account.email;
+    const name =
+      [account.firstName, account.lastName].filter(Boolean).join(" ").trim() ||
+      account.email;
 
     // Save to database
     const [submission] = await db
       .insert(askTheRabbiSubmissions)
       .values({
-        userId: parseInt(session.user.id),
+        userId,
         name,
         email,
         question,

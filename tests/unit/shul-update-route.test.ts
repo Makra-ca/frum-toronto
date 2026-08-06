@@ -16,10 +16,19 @@ const mocks = vi.hoisted(() => {
       user: { id: string; role: string; name?: string };
     } | null,
     canManage: true,
+    /** What assertCanPost returns: null = allowed, a Response = refused. */
+    postBlocked: null as Response | null,
   };
   const setValues = vi.fn();
   return { state, setValues };
 });
+
+// The route gained the verified-and-not-blocked gate, which reads the database.
+// Mocked here so these tests stay about URL validation; the gate itself is
+// covered by tests/shul-document-edit-guards.test.ts and the case below.
+vi.mock('@/lib/auth/require-verified', () => ({
+  assertCanPost: vi.fn(async () => mocks.state.postBlocked),
+}));
 
 vi.mock('@/lib/auth/auth', () => ({
   auth: vi.fn(async () => mocks.state.session),
@@ -73,7 +82,25 @@ function callPut(body: Record<string, unknown>) {
 beforeEach(() => {
   mocks.state.session = { user: { id: '7', role: 'shul', name: 'Manager' } };
   mocks.state.canManage = true;
+  mocks.state.postBlocked = null;
   mocks.setValues.mockClear();
+});
+
+describe('PUT /api/shuls/[id] — blocked and unverified accounts', () => {
+  it('refuses the write when assertCanPost refuses', async () => {
+    // A shul listing goes live with no admin review, and a JWT outlives a
+    // block — so this route was one of the higher-value surfaces a disabled
+    // account still controlled.
+    mocks.state.postBlocked = new Response(
+      JSON.stringify({ error: 'This account has been disabled.' }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } }
+    );
+
+    const response = await callPut({ ...VALID, name: 'Renamed While Blocked' });
+
+    expect(response.status).toBe(403);
+    expect(mocks.setValues).not.toHaveBeenCalled();
+  });
 });
 
 describe('PUT /api/shuls/[id] — website is validated', () => {

@@ -4,6 +4,7 @@ import { shiurim, shuls, users } from "@/lib/db/schema";
 import { eq, and, asc, isNull, or } from "drizzle-orm";
 import { auth } from "@/lib/auth/auth";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import { canUserManageShul } from "@/lib/auth/permissions";
 
 interface ScheduleEntry {
   start?: string;
@@ -224,6 +225,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
     }
 
+    // A shulId puts this shiur on that shul's public page. `community/events`
+    // checks the same thing before writing `shulId`; this route wrote whatever
+    // was posted, so a shiurim poster could attach a shiur to any shul in the
+    // directory. Admins skip the check, matching the events route.
+    const parsedShulId = shulId ? parseInt(shulId) : null;
+    if (parsedShulId && !Number.isNaN(parsedShulId) && user?.role !== "admin") {
+      const canManage = await canUserManageShul(userId, parsedShulId, user?.role);
+      if (!canManage) {
+        return NextResponse.json(
+          { error: "You do not have permission to add shiurim to this shul" },
+          { status: 403 }
+        );
+      }
+    }
+
     // Build teacher name from components
     const teacherName = [teacherTitle, teacherFirstName, teacherLastName]
       .filter(Boolean)
@@ -242,7 +258,7 @@ export async function POST(request: NextRequest) {
         locationName: locationName?.trim() || null,
         locationAddress: locationAddress?.trim() || null,
         locationArea: locationArea?.trim() || null,
-        shulId: shulId ? parseInt(shulId) : null,
+        shulId: parsedShulId && !Number.isNaN(parsedShulId) ? parsedShulId : null,
         schedule: schedule || null,
         category: category || null,
         level: level || null,
@@ -255,6 +271,12 @@ export async function POST(request: NextRequest) {
         projectOf: projectOf?.trim() || null,
         isActive: true,
         isOnHold: false,
+        // Stated rather than left to the column default. Publishing straight
+        // away is correct here — only admins and holders of the posting
+        // permission reach this insert at all — but it was previously an
+        // accident of `approval_status DEFAULT 'approved'`, which reads as an
+        // oversight next to every other create route that resolves a status.
+        approvalStatus: "approved",
         createdAt: new Date(),
         updatedAt: new Date(),
       })
