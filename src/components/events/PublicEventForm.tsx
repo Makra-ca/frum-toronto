@@ -73,6 +73,8 @@ export function PublicEventForm({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUploadingFlyer, setIsUploadingFlyer] = useState(false);
   const [conflicts, setConflicts] = useState<ConflictingEvent[]>([]);
+  /** Synchronous double-submit guard for the conflict modal — see below. */
+  const conflictSubmitRef = useRef(false);
   const [pendingPayload, setPendingPayload] = useState<object | null>(null);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -267,11 +269,33 @@ export function PublicEventForm({
   }
 
   async function handleConflictProceed() {
+    /*
+      A ref, not the `pendingPayload` state.
+
+      `setPendingPayload(null)` is a React state update — asynchronous — so
+      three rapid clicks all read the OLD value, all pass the guard, and all
+      POST. That is exactly what happened in production: three "Bnos Bais
+      Yaakov Play" events created 0 seconds apart, and two "Renewal Canada
+      Crowdfunding Campaign".
+
+      A ref applies immediately, which is the same reason CLAUDE.md prescribes
+      `orderSubmittedRef` for double-charge prevention.
+    */
+    if (conflictSubmitRef.current) return;
     if (!pendingPayload) return;
+    conflictSubmitRef.current = true;
+
     setConflicts([]);
     const forcePayload = { ...(pendingPayload as Record<string, unknown>), forceSchedule: true };
     setPendingPayload(null);
-    await submitPayload(forcePayload);
+
+    try {
+      await submitPayload(forcePayload);
+    } finally {
+      // Released so a genuine retry after a failure is still possible. On
+      // success the form has already navigated away.
+      conflictSubmitRef.current = false;
+    }
   }
 
   function handleConflictCancel() {
@@ -284,6 +308,7 @@ export function PublicEventForm({
       {conflicts.length > 0 && (
         <EventConflictModal
           conflicts={conflicts}
+          isSubmitting={isSubmitting}
           onCancel={handleConflictCancel}
           onProceed={handleConflictProceed}
         />

@@ -140,6 +140,8 @@ export function EventForm({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUploadingFlyer, setIsUploadingFlyer] = useState(false);
   const [conflicts, setConflicts] = useState<ConflictingEvent[]>([]);
+  /** Synchronous double-submit guard for the conflict modal — see below. */
+  const conflictSubmitRef = useRef(false);
   const [pendingSubmitData, setPendingSubmitData] =
     useState<EventFormSubmitData | null>(null);
 
@@ -344,11 +346,23 @@ export function EventForm({
   }
 
   async function handleConflictProceed() {
+    // Same bug as the public form: `setPendingSubmitData(null)` is a React
+    // state update, so rapid clicks all read the old value and all submit.
+    // A ref applies immediately. Three duplicate events reached production
+    // through the public form's version of this.
+    if (conflictSubmitRef.current) return;
     if (!pendingSubmitData) return;
+    conflictSubmitRef.current = true;
+
     setConflicts([]);
     const forceData = { ...pendingSubmitData, forceSchedule: true };
     setPendingSubmitData(null);
-    await onSubmit(forceData);
+
+    try {
+      await onSubmit(forceData);
+    } finally {
+      conflictSubmitRef.current = false;
+    }
   }
 
   function handleConflictCancel() {
@@ -363,6 +377,7 @@ export function EventForm({
           conflicts={conflicts}
           onCancel={handleConflictCancel}
           onProceed={handleConflictProceed}
+          isSubmitting={isLoading}
         />
       )}
 

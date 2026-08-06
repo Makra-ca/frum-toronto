@@ -8,7 +8,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { formatInstant } from "@/lib/datetime";
 
 export interface ConflictingEvent {
@@ -23,6 +23,15 @@ interface EventConflictModalProps {
   conflicts: ConflictingEvent[];
   onCancel: () => void;
   onProceed: () => void;
+  /**
+   * True while the confirmed submission is in flight.
+   *
+   * Without it "Schedule Anyway" stays clickable during the request, and every
+   * click posts. Three real events were created 0 seconds apart this way — the
+   * caller's `pendingPayload` guard cannot help, because clearing it is a React
+   * state update and rapid clicks all read the value before it applies.
+   */
+  isSubmitting?: boolean;
 }
 
 function formatConflictTime(isoString: string): string {
@@ -44,9 +53,15 @@ export function EventConflictModal({
   conflicts,
   onCancel,
   onProceed,
+  isSubmitting = false,
 }: EventConflictModalProps) {
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onCancel(); }}>
+    <Dialog
+      open
+      // Not dismissible mid-submit: closing would clear the conflict state
+      // while the request is still running.
+      onOpenChange={(open) => { if (!open && !isSubmitting) onCancel(); }}
+    >
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-amber-700">
@@ -89,15 +104,23 @@ export function EventConflictModal({
         </div>
 
         <DialogFooter className="flex gap-2 sm:gap-2">
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={onCancel} disabled={isSubmitting}>
             Cancel
           </Button>
           <Button
             variant="default"
             className="bg-amber-600 hover:bg-amber-700 text-white"
             onClick={onProceed}
+            disabled={isSubmitting}
           >
-            Schedule Anyway
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Scheduling…
+              </>
+            ) : (
+              "Schedule Anyway"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
