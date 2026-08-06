@@ -667,7 +667,31 @@ reads as an old-site oversight rather than a decision.
 
 Flagged for the owner; drop the column if strict parity is preferred.
 
-### 9.3 One-minute differences are expected
+### 9.3 Sof Zman Shema (MA) — 16.1°, not the old sheet's fixed 72 minutes
+
+**Owner's decision: keep `sofZmanShmaMGA16Point1()`.** Found by lining our output up
+against *both* MyZmanim and the old sheet — MyZmanim alone would not have caught it,
+because MyZmanim agrees with us.
+
+```
+Sof Zman Shema (MA), Toronto, Wed 5 August 2026
+  old sheet          9:11 am   = sofZmanShmaMGA()          09:11:10   fixed 72 minutes
+  MyZmanim + us      8:55 am   = sofZmanShmaMGA16Point1()  08:55:50   16.1 degrees
+```
+
+Both are legitimate Magen Avraham reckonings; they differ by **15 minutes**, on the latest
+time one may say Shema. Our value is the **earlier, more stringent** one — a reader is told
+they have less time, never more — so nobody is led into missing the deadline. But it is a
+15-minute change from what the community has read for years, and it is the **second** shita
+change on this sheet after Misheyakir (§9.1), both decided without rabbinic review
+(§11.4). Recorded plainly so the cumulative effect is visible rather than buried.
+
+Consequence for testing: like the Misheyakir degree column, **this column is excluded from
+the old-sheet parity comparison** (§11.1). The fixture holds 9:11-family values and we
+print the 8:55 family, so comparing them would fail on every row. MyZmanim covers it
+instead — and did, to within 4 seconds.
+
+### 9.4 One-minute differences are expected
 
 `src/lib/zmanim-format.ts` rounds each row in its stringent direction — deadlines down,
 permitted-from times up. The old ASP site almost certainly truncated everything. Some
@@ -744,7 +768,7 @@ Conflating these produced a gate that could not catch what it guarded.
 | | Purpose | Source of truth | Tolerance |
 |---|---|---|---|
 | **Regression** | our output did not change | a **self-snapshot** of the current tree | **zero** |
-| **Parity** | we agree with the old sheet | the transcribed screenshots | ±1 min (§9.3) |
+| **Parity** | we agree with the old sheet | the transcribed screenshots | ±1 min (§9.4) |
 
 The regression gate is what the hebcal upgrade runs against. It is free, needs no
 transcription, and is exact. The parity fixture answers a different question — *are we
@@ -759,14 +783,17 @@ transcribed into a fixture file and compared against our output for the full mon
 
 Allowed deltas, asserted explicitly rather than loosened globally:
 
-- **±1 minute on any cell**, from stringent rounding (§9.3).
-- **The Misheyakir degree column is excluded from the fixture comparison entirely.** The
+- **±1 minute on any cell**, from stringent rounding (§9.4).
+- **Two columns are excluded from the fixture comparison entirely: the Misheyakir degree
+  column and Sof Zman Shema (MA).** The
   fixture contains only 11° values and we deliberately print 10.2° (§9.1), so comparing
   that column against the old sheet would either always fail or require an allowance so
   wide it tests nothing. Comparing it to our own output would be circular — the test and
   the code would share any bug and agree. It is instead covered by a separate, small
   assertion against **independently sourced MyZmanim values** for a handful of dates,
-  which is the source 10.2° was chosen to match in the first place.
+  which is the source 10.2° was chosen to match in the first place. Sof Zman Shema (MA) is
+  excluded for the same reason and covered the same way — see §9.3; MyZmanim matched us to
+  within 4 seconds on 5 August 2026.
 
 Any other difference fails. This is a far stronger test than hand-written expectations,
 because it validates against an independent implementation.
@@ -911,11 +938,12 @@ now closed. **Nothing in this section is open — reopen only by asking the owne
 | 3 | Span | **Month only** (§4). No custom range; `zmanim-sheet-range.ts` is not built. |
 | 4 | Misheyakir | **10.2° + 45 min. No 11° column** (§9.1) — chosen against a rendered preview, accepting that readers of the old sheet see Misheyakir move ~6 min later. |
 | 5 | Sof Zman Tefilah (MA) | **Keep it** (§9.2), though the old sheet omits it. |
+| 4b | Sof Zman Shema (MA) | **16.1°, not the old sheet's fixed 72 min** (§9.3) — a 15-minute change to the latest time for Shema, in the stringent direction. |
 | 6 | Rabbinic sign-off | **Declined** (§11.4). Two mitigations become mandatory: shitos inline in every heading, and the legend + disclaimer must print. |
 | — | hebcal upgrade | Not a decision — **measured clean** across every API this codebase uses (§6.2). Take it. |
 
-Decisions 4 and 6 compound: the sheet changes a printed halachic time *and* has no
-rabbinic review. That is the owner's call, made with the tradeoff stated, and is recorded
+Decisions 4, 4b and 6 compound: the sheet changes **two** printed halachic times — Misheyakir
+by ~6 minutes and the latest Shema by ~15 — *and* has no rabbinic review. That is the owner's call, made with the tradeoff stated, and is recorded
 here so it reads as a decision rather than an oversight.
 
 ### Also worth fixing, independent of this feature

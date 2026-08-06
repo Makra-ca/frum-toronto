@@ -1484,9 +1484,20 @@ Spec §11.0/§11.1. **Different job, different tolerance** from Task 1: ±1 minu
 
 Transcribe from the screenshots into arrays of `{ date, alos161, alos72, misheyakir45, haneitz, szsMA, szsGra, sztGra, chatzos, minchaGedola, minchaKetana, plag, candles, shkia, tzeis85, tzeis72, dafYomi }`.
 
-**Excluded from comparison, deliberately:**
-- **Misheyakir degree** — the fixture holds 11° values and we print 10.2° by decision (§9.1). Comparing would either always fail or need a tolerance so wide it tests nothing.
+**Excluded from comparison, deliberately — all three by owner decision, not oversight:**
+- **Misheyakir degree** — the fixture holds 11° values and we print 10.2° (§9.1). Comparing
+  would either always fail or need a tolerance so wide it tests nothing.
+- **Sof Zman Shema (MA)** — the fixture holds the fixed-72-minute values (9:11 on 5 Aug
+  2026) and we print the 16.1° family (8:55), a **15-minute** difference by decision §9.3.
+  Comparing would fail on **every row**.
 - **Sof Zman Tefilah (MA)** — not on the old sheet; it is our addition (§9.2).
+
+Both excluded columns are covered instead by the MyZmanim block at the end of this test
+file — that is the only independent check on decisions §9.1 and §9.3, which between them
+move two printed times by 6 and 15 minutes.
+
+Still transcribe those columns into the fixture. They are useful evidence when someone
+later asks "what did the old sheet actually say?", and the test simply does not read them.
 
 September is a **partial** sample: transcribe only the holiday and fast rows (Rosh Hashana, Tzom Gedaliah, Yom Kippur, Sukkos) plus their neighbours. August contains **zero** chag and **zero** fast events, so it exercises only the ordinary weekday case.
 
@@ -1548,7 +1559,7 @@ describe("parity with the old FrumToronto sheet (August 2026)", () => {
     check("alos72", formatZmanByKey("alotHaShachar72", z.alotHaShachar72, TZ), expected.alos72);
     check("misheyakir45", formatZmanByKey("misheyakir45", z.misheyakir45, TZ), expected.misheyakir45);
     check("haneitz", formatZmanByKey("sunrise", z.sunrise, TZ), expected.haneitz);
-    check("szsMA", formatZmanByKey("sofZmanShmaMGA", z.sofZmanShmaMGA, TZ), expected.szsMA);
+    // szsMA is deliberately NOT compared — see the exclusions note below.
     check("szsGra", formatZmanByKey("sofZmanShma", z.sofZmanShma, TZ), expected.szsGra);
     check("sztGra", formatZmanByKey("sofZmanTfilla", z.sofZmanTfilla, TZ), expected.sztGra);
     check("chatzos", formatZmanByKey("chatzot", z.chatzot, TZ), expected.chatzos);
@@ -1591,22 +1602,29 @@ describe("parity with the old sheet (September/October 2026 — the fall holiday
 //
 // This is the only external check on decision 14.4, which moves a printed time
 // about six minutes for every reader of the old sheet.
-describe("misheyakir 10.2 degrees against MyZmanim", () => {
-  // TODO(implementer): look these up on myzmanim.com for Toronto and fill in.
-  // Do NOT generate them from our own code — that defeats the purpose.
-  const MYZMANIM: Array<[string, string]> = [
-    // ["2026-08-01", "5:06 AM"],
+describe("the excluded columns, against MyZmanim", () => {
+  // Fetched from myzmanim.com/day.aspx?vars=75405214.8.5.2026 (Toronto).
+  // MyZmanim publishes seconds; ours are in the second column for reference.
+  //   Misheyakir "Sun is 10.2 degrees below horizon"      5:11:17  (ours 5:11:13)
+  //   Latest Shema MA "Using 72 minutes as 16.1 degrees"  8:55:54  (ours 8:55:50)
+  // Add more dates by fetching the same URL with a different M.D.YYYY suffix.
+  // Do NOT generate these from our own code — that would be circular.
+  const MYZMANIM: Array<{ date: string; misheyakir: string; szsMA: string }> = [
+    { date: "2026-08-05", misheyakir: "5:11 AM", szsMA: "8:55 AM" },
   ];
 
-  it("has reference values recorded", () => {
-    expect(MYZMANIM.length, "fill in MyZmanim reference values before shipping").toBeGreaterThan(0);
-  });
-
-  it.each(MYZMANIM)("%s", (date, theirs) => {
+  it.each(MYZMANIM)("misheyakir 10.2° on $date", ({ date, misheyakir }) => {
     const [y, m, d] = date.split("-").map(Number);
     const { zmanim } = getZmanimForDate(day(y, m, d), TORONTO_LOCATION);
-    const ours = formatZmanByKey("misheyakir", zmanim.misheyakir, TZ)!;
-    expect(minutesApart(ours, theirs)).toBeLessThanOrEqual(1);
+    expect(minutesApart(formatZmanByKey("misheyakir", zmanim.misheyakir, TZ)!, misheyakir))
+      .toBeLessThanOrEqual(1);
+  });
+
+  it.each(MYZMANIM)("sof zman shema (MA) on $date", ({ date, szsMA }) => {
+    const [y, m, d] = date.split("-").map(Number);
+    const { zmanim } = getZmanimForDate(day(y, m, d), TORONTO_LOCATION);
+    expect(minutesApart(formatZmanByKey("sofZmanShmaMGA", zmanim.sofZmanShmaMGA, TZ)!, szsMA))
+      .toBeLessThanOrEqual(1);
   });
 });
 ```
@@ -1943,6 +1961,7 @@ git commit -m "docs: record the zmanim month sheet work"
 | Sheet and MyZmanim differ by a minute | Our rounding is stringent by row; MyZmanim rounds to nearest. Deliberate — spec §9.3. |
 | Molad prints `8:15 AM` regardless of viewer location | The molad is stated in the traditional fixed reckoning, never localised. The only such time on the sheet. |
 | Misheyakir reads 5:06 where the old sheet said 5:01 | Owner's decision, §9.1. We print 10.2°, the old sheet printed 11°. **Do not "fix".** |
+| Sof Zman Shema (MA) reads 8:55 where the old sheet said 9:11 | Owner's decision, §9.3. `sofZmanShmaMGA16Point1()` (16.1°) vs the old sheet's `sofZmanShmaMGA()` (fixed 72 min) — 15 minutes, in the stringent direction. MyZmanim agrees with us to 4 seconds. **Do not "fix".** |
 | Sof Zman Tefilah (MA) exists but the old sheet lacks it | Owner's decision, §9.2. |
 | Candle lighting is 40 min before sunset in Jerusalem, 18 in Toronto | hebcal applies per-city custom by coordinate. Measured. |
 | Candle lighting column is empty on most rows | Only Fridays and Yom Tov eves have one. |
