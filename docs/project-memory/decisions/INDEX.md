@@ -5,6 +5,8 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-06 | Printed shitos follow the site, not the old sheet | [printed-shitos-follow-the-site-not-the-old-sheet](2026-08-06-printed-shitos-follow-the-site-not-the-old-sheet.md) |
+| 2026-08-06 | No zman reaches roundZman pre-rounded — it loses its rounding policy | [no-zman-reaches-roundzman-pre-rounded](2026-08-06-no-zman-reaches-roundzman-pre-rounded.md) |
 | 2026-08-06 | Identity on a submission comes from the account, never the request body | [submitted-identity-comes-from-the-account](2026-08-06-submitted-identity-comes-from-the-account.md) |
 | 2026-08-06 | The last-admin guard asks about the outcome, not "is this me" | [last-admin-guard-is-about-outcome](2026-08-06-last-admin-guard-is-about-outcome.md) |
 | 2026-08-06 | Newsletter click destinations are signed, not allowlisted | [newsletter-links-are-signed-not-allowlisted](2026-08-06-newsletter-links-are-signed-not-allowlisted.md) |
