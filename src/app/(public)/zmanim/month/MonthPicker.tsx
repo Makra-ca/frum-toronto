@@ -13,6 +13,33 @@ import {
 } from "@/lib/zmanim-location";
 import type { MonthRange } from "@/lib/zmanim-month-param";
 
+/**
+ * When this module first mounted, recorded at MODULE scope.
+ *
+ * On iOS, window.print() stays wedged after an App Router soft navigation:
+ * pushState fires no event at all, so a `pageshow`/`persisted` hook does not
+ * cover it, and the print dialog silently never opens. The month arrows here
+ * navigate via router.push, so the very likely path — open the sheet, click to
+ * another month, press Print — hits it.
+ *
+ * A second mount inside the same document means we soft-navigated back, so the
+ * page is reloaded to get a fresh document. Scoped to iOS so no other platform
+ * ever eats a reload, and gated on a time gap so React StrictMode's near
+ * instant double-mount in dev is excluded.
+ *
+ * Borrowed from the idstrips print work, which reproduced this in WebKit.
+ */
+let firstMountAt = 0;
+
+/** iOS, including iPadOS which reports as Mac but has touch points. */
+function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -53,6 +80,21 @@ export function MonthPicker({
   location: ZmanimLocation;
 }) {
   const router = useRouter();
+
+  // See firstMountAt above: recover window.print() after an iOS soft navigation.
+  useEffect(() => {
+    if (!isIOS()) return;
+    const now = Date.now();
+    if (firstMountAt === 0) {
+      firstMountAt = now;
+      return;
+    }
+    // >2s since the first mount means a genuine soft navigation, not
+    // StrictMode's double-mount.
+    if (now - firstMountAt > 2000) {
+      window.location.reload();
+    }
+  }, []);
   const [storedLocation, setStoredLocation, isHydrated] = useStoredZmanimLocation();
 
   // Draft state for the two inputs, so a half-typed year never navigates.

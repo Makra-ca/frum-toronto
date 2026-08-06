@@ -151,7 +151,7 @@ export function ZmanimSheet({
                 >
                   <span className="block leading-tight">{c.heading}</span>
                   {c.shita && (
-                    <span className="block text-[0.9em] font-normal leading-tight text-gray-500">
+                    <span className="block text-[11px] font-normal leading-tight text-gray-500 print:text-[6.5pt]">
                       {c.shita}
                     </span>
                   )}

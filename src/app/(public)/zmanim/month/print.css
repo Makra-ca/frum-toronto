@@ -7,7 +7,32 @@
  * outside this page component, so they can only be reached by a global selector
  * — hence body:has(...) as the gate rather than a descendant selector.
  */
+/* iOS inflates text it judges too small to read ("font boosting"), and this
+ * sheet is a worst case: 7.5pt type in a 21-column table sized to fit Letter
+ * landscape with 40px to spare. Boosted text bursts the layout and the sheet
+ * clips — the exact failure the idstrips print work chased for several rounds.
+ *
+ * Two things learned there and applied here:
+ *   - iOS treats print as a SEPARATE cascade, so pinning this on html alone is
+ *     not enough; it has to be repeated inside @media print.
+ *   - Relative `em` sizes multiply the parent's COMPUTED size, so one boosted
+ *     ancestor cascades into every child. Inner sizes are absolute for that
+ *     reason; do not reintroduce `em` here.
+ */
+.zmanim-sheet-print {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 @media print {
+  .zmanim-sheet-print,
+  .zmanim-sheet-print table,
+  .zmanim-sheet-print th,
+  .zmanim-sheet-print td {
+    -webkit-text-size-adjust: 100% !important;
+    text-size-adjust: 100% !important;
+  }
+
   body:has(.zmanim-sheet-print) header,
   body:has(.zmanim-sheet-print) footer,
   .zmanim-sheet-print .no-print {
