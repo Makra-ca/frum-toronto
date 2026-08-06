@@ -20,23 +20,31 @@ type TimesKey = keyof ZmanimTimes & ZmanKey;
  * this sheet, and it is printed and pinned to a wall away from the site, so a
  * number that does not say which opinion it represents is not publishable.
  */
-const ZMAN_COLUMNS: { key: TimesKey; heading: string }[] = [
-  { key: "alotHaShachar", heading: "Alos 16.1°" },
-  { key: "alotHaShachar72", heading: "Alos 72 min" },
-  { key: "misheyakir", heading: "Misheyakir 10.2°" },
-  { key: "misheyakir45", heading: "Misheyakir 45 min" },
-  { key: "sunrise", heading: "Netz (Sunrise)" },
-  { key: "sofZmanShmaMGA", heading: "Sof Zman Shema (MA)" },
-  { key: "sofZmanShma", heading: "Sof Zman Shema (Gra)" },
-  { key: "sofZmanTfillaMGA", heading: "Sof Zman Tefilah (MA)" },
-  { key: "sofZmanTfilla", heading: "Sof Zman Tefilah (Gra)" },
-  { key: "chatzot", heading: "Chatzos" },
-  { key: "minchaGedola", heading: "Mincha Gedola" },
-  { key: "minchaKetana", heading: "Mincha Ketana" },
-  { key: "plagHaMincha", heading: "Plag HaMincha" },
-  { key: "sunset", heading: "Shkia (Sunset)" },
-  { key: "tzait", heading: "Tzeis 8.5°" },
-  { key: "tzait72", heading: "Tzeis 72 min" },
+// Each heading is split into a label and its SHITA, stacked on two lines.
+//
+// The shita staying visible is mandatory — there is no rabbinic review on this
+// sheet, so a printed number has to say which opinion it represents. But on one
+// line the headings, not the times, set the column widths: "Sof Zman Shema (Gra)"
+// measured 130px against 60px of actual data, and 21 such columns overflowed the
+// printed page and clipped. Stacking keeps the shita and lets the column size to
+// its content. The old sheet did exactly this.
+const ZMAN_COLUMNS: { key: TimesKey; heading: string; shita: string }[] = [
+  { key: "alotHaShachar", heading: "Alos", shita: "16.1°" },
+  { key: "alotHaShachar72", heading: "Alos", shita: "72 min" },
+  { key: "misheyakir", heading: "Misheyakir", shita: "10.2°" },
+  { key: "misheyakir45", heading: "Misheyakir", shita: "45 min" },
+  { key: "sunrise", heading: "Netz", shita: "Sunrise" },
+  { key: "sofZmanShmaMGA", heading: "Sof Zman Shema", shita: "MA" },
+  { key: "sofZmanShma", heading: "Sof Zman Shema", shita: "Gra" },
+  { key: "sofZmanTfillaMGA", heading: "Sof Zman Tefilah", shita: "MA" },
+  { key: "sofZmanTfilla", heading: "Sof Zman Tefilah", shita: "Gra" },
+  { key: "chatzot", heading: "Chatzos", shita: "" },
+  { key: "minchaGedola", heading: "Mincha", shita: "Gedola" },
+  { key: "minchaKetana", heading: "Mincha", shita: "Ketana" },
+  { key: "plagHaMincha", heading: "Plag", shita: "HaMincha" },
+  { key: "sunset", heading: "Shkia", shita: "Sunset" },
+  { key: "tzait", heading: "Tzeis", shita: "8.5°" },
+  { key: "tzait72", heading: "Tzeis", shita: "72 min" },
 ];
 
 // 3 identity columns + the zmanim + candle lighting + notes.
@@ -139,16 +147,22 @@ export function ZmanimSheet({
                 <th
                   key={c.key}
                   scope="col"
-                  className="border-b border-gray-200 px-2 py-2 text-right font-semibold text-gray-800 whitespace-nowrap"
+                  className="border-b border-gray-200 px-1 py-2 text-right align-bottom font-semibold text-gray-800"
                 >
-                  {c.heading}
+                  <span className="block leading-tight">{c.heading}</span>
+                  {c.shita && (
+                    <span className="block text-[0.9em] font-normal leading-tight text-gray-500">
+                      {c.shita}
+                    </span>
+                  )}
                 </th>
               ))}
               <th
                 scope="col"
-                className="border-b border-gray-200 px-2 py-2 text-right font-semibold text-gray-800 whitespace-nowrap"
+                className="border-b border-gray-200 px-1 py-2 text-right align-bottom font-semibold text-gray-800"
               >
-                Candle Lighting
+                <span className="block leading-tight">Candle</span>
+                <span className="block leading-tight">Lighting</span>
               </th>
               <th
                 scope="col"

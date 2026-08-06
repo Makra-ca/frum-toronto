@@ -31,7 +31,11 @@
 
   .zmanim-sheet-print table {
     width: 100%;
-    font-size: 8pt;
+    /* 7.5pt, not 8. At 8pt the table measured 991px against 980px of usable
+     * LETTER landscape — it fit A4 and clipped on Letter, which is the paper
+     * this sheet will actually be printed on in Toronto. Do not raise it back
+     * without re-measuring against Letter, not A4. */
+    font-size: 7.5pt;
     border-collapse: collapse;
   }
 
@@ -47,13 +51,62 @@
     position: static !important;
   }
 
+  /* The three identity columns carry INLINE width/minWidth in pixels, because
+   * `position: sticky` cannot infer a left offset from earlier columns and needs
+   * them stated. Print turns sticky off above, but the inline widths survive —
+   * leaving a 92px column to hold "30 Av". Release them here; they are a
+   * screen-scrolling concern only. Measured: this alone was ~100px of the
+   * overflow. Inline styles need `!important` to be overridden from CSS.
+   */
+  .zmanim-sheet-print th:nth-child(-n + 3),
+  .zmanim-sheet-print td:nth-child(-n + 3) {
+    width: auto !important;
+    min-width: 0 !important;
+  }
+
   .zmanim-sheet-print tr {
     page-break-inside: avoid;
   }
 
   .zmanim-sheet-print th,
   .zmanim-sheet-print td {
-    padding: 1pt 3pt;
+    padding: 1pt 2pt;
+  }
+
+  /* Column widths are the whole ballgame on a 21-column landscape sheet.
+   *
+   * Measured natural width at 8pt was 1377px against 980px of usable Letter
+   * landscape — 397px over, so the table clipped. Two causes, both fixed here:
+   *
+   * 1. The headings, not the times, were sizing the columns. Capping a header
+   *    cell lets a long label like "Sof Zman Shema" wrap onto two lines and the
+   *    column fall back to the width of its data ("10:59 AM").
+   * 2. "Notes / Daf Yomi" is free text (parsha + labels + daf) and did not wrap,
+   *    taking 268px on its own — a fifth of the table for one column.
+   *
+   * Do not remove these caps without re-measuring; the sheet silently clips off
+   * the right-hand edge of the paper rather than failing loudly.
+   */
+  .zmanim-sheet-print thead th {
+    max-width: 44pt;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  .zmanim-sheet-print th:last-child,
+  .zmanim-sheet-print td:last-child {
+    max-width: 78pt;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  /* The times themselves must never wrap — a broken "10:59 AM" is unreadable. */
+  .zmanim-sheet-print tbody td {
+    white-space: nowrap;
+  }
+
+  .zmanim-sheet-print tbody td:last-child {
+    white-space: normal;
   }
 
   /* The legend and disclaimer MUST print. A pinned sheet of unexplained times,
@@ -69,6 +122,9 @@
 
   @page {
     size: landscape;
-    margin: 10mm;
+    /* 8mm rather than 10: buys ~15px of width, which is the difference between
+     * comfortable and borderline on Letter. Still inside every common printer's
+     * unprintable edge. */
+    margin: 8mm;
   }
 }
