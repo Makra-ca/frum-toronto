@@ -93,9 +93,18 @@
     page-break-inside: avoid;
   }
 
+  /* Vertical space is as tight as horizontal: 31 rows plus a header plus the
+   * legend has to land on ONE sheet, because the whole point is a single page
+   * on a fridge. Measured before: 1015px of table against 756px of usable
+   * Letter landscape height — it split across two pages.
+   *
+   * Row height, not font size, is the lever. Tightening leading and vertical
+   * padding buys far more than shrinking type, and keeps the times legible.
+   */
   .zmanim-sheet-print th,
   .zmanim-sheet-print td {
-    padding: 1pt 2pt;
+    padding: 0.4pt 2pt;
+    line-height: 1.05;
   }
 
   /* Column widths are the whole ballgame on a 21-column landscape sheet.
@@ -140,9 +149,16 @@
   .zmanim-sheet-print .sheet-legend {
     display: block !important;
     page-break-inside: avoid;
-    margin-top: 6pt;
+    margin-top: 4pt;
     background: none;
-    font-size: 7.5pt;
+    /* Smaller than the table on purpose: it is reference text, read once, and
+     * every point it costs comes off the row budget. It must still PRINT —
+     * a sheet of unexplained times with no "verify with your rav" line is the
+     * worst outcome — but it does not need to be the same size as the data. */
+    font-size: 6pt;
+    line-height: 1.15;
+    column-count: 2;
+    column-gap: 12pt;
   }
 
   @page {
