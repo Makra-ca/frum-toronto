@@ -36,6 +36,27 @@ export interface EditableField {
 export type ApprovalType = "simchas" | "events" | "classifieds" | "tehillim";
 
 /**
+ * Extra keys that must ride along even though they are not editable here.
+ *
+ * Only one, and only because `events` PATCH validates with
+ * `eventSchema.parse()`, which is NOT partial: `title`, `startTime` and
+ * `isAllDay` are mandatory. The first two are editable fields; `isAllDay` is
+ * not, so it is copied from the fetched row.
+ *
+ * Nothing else is sent, and nothing else needs to be. Untouched columns survive
+ * because Drizzle skips `undefined` in `.set()` — measured, not assumed.
+ *
+ * Four event fields used to be an exception: `contactEmail` and the three URL
+ * columns were written as `value || null`, so omitting one deleted it. They
+ * were carried here as a workaround until the real fix landed in
+ * `handleUpdate`, which now distinguishes "" (clear it) from absent (leave it).
+ * The workaround is gone because the cause is.
+ */
+export const ALWAYS_SEND: Partial<Record<ApprovalType, string[]>> = {
+  events: ["isAllDay"],
+};
+
+/**
  * The API path segment for each tab. Identical to the tab key today, and named
  * separately anyway so a future rename of one cannot silently point the editor
  * at the wrong endpoint.

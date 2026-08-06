@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
+  ALWAYS_SEND,
   EDITABLE_FIELDS,
   EDIT_ENDPOINT,
   singular,
@@ -34,17 +35,18 @@ import {
  * submitted with the wrong time could only be approved wrong, rejected (which
  * emails the submitter a rejection), or fixed by leaving the queue entirely.
  *
- * ## Fetch the whole row, send the whole row
+ * ## Fetch the whole row, send only what this dialog owns
  *
- * The dialog GETs the full record on open and PATCHes the full record back with
- * the edits merged in. That is not laziness — the four endpoints disagree:
- * simchas, tehillim and classifieds take partials, but `events` PATCH validates
- * with `eventSchema.parse()`, which is NOT partial and requires `title`,
- * `startTime` **and** `isAllDay`. Sending only the changed keys would 400 on
- * events alone. Merging satisfies both shapes with one code path.
+ * The GET populates the form. The PATCH sends the editable fields plus
+ * `ALWAYS_SEND` — nothing else.
  *
- * It also means fields this dialog does not show are carried through untouched
- * rather than being wiped by omission.
+ * An earlier version posted the entire fetched row back, on the assumption that
+ * omitting a field would null it. Measured, and false: Drizzle skips
+ * `undefined` in `.set()`, so untouched columns are preserved either way.
+ * Sending everything only re-validated fields the dialog cannot show, which
+ * makes a record uneditable whenever one of them is invalid — and one event
+ * already carries `contact_email = 'mirikaufman.com'`, which
+ * `z.string().email()` rejects.
  */
 
 interface Props {
@@ -73,11 +75,16 @@ export function ApprovalEditDialog({ type, id, open, onOpenChange, onSaved }: Pr
     setRow(null);
 
     fetch(`/api/admin/${EDIT_ENDPOINT[type]}/${id}`)
-      .then((r) => r.json())
+      .then(async (r) => {
+        // Checked, so a 401/404/500 cannot leave an all-blank form with Save
+        // enabled — which would invite an admin to "correct" a record they
+        // are not actually looking at.
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
       .then((data) => {
         if (cancelled) return;
-        // Some routes wrap the record, others return it bare.
-        const record = (data?.alert ?? data?.data ?? data) as Record<string, unknown>;
+        const record = data as Record<string, unknown>;
         setRow(record);
 
         const next: Record<string, string> = {};
@@ -122,8 +129,12 @@ export function ApprovalEditDialog({ type, id, open, onOpenChange, onSaved }: Pr
     if (!row) return;
     setSaving(true);
 
-    // Start from the fetched row so untouched fields survive, then overlay.
-    const payload: Record<string, unknown> = { ...row };
+    // Only what this dialog owns. Untouched columns survive because Drizzle
+    // skips undefined — verified, not assumed.
+    const payload: Record<string, unknown> = {};
+    for (const key of ALWAYS_SEND[type] ?? []) {
+      payload[key] = row[key];
+    }
 
     for (const f of fields) {
       const v = values[f.name] ?? "";
@@ -178,9 +189,10 @@ export function ApprovalEditDialog({ type, id, open, onOpenChange, onSaved }: Pr
         return;
       }
 
-      const saved = await res.json();
+      // All four routes return the updated row bare.
+      const saved = (await res.json()) as Record<string, unknown>;
       toast.success("Changes saved");
-      onSaved((saved?.alert ?? saved?.data ?? saved) as Record<string, unknown>);
+      onSaved(saved);
       onOpenChange(false);
     } catch {
       toast.error("Could not save the changes");

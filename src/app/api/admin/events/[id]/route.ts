@@ -49,6 +49,23 @@ export async function GET(
 }
 
 // Shared update handler used by both PUT and PATCH
+/**
+ * Empty string means "clear it"; ABSENT means "leave it alone".
+ *
+ * These four fields used to be written as `value || null`. Since
+ * `undefined || null` is `null`, omitting one deleted it — while the other
+ * twelve fields are plain assignments that Drizzle skips when undefined. Four
+ * fields behaved one way and twelve the other, in the same object, and nothing
+ * said so.
+ *
+ * That only mattered once a caller sent a partial payload. The admin event form
+ * always sends every field, so it was invisible until the Approvals editor
+ * started sending just what it owns.
+ */
+function clearedOrUnchanged(value: string | null | undefined) {
+  return value === undefined ? undefined : value || null;
+}
+
 async function handleUpdate(request: NextRequest, eventId: number) {
   // Check if event exists and get current approvalStatus
   const [existingEvent] = await db
@@ -77,12 +94,12 @@ async function handleUpdate(request: NextRequest, eventId: number) {
     eventType: validatedData.eventType,
     shulId: validatedData.shulId,
     contactName: validatedData.contactName,
-    contactEmail: validatedData.contactEmail || null,
+    contactEmail: clearedOrUnchanged(validatedData.contactEmail),
     contactPhone: validatedData.contactPhone,
     cost: validatedData.cost,
-    imageUrl: validatedData.imageUrl || null,
-    flyerUrl: validatedData.flyerUrl || null,
-    websiteUrl: validatedData.websiteUrl || null,
+    imageUrl: clearedOrUnchanged(validatedData.imageUrl),
+    flyerUrl: clearedOrUnchanged(validatedData.flyerUrl),
+    websiteUrl: clearedOrUnchanged(validatedData.websiteUrl),
     organization: validatedData.organization,
   };
 

@@ -200,11 +200,50 @@ describe("every offered field actually persists", () => {
     expect(row.startTime?.toISOString()).toBe("2031-04-06T23:30:00.000Z");
   });
 
-  it("a partial event PATCH is rejected — proving the merge is necessary", async () => {
-    // If this ever starts passing, eventSchema became partial and the dialog
-    // could be simplified. Until then, sending only changed keys 400s.
+  it("events still requires title, startTime and isAllDay", async () => {
+    // eventSchema.parse() is not partial. This is why ALWAYS_SEND carries
+    // isAllDay: the other two are editable fields, that one is not.
     const res = await patchEvent(req({ title: "[TEST] partial only" }), params(eventId));
     expect(res.status).not.toBe(200);
+  });
+
+  it("does NOT wipe fields the dialog never sends", async () => {
+    /*
+      The finding that corrected the design. An earlier version posted the whole
+      fetched row back, assuming omission meant deletion. Drizzle skips
+      `undefined` in `.set()`, so it does not — and sending everything only
+      re-validated fields the dialog cannot show, making a record uneditable
+      whenever one of them was invalid.
+
+      One real event carries contact_email = 'mirikaufman.com' (no @), which
+      z.string().email() rejects. Under the old design that event could not be
+      edited from the queue at all, and the error named a field not on screen.
+    */
+    await db
+      .update(events)
+      .set({ contactName: "Keep Me", cost: "Keep This" })
+      .where(eq(events.id, eventId));
+
+    // Exactly what the dialog now sends: its own fields plus ALWAYS_SEND.
+    const res = await patchEvent(
+      req({
+        title: `[TEST] Subset ${stamp}`,
+        startTime: "2031-04-07T23:30:00.000Z",
+        endTime: null,
+        location: "[TEST] loc",
+        organization: "[TEST] org",
+        description: "[TEST] desc",
+        isAllDay: false,
+      }),
+      params(eventId)
+    );
+    expect(res.status).toBe(200);
+
+    const [row] = await db.select().from(events).where(eq(events.id, eventId));
+    expect(row.title).toBe(`[TEST] Subset ${stamp}`);
+    // Plain assignments — skipped by Drizzle when absent, so they survive.
+    expect(row.contactName).toBe("Keep Me");
+    expect(row.cost).toBe("Keep This");
   });
 
   it("leaves approvalStatus alone — editing is not approving", async () => {
@@ -249,5 +288,88 @@ describe("classifieds price is a number column, whatever the schema says", () =>
       .from(classifieds)
       .where(eq(classifieds.id, classifiedId));
     expect(Number(row.price)).toBe(49.99);
+  });
+});
+
+describe("absent versus empty, on the four coalescing fields", () => {
+  it("omitting a field leaves it alone", async () => {
+    /*
+      These four were written `value || null`, and `undefined || null` is null —
+      so omitting one DELETED it, while the other twelve fields are plain
+      assignments Drizzle skips. Four behaved one way and twelve the other, in
+      the same object.
+
+      Invisible until a caller sent a partial payload: the admin event form
+      always sends everything. The Approvals editor is the first that does not.
+    */
+    await db
+      .update(events)
+      .set({
+        contactEmail: "keep@frumtoronto.test",
+        websiteUrl: "https://example.com/keep",
+        contactName: "Also Keep",
+      })
+      .where(eq(events.id, eventId));
+
+    const res = await patchEvent(
+      req({
+        title: `[TEST] Omit ${stamp}`,
+        startTime: "2031-04-08T23:30:00.000Z",
+        isAllDay: false,
+      }),
+      params(eventId)
+    );
+    expect(res.status).toBe(200);
+
+    const [row] = await db.select().from(events).where(eq(events.id, eventId));
+    expect(row.contactName).toBe("Also Keep");
+    expect(row.contactEmail).toBe("keep@frumtoronto.test");
+    expect(row.websiteUrl).toBe("https://example.com/keep");
+  });
+
+  it("sending an empty string still clears it", async () => {
+    // The behaviour worth keeping: "" means the admin cleared the box.
+    const res = await patchEvent(
+      req({
+        title: `[TEST] Clear ${stamp}`,
+        startTime: "2031-04-09T23:30:00.000Z",
+        isAllDay: false,
+        contactEmail: "",
+        websiteUrl: "",
+      }),
+      params(eventId)
+    );
+    expect(res.status).toBe(200);
+
+    const [row] = await db.select().from(events).where(eq(events.id, eventId));
+    expect(row.contactEmail).toBeNull();
+    expect(row.websiteUrl).toBeNull();
+  });
+
+  it("an event with a malformed stored email is now editable", async () => {
+    // The dead end this fix removes. One real event carries
+    // contact_email = 'mirikaufman.com' (no @). While that value had to be
+    // re-sent to avoid nulling it, z.string().email() rejected it and the event
+    // could not be edited from the queue at all — erroring about a field the
+    // dialog does not even show.
+    await db
+      .update(events)
+      .set({ contactEmail: "mirikaufman.com" })
+      .where(eq(events.id, eventId));
+
+    const res = await patchEvent(
+      req({
+        title: `[TEST] Malformed ${stamp}`,
+        startTime: "2031-04-10T23:30:00.000Z",
+        isAllDay: false,
+      }),
+      params(eventId)
+    );
+    expect(res.status).toBe(200);
+
+    const [row] = await db.select().from(events).where(eq(events.id, eventId));
+    expect(row.title).toBe(`[TEST] Malformed ${stamp}`);
+    // Untouched, invalid, and preserved — not our business to rewrite.
+    expect(row.contactEmail).toBe("mirikaufman.com");
   });
 });
