@@ -27,6 +27,23 @@ const { users, blogPosts, blogComments, simchas, auditLog, shuls, userShuls, eru
 const { ARCHIVE_USER_ID } = await import("@/lib/admin/user-deletion-tables");
 
 const stamp = Date.now();
+
+/**
+ * `eruv_status.status_date` is UNIQUE, so a hardcoded date makes this file
+ * runnable exactly once per day: an interrupted run leaves the row behind and
+ * every later run collides on it. Deriving far-future dates from the run stamp
+ * gives each run its own, and afterAll sweeps them regardless of where a test
+ * stopped.
+ */
+const eruvDates: string[] = [];
+function nextEruvDate() {
+  // Well past any real eruv record, and unique per run + call.
+  const d = new Date(Date.UTC(2100, 0, 1));
+  d.setUTCDate(d.getUTCDate() + (stamp % 10000) * 2 + eruvDates.length);
+  const value = d.toISOString().slice(0, 10);
+  eruvDates.push(value);
+  return value;
+}
 let adminId = 0;
 let cleanUserId = 0;
 let authorId = 0;
@@ -106,6 +123,9 @@ afterAll(async () => {
   }
   if (createdSimchaIds.length) {
     await db.delete(simchas).where(inArray(simchas.id, createdSimchaIds));
+  }
+  if (eruvDates.length) {
+    await db.delete(eruvStatus).where(inArray(eruvStatus.statusDate, eruvDates));
   }
   await db.delete(auditLog).where(eq(auditLog.actorId, adminId));
   await cleanupTestUsers();
@@ -276,7 +296,7 @@ describe("mode=purge and attribution", () => {
 
     const [eruv] = await db
       .insert(eruvStatus)
-      .values({ statusDate: "2026-08-06", isUp: true, updatedBy: assigner.id })
+      .values({ statusDate: nextEruvDate(), isUp: true, updatedBy: assigner.id })
       .returning({ id: eruvStatus.id });
 
     const res = await call(assigner.id, "purge");
@@ -320,7 +340,7 @@ describe("mode=purge and attribution", () => {
     });
     const [eruv] = await db
       .insert(eruvStatus)
-      .values({ statusDate: "2026-08-07", isUp: false, updatedBy: actor.id })
+      .values({ statusDate: nextEruvDate(), isUp: false, updatedBy: actor.id })
       .returning({ id: eruvStatus.id });
 
     const res = await call(actor.id);

@@ -5,6 +5,7 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-06 | Blog comments get a real site-wide setting and honour `commentPermission`, forward-only | [blog-comment-moderation-controls](2026-08-06-blog-comment-moderation-controls.md) |
 | 2026-08-06 | Deleted comments are tombstoned so replies survive *(NOT YET BUILT)* | [deleted-comments-are-tombstoned](2026-08-06-deleted-comments-are-tombstoned.md) |
 | 2026-08-06 | Blog comments stay open; moderation exists and is deliberately off | [blog-comments-stay-open](2026-08-06-blog-comments-stay-open.md) |
 | 2026-08-06 | Two sessions on one repo: one builds and commits, one only reviews | [one-session-builds-one-reviews](2026-08-06-one-session-builds-one-reviews.md) |

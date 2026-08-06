@@ -38,6 +38,7 @@ import {
   MessageSquare,
   ChevronLeft,
   ChevronRight,
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -217,6 +218,13 @@ export default function BlogCommentsPage() {
             </SelectContent>
           </Select>
         </div>
+
+        <Link href="/admin/programs/blog/comment-settings" className="ml-auto">
+          <Button variant="outline" size="sm">
+            <Settings className="h-4 w-4 mr-1.5" />
+            Comment Settings
+          </Button>
+        </Link>
       </div>
 
       {/* Comments Table */}

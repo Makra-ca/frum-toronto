@@ -6,6 +6,12 @@ import { eq, and, asc } from "drizzle-orm";
 import { blogCommentSchema } from "@/lib/validations/blog";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import {
+  decideBlogComment,
+  parseModeration,
+  BLOG_COMMENT_MODERATION_KEY,
+  DEFAULT_SITE_MODERATION,
+} from "@/lib/blog/comment-moderation";
 
 export async function GET(
   request: NextRequest,
@@ -132,6 +138,29 @@ export async function POST(
 
     const { content, parentId } = result.data;
 
+    // The account-level control, which this route never used to read — an
+    // account set to "Blocked" in Admin → Users could comment here freely.
+    // Read before the parent lookup so a blocked request costs one query.
+    const [dbUser] = await db
+      .select({ commentPermission: users.commentPermission })
+      .from(users)
+      .where(eq(users.id, parseInt(session.user.id)))
+      .limit(1);
+
+    const isAdmin = session.user.role === "admin";
+
+    if (
+      !isAdmin &&
+      (dbUser?.commentPermission ?? "allowed") === "blocked"
+    ) {
+      // Same wording and status as Ask the Rabbi, so a blocked person sees one
+      // consistent message wherever they try to comment.
+      return NextResponse.json(
+        { error: "You are not permitted to comment." },
+        { status: 403 }
+      );
+    }
+
     // Enforce max nesting depth of 1: no replies to replies
     if (parentId) {
       const [parentComment] = await db
@@ -161,30 +190,36 @@ export async function POST(
       }
     }
 
-    // Determine approval status based on moderation rules
-    let approvalStatus = "approved";
-    const userRole = session.user.role;
-
-    if (userRole === "admin") {
-      approvalStatus = "approved";
-    } else if (post.commentModeration === "open") {
-      approvalStatus = "approved";
-    } else if (post.commentModeration === "approved") {
-      approvalStatus = "pending";
-    } else {
-      // commentModeration is null — check site-wide setting
+    // The site-wide default. Only consulted when the post has no override of
+    // its own, so an "open" or "approved" post costs no extra query.
+    let siteModeration = DEFAULT_SITE_MODERATION;
+    if (!post.commentModeration) {
       const [setting] = await db
         .select({ value: siteSettings.value })
         .from(siteSettings)
-        .where(eq(siteSettings.key, "blog_comment_moderation"))
+        .where(eq(siteSettings.key, BLOG_COMMENT_MODERATION_KEY))
         .limit(1);
-
-      if (setting?.value === "approved") {
-        approvalStatus = "pending";
-      } else {
-        approvalStatus = "approved";
-      }
+      siteModeration = parseModeration(setting?.value);
     }
+
+    const outcome = decideBlogComment({
+      isAdmin,
+      commentPermission: dbUser?.commentPermission,
+      postModeration: post.commentModeration,
+      siteModeration,
+    });
+
+    // "blocked" is already handled above, before any work is done. Reaching it
+    // here would mean the two checks disagree, so fail closed rather than
+    // guessing which one is right.
+    if (outcome === "blocked") {
+      return NextResponse.json(
+        { error: "You are not permitted to comment." },
+        { status: 403 }
+      );
+    }
+
+    const approvalStatus = outcome === "hold" ? "pending" : "approved";
 
     const [newComment] = await db
       .insert(blogComments)
