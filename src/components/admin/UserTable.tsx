@@ -20,8 +20,10 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Loader2, Check, X, Shield } from "lucide-react";
+import { Loader2, Check, X, Shield, Trash2, Bot } from "lucide-react";
 import { formatInstant } from "@/lib/datetime";
+import { DeleteUsersDialog, type DeletableUser } from "@/components/admin/users/DeleteUsersDialog";
+import { SpamCleanupDialog } from "@/components/admin/users/SpamCleanupDialog";
 
 interface User {
   id: number;
@@ -86,6 +88,42 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
   const [updating, setUpdating] = useState<number | null>(null);
   const [permissionsDialogUser, setPermissionsDialogUser] = useState<User | null>(null);
   const [savingPermissions, setSavingPermissions] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [deleteTargets, setDeleteTargets] = useState<DeletableUser[]>([]);
+  const [spamDialogOpen, setSpamDialogOpen] = useState(false);
+
+  const toggleSelected = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Select-all covers the CURRENT PAGE only. The table is paginated over 3,200
+  // rows, and a control that silently selected rows the admin cannot see would
+  // be the worst possible affordance next to a delete button.
+  const allOnPageSelected =
+    users.length > 0 && users.every((u) => selectedIds.has(u.id));
+
+  const toDeletable = (list: User[]): DeletableUser[] =>
+    list.map((u) => ({
+      id: u.id,
+      email: u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+    }));
+
+  const handleDeleted = (deletedIds: number[]) => {
+    setUsers((prev) => prev.filter((u) => !deletedIds.includes(u.id)));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of deletedIds) next.delete(id);
+      return next;
+    });
+    setDeleteTargets([]);
+  };
 
   const updateUser = async (
     userId: number,
@@ -182,6 +220,61 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
 
   return (
     <>
+      {/* Toolbar. The bulk bar replaces the spam button when rows are ticked,
+          so the two destructive controls are never adjacent. */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        {selectedIds.size > 0 ? (
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">
+              {selectedIds.size} selected
+            </span>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="gap-2"
+              onClick={() =>
+                setDeleteTargets(
+                  toDeletable(users.filter((u) => selectedIds.has(u.id)))
+                )
+              }
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete selected
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Clear
+            </Button>
+          </div>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-2"
+            onClick={() => setSpamDialogOpen(true)}
+          >
+            <Bot className="h-4 w-4" />
+            Clear bot signups
+          </Button>
+        )}
+      </div>
+
+      <DeleteUsersDialog
+        targets={deleteTargets}
+        open={deleteTargets.length > 0}
+        onOpenChange={(open) => !open && setDeleteTargets([])}
+        onDeleted={handleDeleted}
+      />
+
+      <SpamCleanupDialog
+        open={spamDialogOpen}
+        onOpenChange={setSpamDialogOpen}
+        onDeleted={handleDeleted}
+      />
+
       {/* Permissions Dialog */}
       <Dialog
         open={!!permissionsDialogUser}
@@ -303,6 +396,22 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
+                <th className="px-4 py-3 w-10">
+                  <Checkbox
+                    checked={allOnPageSelected}
+                    onCheckedChange={(checked) =>
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        for (const u of users) {
+                          if (checked) next.add(u.id);
+                          else next.delete(u.id);
+                        }
+                        return next;
+                      })
+                    }
+                    aria-label="Select all on this page"
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   User
                 </th>
@@ -321,6 +430,9 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Joined
                 </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Delete
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -329,6 +441,13 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
                 const name = displayName(user);
                 return (
                   <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-4">
+                      <Checkbox
+                        checked={selectedIds.has(user.id)}
+                        onCheckedChange={() => toggleSelected(user.id)}
+                        aria-label={`Select ${user.email}`}
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="font-medium text-gray-900">
@@ -419,6 +538,17 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
                       {user.createdAt
                         ? formatInstant(user.createdAt, { month: "numeric", day: "numeric", year: "numeric" })
                         : "N/A"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => setDeleteTargets(toDeletable([user]))}
+                        aria-label={`Delete ${user.email}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </td>
                   </tr>
                 );
@@ -527,6 +657,15 @@ export function UserTable({ users: initialUsers }: UserTableProps) {
                     Verify Email
                   </Button>
                 )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => setDeleteTargets(toDeletable([user]))}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete account
+                </Button>
               </div>
             </div>
           );

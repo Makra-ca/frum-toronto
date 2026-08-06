@@ -6,6 +6,11 @@ import { and, eq, ne, or, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { logAudit, getIpFromRequest } from "@/lib/audit";
 import { wouldRemoveLastAdmin } from "@/lib/permissions/last-admin";
+import { canDeleteUser } from "@/lib/admin/user-deletion-guards";
+import {
+  inventoryUserContent,
+  deleteUserWithContent,
+} from "@/lib/admin/user-deletion";
 
 export const dynamic = "force-dynamic";
 
@@ -211,5 +216,128 @@ export async function PATCH(
       { error: "Failed to update user" },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * DELETE /api/admin/users/[id]
+ *
+ * Three-step by design, because deletion is irreversible and 19 foreign keys
+ * would otherwise turn a delete button into an error toast:
+ *
+ *   no ?mode      -> DRY RUN. Counts what the account owns. Writes nothing.
+ *                    Returns 200 with an empty inventory when the account is
+ *                    clean, or 409 WITH the inventory when it is not — so the
+ *                    UI can show the admin exactly what is at stake before
+ *                    asking a second time.
+ *   ?mode=reassign -> blog posts and comments move to the Archive account,
+ *                    every other owner reference is cleared, then delete.
+ *   ?mode=purge    -> the account's content is deleted, then the account.
+ *
+ * Every path writes an audit row, refusals included — "who tried to delete
+ * whom" is worth as much as "who did".
+ */
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+
+    if (!session || session.user.role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const targetId = parseInt(id);
+    if (!Number.isSafeInteger(targetId) || targetId <= 0) {
+      return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
+    }
+
+    const actorId = session.user.id ? parseInt(session.user.id) : null;
+    const actorEmail = session.user.email ?? "unknown";
+    const ipAddress = getIpFromRequest(request);
+
+    const [target] = await db
+      .select({ id: users.id, email: users.email, role: users.role })
+      .from(users)
+      .where(eq(users.id, targetId))
+      .limit(1);
+
+    if (!target) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const verdict = canDeleteUser({
+      targetId,
+      targetRole: target.role,
+      actorId: actorId ?? -1,
+    });
+
+    if (!verdict.allowed) {
+      await logAudit({
+        actorId,
+        actorEmail,
+        action: "DELETE",
+        entityType: "user",
+        entityId: targetId,
+        entityTitle: target.email,
+        changes: { refused: { before: null, after: verdict.reason } },
+        ipAddress,
+      });
+      return NextResponse.json({ error: verdict.reason }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const mode = searchParams.get("mode");
+
+    if (mode !== "reassign" && mode !== "purge") {
+      // Dry run. Nothing is written, including no audit row — an admin opening
+      // a dialog and closing it again is not an event.
+      const inventory = await inventoryUserContent(targetId);
+
+      if (inventory.totalOwned > 0) {
+        return NextResponse.json(
+          {
+            error: "This account owns content. Choose what happens to it.",
+            requiresMode: true,
+            email: target.email,
+            ...inventory,
+          },
+          { status: 409 }
+        );
+      }
+
+      return NextResponse.json({ email: target.email, ...inventory });
+    }
+
+    const inventory = await deleteUserWithContent(targetId, mode);
+
+    await logAudit({
+      actorId,
+      actorEmail,
+      action: "DELETE",
+      entityType: "user",
+      entityId: targetId,
+      entityTitle: target.email,
+      // The inventory as it stood BEFORE the delete — afterwards there is
+      // nothing left to count, and this is the only record of what went.
+      changes: {
+        mode: { before: null, after: mode },
+        content: { before: inventory.owned, after: null },
+        destroyed: { before: inventory.destroyed, after: null },
+      },
+      ipAddress,
+    });
+
+    return NextResponse.json({
+      message: "User deleted",
+      email: target.email,
+      mode,
+      ...inventory,
+    });
+  } catch (error) {
+    console.error("Failed to delete user:", error);
+    return NextResponse.json({ error: "Failed to delete user" }, { status: 500 });
   }
 }

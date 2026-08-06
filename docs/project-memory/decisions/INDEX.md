@@ -5,6 +5,8 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-06 | The bulk-cleanup cohort is defined by owning nothing, not by being unverified | [unverified-is-not-a-proxy-for-bot](2026-08-06-unverified-is-not-a-proxy-for-bot.md) |
+| 2026-08-06 | Deleting a user asks what happens to their content first | [deleting-a-user-asks-about-their-content](2026-08-06-deleting-a-user-asks-about-their-content.md) |
 | 2026-08-06 | Printing uses window.print() with iOS guards, not a server-generated PDF | [print-via-window-print-with-ios-guards](2026-08-06-print-via-window-print-with-ios-guards.md) |
 | 2026-08-06 | Printed shitos follow the site, not the old sheet | [printed-shitos-follow-the-site-not-the-old-sheet](2026-08-06-printed-shitos-follow-the-site-not-the-old-sheet.md) |
 | 2026-08-06 | No zman reaches roundZman pre-rounded — it loses its rounding policy | [no-zman-reaches-roundzman-pre-rounded](2026-08-06-no-zman-reaches-roundzman-pre-rounded.md) |
