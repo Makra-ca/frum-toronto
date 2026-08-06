@@ -25,7 +25,7 @@ describe("misheyakir 45 minutes", () => {
   // The regression. sunriseOffset(-45, true) TRUNCATES seconds, so the value
   // reaches roundZman already at :00, roundZman returns early, and the "up"
   // direction never applies — printing a minute EARLY for an earliest-permitted
-  // time. Reintroducing `true` turns these back to 5:21/5:24.
+  // time. Reintroducing `true` turns these back to 5:21/5:25.
   // Measured at TORONTO_LOCATION's real coordinates (43.6629, -79.3957).
   // With `true` these read 5:21 and 5:25 — a minute early.
   it.each([
