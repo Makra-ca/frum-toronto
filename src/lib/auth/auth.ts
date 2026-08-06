@@ -5,6 +5,7 @@ import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { loadUserClaims } from "@/lib/auth/user-claims";
+import { recordOAuthEmailVerification } from "@/lib/auth/oauth-email-verification";
 import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { authConfig } from "./auth.config";
@@ -101,6 +102,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     ...authConfig.callbacks,
   },
+  events: {
+    // Where an OAuth signup actually gets marked email-verified.
+    //
+    // It CANNOT be done in the provider's profile() below: Auth.js core does
+    // `createUser({ ...profile, emailVerified: null })`, so whatever profile()
+    // says about verification is overwritten before the row is inserted. This
+    // event fires after the adapter has written the user and before the
+    // session is issued, on both paths that create a link — a new OAuth
+    // signup, and an existing session adding a provider.
+    //
+    // `profile` here is the object our profile() returned (Auth.js hands the
+    // mapped user through under that name), which is how the provider's
+    // email_verified claim reaches this point.
+    async linkAccount({ user, account, profile }) {
+      await recordOAuthEmailVerification({
+        userId: user.id ?? "",
+        provider: account.provider,
+        verifiedAt: (profile as { emailVerified?: Date | null }).emailVerified ?? null,
+      });
+    },
+  },
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -111,7 +133,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: profile.name,
           email: profile.email,
           image: profile.picture,
-          emailVerified: new Date(), // Google already verified the email
+          // Auth.js overwrites this with null on the way into the database, so
+          // it survives only on the in-memory object passed to
+          // events.linkAccount above — which is what writes it for real.
+          // Gated on Google's own claim rather than stamped blindly: a
+          // Workspace account can report email_verified: false.
+          emailVerified: profile.email_verified ? new Date() : null,
           role: "member",
           isTrusted: false,
         };

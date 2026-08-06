@@ -2375,3 +2375,74 @@ turns a one-day slip into a seven-day step back. The unit project is pinned
 in `tests/unit/zmanim-calc.test.ts` can see it; `getZmanimForRange` joined the
 same sweep. Both new assertions were verified to go **red** with the
 `anchorCalendarDate` calls removed before being trusted.
+
+---
+
+### 2026-08-06 — Google signups were all landing unverified
+
+**Symptom:** a Gmail user (`yael5770@gmail.com`) showed "not verified" in
+`/admin/users` immediately after signing in with Google.
+
+**Root cause — Auth.js overwrites `emailVerified`, silently.** The Google
+provider's `profile()` in `src/lib/auth/auth.ts` returned
+`emailVerified: new Date()` with the comment "Google already verified the
+email". That value never reached the database. `@auth/core` hardcodes it away
+in `lib/actions/callback/handle-login.js:260`:
+
+```js
+user = await createUser({ ...profile, emailVerified: null });
+```
+
+The spread puts our value in; the explicit `null` immediately overwrites it.
+Deliberate on their side — to Auth.js, `emailVerified` means "we mailed a link
+and they clicked it", not "an IdP asserts the address is real" — but nothing
+signals that our value was discarded. **The `profile()` return was dead code
+for that field.**
+
+**Why it mattered:** `assertCanPost` (`src/lib/auth/require-verified.ts:69`)
+refuses every submission from an unverified non-admin. So every Google signup
+was silently locked out of all 23 submission endpoints. 5 real accounts were
+stuck (ids 12, 14, 23, 3215, 3219).
+
+**Fix — stamp it AFTER the adapter writes the row.** New
+`src/lib/auth/oauth-email-verification.ts` (`recordOAuthEmailVerification`),
+called from a new `events.linkAccount` in `auth.ts`. `linkAccount` is the one
+event that fires on both link-creating paths (new OAuth signup at
+handle-login.js:262-264, and an existing session adding a provider at :209) and
+it runs before the session is issued.
+
+Key mechanics worth remembering:
+- **The mapped `profile()` object survives into the event.** `createUser({...profile, emailVerified: null})` does not mutate `profile`, and
+  `events.linkAccount({ user, account, profile })` passes the original. That is
+  how the provider's claim reaches the writer — `profile()` now returns
+  `emailVerified: profile.email_verified ? new Date() : null`, gated on
+  Google's own claim (a Workspace account can report false) rather than
+  stamped blindly.
+- **`WHERE email_verified IS NULL` is load-bearing.** The legacy import stamped
+  ~3,132 accounts with their ORIGINAL signup date and some of those people
+  later signed in with Google (ids 8, 11, 20 carry 2015/2021/2022 dates).
+  Overwriting would rewrite history.
+- **The helper never throws** — it runs mid sign-in, so a failed UPDATE must
+  not become a login outage. Logged and swallowed; the user can still fall back
+  to `POST /api/auth/resend-verification`.
+
+**Checked and NOT a concern:** `emailVerified` plays no part in Auth.js account
+linking. `allowDangerousEmailAccountLinking` is unset, so an OAuth profile whose
+email already belongs to a user still throws `OAuthAccountNotLinked` regardless
+of verification state (handle-login.js:233-251). Stamping changes nothing there.
+
+**Backfill:** `scripts/backfill-oauth-email-verified.ts` (dry-run default,
+`--commit`, `--test`). **Run against primary on 2026-08-06** — 5 accounts
+verified using each one's own `created_at` (the moment Google vouched), not
+`now()`. All 12 Google-linked accounts are now verified; the three legacy dates
+were untouched. Reversal: re-null the 5 ids the dry run prints.
+
+**Tests:** `tests/oauth-email-verification.test.ts`, 6 integration tests
+(stamps, string id from the adapter, does not overwrite, no-op when the
+provider did not vouch, no-op for `credentials`, never throws). `tsc` 0 errors,
+eslint 0 in touched files.
+
+**Not covered by tests:** the `events.linkAccount` wiring itself is config, and
+there is no harness for a real Google round trip. Verified by reading the
+`@auth/core` source rather than by execution — worth a live Google signup on
+the next deploy to confirm end to end.
