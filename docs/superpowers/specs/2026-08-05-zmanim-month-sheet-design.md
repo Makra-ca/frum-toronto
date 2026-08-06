@@ -27,7 +27,7 @@ pin icon), and again inside `LocationPicker.tsx:247`.
 ## 2. Goals
 
 1. A faithful reproduction of the old month sheet — dense table, all columns, printable.
-2. Selectable span: a calendar month by default, or any custom range up to 31 days.
+2. One calendar month per sheet, selectable by month and year.
 3. Shareable and printable: a shul can link a specific sheet and pin up the result.
 4. Zero change to the existing week view, which is already verified against MyZmanim.
 
@@ -37,38 +37,42 @@ pin icon), and again inside `LocationPicker.tsx:247`.
 - A calendar-grid (month-of-boxes) layout. The use case is scanning one column down
   31 days; a grid is the worst format for that.
 - Mobile-first prettiness. This is a wall chart. It scrolls horizontally on a phone.
-- Spans longer than 31 days.
+- Any span other than a whole calendar month.
 
 ---
 
 ## 4. User-facing behaviour
 
-`/zmanim` gains a two-option view toggle:
+The sheet is its **own route, `/zmanim/month`** — not a view toggle on `/zmanim`. The week
+view is unchanged and keeps its own URL; the two link to each other.
 
-```
-[ Week view ] [ Calendar sheet ]
-```
+Controls on the sheet:
 
-**Week view** is today's page, unchanged, and remains the default.
+- `[ Month ▾ ] [ Year ] [ Go ]` plus `‹` / `›` arrows — the old site's control, reproduced.
+- The location picker (§8).
+- Today's row highlighted, matching the old sheet's blue row.
 
-**Calendar sheet** renders the dense table. Its controls:
+**One calendar month per sheet. There is no custom date range.**
 
-- Primary: `[ Month ▾ ] [ Year ] [ Go ]` plus `‹` / `›` arrows — the old site's control.
-- Secondary: a **Custom range** toggle revealing `from` and `to` date inputs.
-- Default span: the current calendar month in the selected location.
+### Why a separate route
 
-Today's row is highlighted, matching the old sheet's blue row.
+1. **Route segment config is per-segment.** The sheet needs `force-dynamic` (§6.8); a
+   shared page would impose it on the week view, which is static today, for no gain.
+2. **The ticket is a discoverability complaint** — *"do you still have…"*. `/zmanim/month`
+   is linkable, nameable, indexable and shareable as a phrase; `?view=sheet` is none of
+   those.
+3. A shul can put the URL on its own site and it keeps working.
 
-### Why span defaults to a calendar month
-
-An arbitrary range is supported, but the month is the anchor because:
+### Why month-only
 
 1. A wall chart is *"August 2026"*. `Aug 3 – Sep 2` is a strange artifact to pin up.
-2. The two footnotes (Molad, Sof Zman Kiddush Levanah) are Hebrew-month events. They
-   work correctly in any range — you print whichever fall inside it — but the month
-   framing is what makes them read naturally.
-3. A shul linking to the sheet wants a URL that shows *the current month*, not a range
-   frozen in 2026.
+2. The footnotes (Molad, Sof Zman Kiddush Levanah) are Hebrew-month events; the month
+   framing is what makes them read naturally, and an arbitrary range would drop them
+   silently when they fell outside it.
+3. Nobody asked for ranges — the ticket said *month* — and a range could not express the
+   one multi-month span a shul actually prints (the Tishrei season) without exceeding any
+   sane cap anyway.
+4. It removes a module, seven rows of validation and their tests.
 
 ---
 
@@ -98,7 +102,7 @@ except #8 appeared on the old sheet. That is how the counts in §1 hold.
 | 1 | Alos 16.1° | `Zmanim.alotHaShachar()` | exists |
 | 2 | Alos 72 min | `Zmanim.alotHaShachar72()` | **new** |
 | 3 | Misheyakir 10.2° | `Zmanim.timeAtAngle(10.2, true)` | exists — see §9.1 |
-| 4 | Misheyakir 45 min | `Zmanim.sunriseOffset(-45, true)` | **new** |
+| 4 | Misheyakir 45 min | `Zmanim.sunriseOffset(-45, **false**)` — see §6.1, `true` prints a minute early | **new** |
 | 5 | Haneitz Hachama | `Zmanim.sunrise()` | exists |
 | 6 | Sof Zman Shema (MA) | `Zmanim.sofZmanShmaMGA16Point1()` | exists |
 | 7 | Sof Zman Shema (Gra) | `Zmanim.sofZmanShma()` | exists |
@@ -112,6 +116,15 @@ except #8 appeared on the old sheet. That is how the counts in §1 hold.
 | 15 | Shkias Hachama | `Zmanim.sunset()` | exists |
 | 16 | Tzeis 8.5° | `Zmanim.tzeit(8.5)` | exists |
 | 17 | Tzeis 72 min | `sunset() + 72 clock minutes` | exists |
+
+Candle lighting is blank on every row except Fridays and Yom Tov eves. Hebcal applies
+the **local** custom by coordinate with no configuration from us — measured: Jerusalem
+sunset−41 min, Haifa −30, Tel Aviv −18, Toronto −19 — so the heading reads
+`Candle Lighting`, not `Candle Lighting 18 min` as the old Toronto-only sheet did.
+
+Candle lighting needs no rounding fix: hebcal **floors** it, and `ZMAN_DIRECTION` already
+specifies `"down"` for it, so its pre-rounding happens to match our policy. (Contrast
+§6.1 — this was checked, not assumed.)
 
 The old sheet had no separate Havdalah column because havdalah *is* Tzeis 8.5° in our
 system (`zmanim.ts` uses `havdalahDeg: 8.5`). No column is needed.
@@ -142,11 +155,6 @@ mechanism rather than as two more columns that are empty 360 days a year.
 
 **Yom Kippur is different:** hebcal emits no `Fast begins`/`Fast ends` for it, using Candle
 lighting and Havdalah instead — both of which the sheet already has columns for.
-
-Candle lighting is blank on every row except Fridays and Yom Tov eves. Hebcal applies
-the **local** custom by coordinate with no configuration from us — 18 min in Toronto,
-40 in Jerusalem, 30 in Haifa — so the heading reads `Candle Lighting`, not
-`Candle Lighting 18 min` as the old Toronto-only sheet did.
 
 ### 5.3 Inline footnote rows
 
@@ -436,15 +444,11 @@ The page must also stay dynamic rather than being prerendered at build time with
 `export const dynamic = "force-dynamic"` so the guarantee survives a future Cache
 Components opt-in rather than depending on one config flag staying unset.
 
-> **This has a cost that falls on the week view, and it is an argument against the shared
-> route.** Route segment config applies to the **whole segment**. Both views share
-> `/zmanim/page.tsx`, and that page is **static today** — verified: no dynamic export, a
-> static `metadata` object, a synchronous component wrapping a client component that
-> fetches. Adding `force-dynamic` for the sheet's benefit therefore makes the week view
-> dynamic too, for no gain to it.
->
-> A separate `/zmanim/month` route removes the problem entirely: each segment gets its own
-> config. This was not known when the shared-route decision was taken. **Open item, §14.**
+> **This is why the sheet is a separate route (§4).** Route segment config applies to the
+> **whole segment**. Had both views shared `/zmanim/page.tsx` — which is **static today**,
+> verified: no dynamic export, static `metadata`, a synchronous component wrapping a
+> client fetch — then `force-dynamic` would have made the week view dynamic for no gain to
+> it. On `/zmanim/month` the flag affects only the sheet.
 
 ### 6.9 Measured performance
 
@@ -480,14 +484,18 @@ src/lib/zmanim-format.ts          + 2 entries in ZMAN_DIRECTION
 src/lib/zmanim-location-params.ts NEW  parseLocationParams + …OrToronto (§8)
 src/lib/kiddush-levana.ts         NEW  pure; both footnote lines for a date range (§6.5)
 src/lib/zmanim-sheet.ts           NEW  pure; SheetLine[] — rows + interleaved footnotes
-src/lib/zmanim-sheet-range.ts     NEW  pure; parses/validates month & range params
+src/lib/zmanim-month-param.ts     NEW  pure; "YYYY-MM" → {from,to}, else current month
 
-src/app/api/zmanim/route.ts                 imports the extracted parser; 400 unchanged
-src/app/(public)/zmanim/page.tsx            reads searchParams, selects view, metadata
-src/app/(public)/zmanim/ZmanimSheet.tsx     NEW  server component, renders table
-src/app/(public)/zmanim/SheetControls.tsx   NEW  client, month/range picker + toggle
-src/app/(public)/zmanim/ZmanimPageContent.tsx  + view toggle; − duplicate label
+src/app/api/zmanim/route.ts                    imports the extracted parser; 400 unchanged
+src/app/(public)/zmanim/month/page.tsx         NEW  server component + generateMetadata
+src/app/(public)/zmanim/month/ZmanimSheet.tsx  NEW  renders the table
+src/app/(public)/zmanim/month/MonthPicker.tsx  NEW  client; month/year + arrows + location
+src/app/(public)/zmanim/page.tsx               unchanged
+src/app/(public)/zmanim/ZmanimPageContent.tsx  + link to the sheet; − duplicate label
 ```
+
+The week view's `page.tsx` is **untouched** — no `force-dynamic`, no `searchParams`, so it
+keeps its current static rendering. That is the concrete benefit of the separate route.
 
 ### Unit boundaries
 
@@ -495,7 +503,7 @@ src/app/(public)/zmanim/ZmanimPageContent.tsx  + view toggle; − duplicate labe
 |---|---|---|---|
 | `kiddush-levana.ts` | `(from, to)` → `MoladFootnotes[]`, lines already rendered | `@hebcal/core` Molad + HDate — **the only module that constructs either** | pure |
 | `zmanim-location-params.ts` | `URLSearchParams` → `ZmanimLocation` or error | `zmanim-location.ts` | pure |
-| `zmanim-sheet-range.ts` | `URLSearchParams` → `{ from, to }` | nothing | pure |
+| `zmanim-month-param.ts` | `URLSearchParams` → `{ from, to }` for one month | nothing | pure |
 | `zmanim-sheet.ts` | `(ZmanimResponse[], labels[], dafYomi[], today)` → `SheetLine[]` | `kiddush-levana.ts` only — no direct hebcal use | pure |
 | `ZmanimSheet.tsx` | `SheetLine[]` → HTML | `zmanim-sheet.ts` | rendering only |
 
@@ -516,7 +524,7 @@ date arithmetic and no halachic decisions.
 
 `ZmanimSheet` is a **server component**. At ~34 ms/month there is no reason to fetch
 client-side, and server rendering is what makes the page printable and shareable without
-a loading flash. Only `SheetControls` is a client component.
+a loading flash. Only `MonthPicker` is a client component.
 
 `page.tsx` becomes an `async` server component reading `searchParams` and choosing
 between the existing client `ZmanimPageContent` and the new server `ZmanimSheet`.
@@ -526,13 +534,13 @@ between the existing client `ZmanimPageContent` and the new server `ZmanimSheet`
 ## 8. URL is the state
 
 ```
-/zmanim?view=sheet&month=2026-08&lat=43.65&lon=-79.38&tzid=America/Toronto&label=Toronto,%20Ontario,%20Canada
-/zmanim?view=sheet&from=2026-09-25&to=2026-10-10&...
+/zmanim/month
+/zmanim/month?month=2026-08&lat=43.65&lon=-79.38&tzid=America/Toronto&label=Toronto,%20Ontario,%20Canada
 ```
 
-- `view` absent, `week`, or **any unrecognised value** → week cards. `view=sheet` → the table.
-- `month=YYYY-MM` and `from`/`to` are mutually exclusive; if both appear, `month` wins.
+- `month=YYYY-MM`; absent or invalid → the current month in the selected location.
 - Location params use the same names as `/api/zmanim`, but **not** the same function.
+- No `view` param and no `from`/`to` — one month per sheet (§4).
 
 ### The location parser must be extracted and wrapped, not reused
 
@@ -586,13 +594,10 @@ does not silently snap back to Toronto. The picker on the sheet writes to **both
 | Input | Behaviour |
 |---|---|
 | `month` not `YYYY-MM`, or month outside 1–12 | fall back to the current month |
-| `from`/`to` unparseable | fall back to the current month |
-| `to` before `from` | swap them |
-| span > 31 days | clamp `to` to `from + 30 days` and show an inline notice |
 | invalid `lat`/`lon` | fall back to Toronto |
 | `tzid` empty, or not a real IANA zone | fall back to Toronto |
-| unrecognised `view` value | render the week view |
 | year outside 1900–2200 | fall back to the current month |
+| any unknown query param | ignored |
 
 Every case degrades to a rendered sheet. No input produces a 400, an exception or an
 empty page — this is a public, linkable page and a stale bookmark must still render
@@ -611,12 +616,30 @@ was verified time-by-time against MyZmanim for Toronto, New York and Jerusalem. 
 11° on the sheet would either break that verification or make the site show two different
 Misheyakir times on two pages for the same day.
 
-Owner's decision: consistency wins. The column is labelled honestly as `Misheyakir 10.2°`,
-not `11 deg`. The `Misheyakir 45 min` column is still added, because a fixed-minutes zman
-and a degree-based zman diverge seasonally and anyone holding by clock-minutes needs it
-regardless of the degree figure.
+**Owner's decision: 10.2° and 45 min only. No 11° column.** Taken twice, the second time
+against a rendered preview of all three options with real Toronto values, and with the
+tradeoff stated explicitly. The column is labelled honestly as `Misheyakir 10.2°`, not
+`11 deg`.
 
-**Do not "restore" this to 11°.**
+What was accepted, recorded so it is not rediscovered as a surprise:
+
+```
+Aug 1 2026 Toronto     old sheet (11°)  5:01 AM
+                       this sheet       5:06 AM     ← 6 minutes later
+```
+
+Everyone who used the old sheet sees Misheyakir move about six minutes later. That is a
+change of shita for the reader, made without rabbinic review (§11.4), on a document meant
+to be printed. A third `Misheyakir 11°` column was offered as the option that changes
+nobody's practice — one `timeAtAngle(11, true)` call — and was **declined in favour of a
+cleaner two-column layout consistent with the week view**.
+
+The `Misheyakir 45 min` column is still included: a fixed-minutes zman and a degree-based
+one diverge seasonally, and anyone holding by clock-minutes needs it regardless of the
+degree figure.
+
+**Do not "restore" this to 11°, and do not add an 11° column, without asking the owner** —
+both have been considered and decided.
 
 ### 9.2 Sof Zman Tefilah (MA) added
 
@@ -762,7 +785,7 @@ hard month is the one worth having.
 | `kiddush-levana.ts` | Elul 5786 → Fri 2026-08-28 02:37 (verified above); both rendered lines match the old sheet's strings verbatim; a range containing zero footnotes, one, and two; a month where the result crosses a Gregorian month boundary; a leap-year (Adar I/II) month |
 | Molad derivation | Elul 5786 → Thu 2026-08-13; **a zero-distance month, where molad dow equals Rosh Chodesh dow (§6.3) — must not go back seven days**; a molad falling in the previous Gregorian month |
 | `zmanim-location-params.ts` | valid set → location; missing/blank/out-of-range lat/lon → error; **`tzid="Nowhere/Fake"` → error, not a `RangeError` downstream**; `…OrToronto` returns Toronto for every error case |
-| `zmanim-sheet-range.ts` | every row of the §8 validation table, including unrecognised `view` |
+| `zmanim-month-param.ts` | every row of the §8 validation table; `2026-08` → Aug 1–31; a 30-day month; February in a leap year; absent/garbage → current month in the location |
 | `zmanim-sheet.ts` | footnote placed on the right row; footnote outside range omitted; both footnotes in one range; a day carrying **two** labels (Rosh Chodesh + Chanukah) keeps both; Rosh Chodesh alone is labelled |
 | `zmanim-format.ts` | existing key-coverage test now covers the two new zmanim |
 | `zmanim.ts` | `getZmanimForRange` across a DST transition — every day stays at 12:00 UTC; `labelsForDate` returns Rosh Chodesh, which `specialDay` does not |
@@ -775,10 +798,13 @@ Toronto/LA. `getZmanimForRange` and the footnote-placement logic are added to th
 relocation test. Two production bugs in this area survived precisely because they do not
 reproduce on an America/Toronto dev machine.
 
-### 11.4 Rabbinic sign-off — required before the print button ships
+### 11.4 Rabbinic sign-off — offered and declined
 
-This document makes at least four halachic editorial decisions, all currently made by a
-developer:
+**Owner's decision: no rav review. Ship as specced.** Recorded here as an explicit call
+rather than an omission, together with what it covers, so a later reader knows it was
+considered.
+
+The document makes four halachic editorial decisions, all made by a developer:
 
 1. Misheyakir printed at 10.2° where the community read 11° for years (§9.1).
 2. Adding Sof Zman Tefilah (MA), which the old sheet omitted (§9.2) — justified in this
@@ -788,10 +814,20 @@ developer:
    records the open concern that we land ~1 minute **lenient** of Chabad for a time that
    *ends* Shabbos. This spec does not resolve that, and printing amplifies it.
 
-On screen a wrong time is corrigible on the next page load. On a wall it is wrong for a
-month. **A rav who used the old sheet reviews the column set, the headings and the shitos
-before printing is enabled.** Not a formality — items 1 and 4 are exactly the kind of thing
-that generates a complaint, and item 4 is a known open question rather than a settled one.
+On screen a wrong time is corrigible on the next page load; on a wall it stands for a
+month. Item 1 in particular moves a printed time by six minutes for every reader of the old
+sheet, and item 4 is recorded in CLAUDE.md as an open question rather than a settled one.
+
+Since no rav is reviewing, two mitigations are **required** rather than optional:
+
+- **Every column heading carries its shita inline** — `Misheyakir 10.2°`, `Alos 16.1°`,
+  `Tzeis 8.5°`, `Sof Zman Shema (MA)` — exactly as the old sheet did. A reader can then see
+  which opinion a number represents without a legend.
+- **The legend and the disclaimer print.** `ZmanimPageContent.tsx:385-401` carries an
+  eight-item "About These Zmanim" block ending *"Always verify times with your local
+  Rabbi."* §10's print rules hide the header, footer and controls; they must **not** hide
+  this. A pinned sheet of unexplained times with no disclaimer is the version most likely
+  to draw a complaint.
 
 ### 11.5 Manual verification
 
@@ -812,72 +848,58 @@ ticket.
 
 ## 13. Sequencing
 
-The August 2026 fixture is built **before** the hebcal upgrade, so it can act as the
-regression gate on that upgrade. This reorders the obvious sequence deliberately.
+**Owner's decision: build it whole.** No phased release — the sheet ships complete, with
+all seventeen columns, both footnotes, fast-day rows and Daf Yomi.
 
-1. Transcribe the August 2026 fixture (§11.1) — **all** columns, including ones we cannot
-   yet compute — and wire up the comparison test against the **current** tree. The harness
-   loops `getZmanimForDate` directly, since `getZmanimForRange` does not exist until
-   step 4. Four columns are unasserted at this point:
+The zero-tolerance self-snapshot is built **before** the hebcal upgrade so it can gate it.
+That ordering is deliberate; everything else follows dependencies.
 
-   - `Daf Yomi` — pending step 2
-   - `Alos 72 min`, `Misheyakir 45 min` — pending step 4
-   - `Misheyakir` degree — permanently excluded (§11.1)
-
-   Confirm green. Listing the exclusions here is what keeps the first run unambiguous.
-2. Spike `@hebcal/learning` on a throwaway branch: install it, re-run the fixture test and
-   the full existing zmanim suite. **Decision point (§6.2)** — clean upgrade, standalone
-   Daf Yomi, or drop the column. Nothing else proceeds until this is answered.
-3. `kiddush-levana.ts` + Molad civil-date derivation, with tests.
+1. **Snapshot gate.** Capture the current tree's own output for a full year, Toronto and
+   Jerusalem, as a fixture. This is the regression gate (§11.0) — zero tolerance, no
+   transcription, exact.
+2. **hebcal upgrade.** Install `@hebcal/learning`, taking `@hebcal/core` 6.9.1 with it.
+   Re-run the snapshot and the whole existing suite. Already measured clean (§6.2), so
+   this is confirmation rather than a decision point. Confirm `DailyLearning.lookup` gives
+   `Chulin 93` for 2026-08-01.
+3. `kiddush-levana.ts` — Molad civil-date derivation and both footnote lines, with tests.
 4. Two new zmanim + `ZMAN_DIRECTION` entries + `labelsForDate` + `getZmanimForRange`,
-   with tests. Extend the fixture test to the two new columns.
-5. Extract `zmanim-location-params.ts`; point `/api/zmanim` at it; confirm the API's
-   existing tests still pass.
-6. `zmanim-sheet-range.ts` and `zmanim-sheet.ts`, with tests.
-7. `ZmanimSheet.tsx` + `SheetControls.tsx` + `page.tsx` routing + `generateMetadata`.
-8. Print stylesheet and on-screen table accessibility.
-9. Bundled duplicate-label fix.
-10. Manual verification (§11.4).
+   with tests. **`misheyakir45` uses `sunriseOffset(-45, false)`** (§6.1) — and add the
+   invariant test that no zman reaches `roundZman` pre-rounded.
+5. Extract `zmanim-location-params.ts`; point `/api/zmanim` at it; add the IANA `tzid`
+   check; confirm the API's existing tests still pass.
+6. `zmanim-month-param.ts` and `zmanim-sheet.ts`, with tests, including the fast-day
+   footnote rows (§5.2.1).
+7. Parity fixtures (§11.1) — August 2026 plus the September/October holiday sample.
+8. `/zmanim/month` route: `page.tsx` + `generateMetadata` + `ZmanimSheet.tsx` +
+   `MonthPicker.tsx`; link it from the week view and the footer.
+9. Print stylesheet (including the printed legend and disclaimer, §11.4), on-screen table
+   accessibility, and the horizontal-scroll containment (§10).
+10. Bundled duplicate-label fix (§12).
+11. Manual verification (§11.5).
 
-Steps 1 and 3–6 produce no user-visible change and are verified entirely by tests before
+Steps 1 and 3–7 produce no user-visible change and are verified entirely by tests before
 any UI exists.
 
 ---
 
-## 14. Open items for the owner
+## 14. Decisions taken
 
-Raised by adversarial review (three lenses) after the design was approved. Each reopens a
-decision or adds one; none is resolved unilaterally.
+Adversarial review (three lenses) reopened four settled decisions and added two. All are
+now closed. **Nothing in this section is open — reopen only by asking the owner.**
 
-1. **§9.1 — Misheyakir: add 11° as a THIRD column?** The earlier choice was framed as
-   10.2° *or* 11°, and 10.2° was chosen for site consistency. That was a false dilemma: the
-   sheet already carries two Misheyakir columns, so adding `timeAtAngle(11, true)` is one
-   line. It restores old-sheet parity, leaves the week view untouched, and closes the hole
-   in §11.1 where the degree column has to be excluded from parity comparison for having
-   nothing comparable to compare against. *Recommended.*
+| # | Decision | Outcome |
+|---|---|---|
+| 1 | Scope | **Build it whole.** No phased release. |
+| 2 | Where the sheet lives | **Separate `/zmanim/month` route** (§4), not a view toggle. Keeps the week view static. |
+| 3 | Span | **Month only** (§4). No custom range; `zmanim-sheet-range.ts` is not built. |
+| 4 | Misheyakir | **10.2° + 45 min. No 11° column** (§9.1) — chosen against a rendered preview, accepting that readers of the old sheet see Misheyakir move ~6 min later. |
+| 5 | Sof Zman Tefilah (MA) | **Keep it** (§9.2), though the old sheet omits it. |
+| 6 | Rabbinic sign-off | **Declined** (§11.4). Two mitigations become mandatory: shitos inline in every heading, and the legend + disclaimer must print. |
+| — | hebcal upgrade | Not a decision — **measured clean** across every API this codebase uses (§6.2). Take it. |
 
-2. **§6.8 — separate `/zmanim/month` route instead of a view toggle?** The toggle was
-   chosen before it was known that `force-dynamic` applies to the whole route segment and
-   would make the currently-static week view dynamic. A separate route also answers the
-   ticket better: *"do you still have"* is a discoverability complaint, and `?view=sheet`
-   is not linkable, nameable, or indexable. *Recommended.*
-
-3. **§4 — keep the custom range, or month-only?** The range selector has no requester (the
-   ticket said *month*), and costs `zmanim-sheet-range.ts`, seven rows of validation, and
-   its own tests. It also cannot express the one multi-month span a shul actually prints —
-   the Tishrei season — because that exceeds 31 days. *Weak recommendation: month-only,
-   add ranges if asked.*
-
-4. **§11.4 — rav sign-off before print ships.** *Recommended.*
-
-5. **§9.2** — keep Sof Zman Tefilah (MA), or strict parity and drop it?
-
-6. **Phasing.** Ship the sheet using only the 14 already-verified zmanim first (answering
-   the ticket), then add footnotes, the two new zmanim and Daf Yomi? Or build it whole?
-   §13 currently sequences six of ten steps before anything is user-visible.
-
-**No longer an open item:** the `@hebcal/noaa` upgrade was measured clean across every API
-this codebase uses (§6.2). Take it.
+Decisions 4 and 6 compound: the sheet changes a printed halachic time *and* has no
+rabbinic review. That is the owner's call, made with the tradeoff stated, and is recorded
+here so it reads as a decision rather than an oversight.
 
 ### Also worth fixing, independent of this feature
 
