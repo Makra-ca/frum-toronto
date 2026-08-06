@@ -6,10 +6,30 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { registerSchema } from "@/lib/validations/auth";
 import { sendVerificationEmail } from "@/lib/email/send";
+import { verifyTurnstileToken, turnstileErrorMessage } from "@/lib/auth/turnstile";
+import { getIpFromRequest } from "@/lib/audit";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
+    // BEFORE the schema check and before any database read.
+    //
+    // The ordering is the point. Verifying after the existing-user lookup would
+    // turn this endpoint into an address oracle: post an email, and the
+    // "account already exists" response tells you whether that person is a
+    // member — no token needed. Nothing may touch the database until the caller
+    // has proved it is a browser.
+    const turnstile = await verifyTurnstileToken(
+      typeof body?.turnstileToken === "string" ? body.turnstileToken : null,
+      getIpFromRequest(request)
+    );
+    if (!turnstile.ok) {
+      return NextResponse.json(
+        { error: turnstileErrorMessage(turnstile.reason) },
+        { status: turnstile.reason === "not_configured" ? 503 : 400 }
+      );
+    }
 
     // Validate input
     const result = registerSchema.safeParse(body);

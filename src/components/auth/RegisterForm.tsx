@@ -1,6 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
+import { TurnstileWidget } from "@/components/auth/TurnstileWidget";
+
+/**
+ * Whether the challenge is configured at all. When it is not — local
+ * development, and the register-route tests — the widget renders nothing and
+ * the client-side check is skipped, matching the server, which fails open
+ * outside production and closed inside it.
+ */
+const TURNSTILE_ENABLED = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -49,6 +58,18 @@ export function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const resetTurnstileRef = useRef<(() => void) | null>(null);
+
+  // Stable identity so the widget is not torn down and re-rendered on every
+  // keystroke — which would discard a token the visitor already earned.
+  const handleTurnstileToken = useCallback(
+    (token: string | null) => setTurnstileToken(token),
+    []
+  );
+  const handleTurnstileReset = useCallback((reset: () => void) => {
+    resetTurnstileRef.current = reset;
+  }, []);
 
   const {
     register,
@@ -79,6 +100,14 @@ export function RegisterForm() {
   const notifications = watch("notifications");
 
   const onSubmit = async (data: RegisterInput) => {
+    // Only enforced client-side when a site key is configured, so local
+    // development and the existing tests are unaffected. The server is the real
+    // gate: it fails closed in production.
+    if (TURNSTILE_ENABLED && !turnstileToken) {
+      setError("Please complete the verification check below.");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -86,13 +115,18 @@ export function RegisterForm() {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, turnstileToken }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
         setError(result.error || "Registration failed");
+        // A Turnstile token is single-use: whether the server accepted it or
+        // not, it is spent. Without this reset a visitor who mistypes their
+        // password once can never submit again, and the message they get back
+        // is about the password.
+        resetTurnstileRef.current?.();
         setIsLoading(false);
         return;
       }
@@ -282,6 +316,11 @@ export function RegisterForm() {
             ))}
           </div>
         </div>
+
+        <TurnstileWidget
+          onToken={handleTurnstileToken}
+          onResetRef={handleTurnstileReset}
+        />
 
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? (
