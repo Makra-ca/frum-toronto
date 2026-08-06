@@ -22,7 +22,11 @@ function toHebcalLocation(loc: ZmanimLocation): Location {
 
 export interface ZmanimTimes {
   alotHaShachar: Date;
+  /** Fixed 72 clock minutes before sunrise (not degree-based). */
+  alotHaShachar72: Date;
   misheyakir: Date;
+  /** Fixed 45 clock minutes before sunrise. */
+  misheyakir45: Date;
   sunrise: Date;
   sofZmanShma: Date;
   sofZmanTfilla: Date;
@@ -158,10 +162,16 @@ export function getZmanimForDate(
   // Calculate all zmanim times
   const zmanimTimes: ZmanimTimes = {
     alotHaShachar: zmanim.alotHaShachar(),
+    alotHaShachar72: zmanim.alotHaShachar72(),
     // 10.2 degrees below the horizon, matching the rule MyZmanim publishes for
     // this row ("Sun is 10.2 degrees below horizon"). hebcal's misheyakir()
     // default is 11.5 degrees, which ran ~9.5 minutes earlier.
     misheyakir: zmanim.timeAtAngle(10.2, true),
+    // sunriseOffset's second argument is named `roundMinute` but TRUNCATES
+    // seconds. Passing `true` hands roundZman a value already at :00, so its
+    // "up" direction silently never applies and this prints a minute EARLY —
+    // on an earliest-permitted time. Keep `false`; roundZman owns rounding.
+    misheyakir45: zmanim.sunriseOffset(-45, false),
     sunrise: zmanim.sunrise(),
     sofZmanShma: zmanim.sofZmanShma(), // GRA / Vilna Gaon
     sofZmanTfilla: zmanim.sofZmanTfilla(), // GRA / Vilna Gaon
