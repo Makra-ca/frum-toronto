@@ -2259,3 +2259,109 @@ form-open race — that needs the client to echo a version. `applyEdit` and
 **Before merge:** decide whether to push (the timezone fix and the ads session's
 work are still unpushed on `main`), and note that deploying makes the
 `$onUpdate` change to 17 `updated_at` columns user-visible.
+
+---
+
+### 2026-08-06 — Printable monthly zmanim sheet at `/zmanim/month`
+
+Branch `feature/zmanim-month-sheet` (worktree `../ft-zmanim`), 21 commits, **not
+merged, not pushed**. Reproduces the luach the site's predecessor published: one
+row per civil day, seventeen time columns, Hebrew date, day labels, Daf Yomi,
+with molad / sof zman kiddush levanah footnotes and fast-day lines interleaved
+in date order.
+
+**State:** 663 unit tests (was 661 before the relocation sweep), `tsc` 0 errors,
+eslint unchanged at the repo's 49-error baseline (0 in the feature's own files),
+`npm run build` green with `/zmanim` still **○ static** and `/zmanim/month`
+**ƒ dynamic**.
+
+#### What was added
+
+| File | Purpose |
+|---|---|
+`src/app/(public)/zmanim/month/page.tsx` | the route — parses params, degrades to the current month in Toronto on any garbage input |
+`.../month/ZmanimSheet.tsx` | renders `SheetLine[]`; contains **no** date arithmetic |
+`.../month/MonthPicker.tsx` | month navigation + location |
+`.../month/print.css` | print rules, **scoped to the month route** so they cannot leak onto the week view |
+`src/lib/zmanim-sheet.ts` | pure: date range → the exact ordered list of lines |
+`src/lib/kiddush-levana.ts` | molad + sof zman kiddush levanah footnotes |
+`src/lib/daf-yomi.ts` | daf lookup (`@hebcal/learning`) |
+`src/lib/zmanim-month-param.ts`, `src/lib/zmanim-location-params.ts` | param parsing, the location parser now shared with `/api/zmanim` |
+`src/lib/zmanim.ts` | `getZmanimForRange`, `labelsForDate`, plus alos-72 and misheyakir-45 |
+
+The route is a **separate segment on purpose**. `/zmanim/month` needs
+`force-dynamic`; `/zmanim` must stay prerendered. If a build ever shows `/zmanim`
+as ƒ, the segment config has leaked — that is a regression, not a detail.
+
+#### Two shitos deliberately differ from the old sheet — owner's call, no rav review
+
+Both were decided by the owner on the evidence below. **Neither has had rabbinic
+review.** If a rav is ever consulted, these are the two rows to put in front of
+him.
+
+- **Misheyakir prints 10.2°**, matching MyZmanim's published rule for that row.
+  hebcal's `misheyakir()` default is 11.5°, ~9.5 min earlier. Against the old
+  sheet this moves the printed time by **6 minutes**.
+- **Sof Zman Shema (MA) prints the 16.1-degree family**
+  (`sofZmanShmaMGA16Point1`), MyZmanim's "72 minutes as 16.1 degrees". The old
+  sheet used a **fixed** 72 clock minutes. This moves the printed time by
+  **15 minutes**.
+
+Because these two cannot be checked against the old sheet, and checking them
+against our own code would be circular, `tests/unit/zmanim-old-sheet-parity.test.ts`
+pins them to **MyZmanim** values transcribed by hand (do not generate them from
+our code), plus a test asserting we still differ from the fixed-72 shita by
+≥14 minutes — so a silent switch back goes red. Every other column is parity-
+checked against the old sheet's published August 2026 values at ±1 minute.
+
+#### The `roundZman` pre-rounding invariant
+
+**Any zman that reaches `roundZman` already at :00 seconds silently loses its
+rounding policy** — `roundZman` returns early, so the direction registered for
+that zman (up for earliest-permitted times, down for latest-permitted) never
+applies. It caused two real bugs:
+
+1. **Havdalah vs tzeis disagreed on the same moment.** hebcal's havdalah event
+   arrives pre-rounded to the nearest minute, so "up" never applied to it while
+   `tzait` — carrying real seconds — was rounded up as intended. On five of ten
+   consecutive Saturdays the two rows of one week card printed different minutes.
+   Fixed by sharing the same `Date`: havdalah **is** `tzeit(8.5)`, verified never
+   more than 30 s from hebcal's event across all 54 havdalahs in 2026.
+2. **"Fast ends" printed a minute lenient.** hebcal's Fast begins/ends event is
+   likewise pre-rounded. Tzom Gedaliah 2026-09-14 Toronto: real tzeit(7.083°) =
+   20:04:23, hebcal's event 20:04:00 → printed 8:04 PM instead of 8:05 PM, on a
+   time that *ends* a fast, on a sheet pinned to a wall. Now hebcal detects
+   **whether** it is a fast day; we compute the **times**.
+
+Same trap in `Zmanim.sunriseOffset(minutes, roundMinute)` — the flag is named
+"round" but **truncates**. `misheyakir45` passes `false`. `roundZman` owns
+rounding; nothing upstream may pre-round.
+
+#### The hebcal upgrade was measured, not assumed
+
+`tests/unit/zmanim-snapshot.test.ts` is a **zero-tolerance** gate: every zman for
+366 days × Toronto and Jerusalem, compared to
+`tests/fixtures/zmanim-snapshot.json` exactly, including detection of removed
+keys. It exists because the change it must catch is exactly one minute — the same
+size as the parity fixture's tolerance. **Never regenerate the snapshot to make it
+pass.** A diff is a real output change; investigate it, and only regenerate
+(`scripts/generate-zmanim-snapshot.ts`) once the new values are understood and
+accepted.
+
+Adding `@hebcal/learning@6.9.7` took `@hebcal/core` to 6.9.1. Re-resolved with
+the snapshot green — **no zman moved**. `package.json` was also corrected from
+`^6.0.6` to `^6.9.1`: the real floor was held only by `@hebcal/learning`'s
+transitive dependency, so dropping the daf yomi column (a live fallback at the
+time) would have let a fresh install resolve core back down and move every time.
+
+#### Server-timezone relocation
+
+`moladCivilDate` reads UTC parts off `HDate.greg()`, which returns **local**
+midnight. Without `anchorCalendarDate()` a positive-offset server puts Sh'vat
+5793's molad on 2032-12-25 instead of 2033-01-01 — a full **week** early, because
+a zero-distance month (Rosh Chodesh on the molad's own weekday, ~1 month in 28)
+turns a one-day slip into a seven-day step back. The unit project is pinned
+`TZ=UTC`, so only `describe('resolution is independent of the SERVER timezone')`
+in `tests/unit/zmanim-calc.test.ts` can see it; `getZmanimForRange` joined the
+same sweep. Both new assertions were verified to go **red** with the
+`anchorCalendarDate` calls removed before being trusted.
