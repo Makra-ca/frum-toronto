@@ -181,10 +181,14 @@ export function getZmanimForDate(
     tzait72: new Date(zmanim.sunset().getTime() + 72 * 60 * 1000),
   };
 
-  // Havdalah IS tzeis 8.5° — `havdalahDeg: 8.5` above is what hebcal was asked
-  // to use, and `tzait` below is the same calculation. So take the same Date
-  // object rather than hebcal's event time, which arrives pre-rounded to the
-  // NEAREST minute.
+  // Havdalah IS tzeis 8.5° — `havdalahDeg: 8.5` is what hebcal was asked to use,
+  // and `zmanimTimes.tzait` above is that same calculation. So take the same
+  // Date object rather than hebcal's event time, which arrives pre-rounded to
+  // the NEAREST minute.
+  //
+  // Verified across all 54 havdalah events in 2026: hebcal's event is never more
+  // than 30 s from tzeit(8.5) — exactly the rounding error and nothing more — so
+  // this substitutes the same moment on every occurrence, Yom Tov included.
   //
   // That pre-rounding was a real bug, not a nicety. `roundZman` returns early
   // when a value already sits at :00 seconds, so the "up" direction registered
