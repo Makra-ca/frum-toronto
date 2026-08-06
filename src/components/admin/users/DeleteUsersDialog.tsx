@@ -48,6 +48,7 @@ interface Inventory {
   id: number;
   email: string;
   owned: ContentCount[];
+  attributed: ContentCount[];
   destroyed: ContentCount[];
   totalOwned: number;
   /** Set when the API refused outright (admin, self, archive account). */
@@ -89,6 +90,7 @@ export function DeleteUsersDialog({
               id: user.id,
               email: user.email,
               owned: [],
+              attributed: [],
               destroyed: [],
               totalOwned: 0,
               refusedReason: body.error,
@@ -98,6 +100,7 @@ export function DeleteUsersDialog({
               id: user.id,
               email: user.email,
               owned: body.owned ?? [],
+              attributed: body.attributed ?? [],
               destroyed: body.destroyed ?? [],
               totalOwned: body.totalOwned ?? 0,
             });
@@ -107,6 +110,7 @@ export function DeleteUsersDialog({
             id: user.id,
             email: user.email,
             owned: [],
+            attributed: [],
             destroyed: [],
             totalOwned: 0,
             refusedReason: "Could not check this account.",
@@ -129,6 +133,7 @@ export function DeleteUsersDialog({
   const withContent = deletable.filter((i) => i.totalOwned > 0);
   const clean = deletable.filter((i) => i.totalOwned === 0);
   const anyDestroyed = deletable.some((i) => i.destroyed.length > 0);
+  const withAttribution = deletable.filter((i) => i.attributed.length > 0);
 
   const runDelete = async (mode: "reassign" | "purge") => {
     setDeleting(true);
@@ -252,6 +257,37 @@ export function DeleteUsersDialog({
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {withAttribution.length > 0 && (
+              // Shown separately from content, and NOT as something to decide.
+              // These records belong to the community; the account is only
+              // named on them. Listing them next to "Delete everything" would
+              // invite an admin to destroy the eruv history, other people's
+              // questions, or another user's shul access.
+              <div className="rounded-md border bg-blue-50 border-blue-200 p-3">
+                <p className="text-sm font-medium text-blue-900 mb-2">
+                  These records stay — only the name is removed
+                </p>
+                <ul className="text-sm text-blue-900 space-y-2 max-h-40 overflow-y-auto">
+                  {withAttribution.map((c) => (
+                    <li key={c.id}>
+                      <div className="font-medium">{c.email}</div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {c.attributed.map((a) => (
+                          <Badge key={a.label} variant="outline">
+                            {a.count} {a.label.toLowerCase()}
+                          </Badge>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-blue-800 mt-2">
+                  Things this person did to other people&apos;s records — reviewed,
+                  uploaded, assigned. Neither option deletes them.
+                </p>
               </div>
             )}
 

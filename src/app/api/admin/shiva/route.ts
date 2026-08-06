@@ -144,6 +144,16 @@ export async function POST(request: NextRequest) {
     // Admin-created notices are approved → broadcast as-posted (non-fatal).
     try {
       await sendShivaNoticeEmail(created);
+      // Stamped, exactly as community/shiva already does. Without it the row
+      // carries broadcast_at = NULL despite having been announced, so a later
+      // approved → rejected → approved round trip (an admin correcting a
+      // mistake) passes every guard in setApprovalStatus and re-emails a
+      // bereavement notice to the whole subscriber list. broadcast_at is a fact
+      // about the ROW, so whoever sends must stamp.
+      await db
+        .update(shivaNotifications)
+        .set({ broadcastAt: new Date() })
+        .where(eq(shivaNotifications.id, created.id));
     } catch (err) {
       console.error("[SHIVA] Failed to send as-posted broadcast (admin create):", err);
     }

@@ -2,7 +2,8 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   ARCHIVE_USER_ID,
-  OWNED_TABLES,
+  CONTENT_TABLES,
+  ATTRIBUTION_TABLES,
   ALWAYS_DESTROYED,
 } from "@/lib/admin/user-deletion-tables";
 
@@ -50,6 +51,8 @@ import {
 export {
   ARCHIVE_USER_ID,
   OWNED_TABLES,
+  CONTENT_TABLES,
+  ATTRIBUTION_TABLES,
   ALWAYS_DESTROYED,
   type ReassignAction,
 } from "@/lib/admin/user-deletion-tables";
@@ -60,8 +63,15 @@ export interface ContentCount {
 }
 
 export interface UserInventory {
-  /** Content that blocks a plain delete. Empty means the account is clean. */
+  /** Things they authored. These are what the two modes actually decide about. */
   owned: ContentCount[];
+  /**
+   * Things they DID to records that are not theirs — reviewed, uploaded,
+   * assigned. Reported separately because they are never deleted, only
+   * detached, so listing them alongside content would imply a choice that does
+   * not exist and invite an admin to destroy community records.
+   */
+  attributed: ContentCount[];
   /** Content the database will destroy whatever mode is chosen. */
   destroyed: ContentCount[];
   totalOwned: number;
@@ -70,11 +80,17 @@ export interface UserInventory {
 /** Counts everything the account owns. Read-only; writes nothing. */
 export async function inventoryUserContent(userId: number): Promise<UserInventory> {
   const owned: ContentCount[] = [];
+  const attributed: ContentCount[] = [];
   const destroyed: ContentCount[] = [];
 
-  for (const t of OWNED_TABLES) {
+  for (const t of CONTENT_TABLES) {
     const n = await countRows(t.table, t.column, userId);
     if (n > 0) owned.push({ label: t.label, count: n });
+  }
+
+  for (const t of ATTRIBUTION_TABLES) {
+    const n = await countRows(t.table, t.column, userId);
+    if (n > 0) attributed.push({ label: t.label, count: n });
   }
 
   for (const t of ALWAYS_DESTROYED) {
@@ -94,7 +110,10 @@ export async function inventoryUserContent(userId: number): Promise<UserInventor
 
   return {
     owned: mergedOwned,
+    attributed,
     destroyed,
+    // Deliberately counts CONTENT only. This drives the "must choose a mode"
+    // 409, and attribution needs no decision from anyone.
     totalOwned: mergedOwned.reduce((sum, r) => sum + r.count, 0),
   };
 }
@@ -125,7 +144,18 @@ export async function deleteUserWithContent(
 ): Promise<UserInventory> {
   const inventory = await inventoryUserContent(userId);
 
-  for (const t of OWNED_TABLES) {
+  // ATTRIBUTION FIRST, and never deleted — in either mode. These rows are not
+  // the person's content; they record that the person acted on someone else's.
+  // Deleting them removes the community's eruv history, other people's Ask the
+  // Rabbi questions, a shul's documents, and another user's shul-manager
+  // access. See ATTRIBUTION_TABLES for why this is separate from content.
+  for (const t of ATTRIBUTION_TABLES) {
+    await db.execute(
+      sql`UPDATE ${sql.raw(t.table)} SET ${sql.raw(t.column)} = NULL WHERE ${sql.raw(t.column)} = ${userId}`
+    );
+  }
+
+  for (const t of CONTENT_TABLES) {
     if (mode === "purge") {
       await db.execute(
         sql`DELETE FROM ${sql.raw(t.table)} WHERE ${sql.raw(t.column)} = ${userId}`

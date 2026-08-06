@@ -5,6 +5,7 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-06 | A row is either the user's content or a record they acted on — purge never deletes the second | [content-is-not-attribution](2026-08-06-content-is-not-attribution.md) |
 | 2026-08-06 | The bulk-cleanup cohort is defined by owning nothing, not by being unverified | [unverified-is-not-a-proxy-for-bot](2026-08-06-unverified-is-not-a-proxy-for-bot.md) |
 | 2026-08-06 | Deleting a user asks what happens to their content first | [deleting-a-user-asks-about-their-content](2026-08-06-deleting-a-user-asks-about-their-content.md) |
 | 2026-08-06 | Printing uses window.print() with iOS guards, not a server-generated PDF | [print-via-window-print-with-ios-guards](2026-08-06-print-via-window-print-with-ios-guards.md) |
