@@ -343,3 +343,27 @@ export function labelsForDate(
   }
   return labels;
 }
+
+/**
+ * Zmanim for every civil day in [from, to], inclusive.
+ *
+ * Uses addAnchoredDays rather than setDate so each day stays pinned at exactly
+ * 12:00 UTC — a DST transition inside the range must not duplicate or skip a
+ * civil day.
+ */
+export function getZmanimForRange(
+  from: Date,
+  to: Date,
+  location: ZmanimLocation = TORONTO_LOCATION,
+): ZmanimResponse[] {
+  const start = anchorCalendarDate(from);
+  const end = anchorCalendarDate(to);
+  if (end.getTime() < start.getTime()) return [];
+
+  const days = Math.round((end.getTime() - start.getTime()) / 86_400_000);
+  const out: ZmanimResponse[] = [];
+  for (let i = 0; i <= days; i++) {
+    out.push(getZmanimForDate(addAnchoredDays(start, i), location));
+  }
+  return out;
+}
