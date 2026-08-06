@@ -288,8 +288,12 @@ export default function EventsPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="relative bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 text-white overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
+      {/* The clip lives on the decorative layer below, NOT on this wrapper.
+          The blobs are sized to bleed past the hero and must stay contained,
+          but clipping here also ate the search dropdown, which is positioned
+          `absolute top-full` and legitimately extends past the hero's edge. */}
+      <div className="relative bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 text-white">
+        <div className="absolute inset-0 opacity-10 overflow-hidden">
           <div className="absolute top-20 left-10 w-72 h-72 bg-white rounded-full blur-3xl" />
           <div className="absolute bottom-10 right-10 w-96 h-96 bg-blue-400 rounded-full blur-3xl" />
         </div>

@@ -39,7 +39,12 @@ export function HeroSection({ zmanim, eruv, counts, underFixedNav = true }: Hero
   const mobileChips = HERO_NODES.slice(0, 3);
 
   return (
-    <section className="font-display relative overflow-hidden text-white">
+    // Deliberately NOT `overflow-hidden`. HeroBackground already clips itself
+    // (`absolute inset-0 overflow-hidden`), and LightRays renders inside it, so
+    // the decorative layers are contained without a clip here. Clipping the
+    // section cut off the search dropdown, which is `absolute top-full` and
+    // legitimately extends past the hero's bottom edge.
+    <section className="font-display relative text-white">
       <HeroBackground />
 
       <HeroLiveData zmanim={zmanim} eruv={eruv} counts={counts}>
