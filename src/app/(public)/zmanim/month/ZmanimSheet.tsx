@@ -180,7 +180,10 @@ export function ZmanimSheet({
               return (
                 <tr
                   key={`d-${i}`}
-                  className={`${rowBg} ${line.isToday ? "font-semibold ring-1 ring-inset ring-blue-400" : ""}`}
+                  // No ring/outline: with border-collapse a <tr> has no box of
+                  // its own to draw on. Background and weight are what actually
+                  // render, on screen and on paper.
+                  className={`${rowBg} ${line.isToday ? "font-semibold" : ""}`}
                 >
                   <td
                     style={stickyCell(0)}
