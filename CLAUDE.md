@@ -632,6 +632,16 @@ CRON_SECRET=... # Protects cron endpoints
 
 # App URL
 NEXT_PUBLIC_APP_URL=https://frumtoronto.com
+
+# Cloudflare Turnstile — bot defence on /register
+# Widget: Cloudflare dashboard -> Application security -> Turnstile ->
+# "Add widget manually". Hostnames: www.frumtoronto.com, frumtoronto.com,
+# localhost. Mode: Managed.
+# Unset -> the widget does not render and the server SKIPS verification
+# outside production; in production a missing secret returns 503 rather than
+# letting signups through.
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=   # public, ships to the browser
+TURNSTILE_SECRET_KEY=             # server only — never prefix this NEXT_PUBLIC_
 ```
 
 ---
