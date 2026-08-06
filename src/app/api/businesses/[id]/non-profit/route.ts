@@ -5,6 +5,7 @@ import { businesses } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import { isUploadedImageUrl } from "@/lib/safe-url";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,17 @@ export async function POST(
 
     if (!documentUrl || typeof documentUrl !== "string") {
       return NextResponse.json({ error: "documentUrl is required" }, { status: 400 });
+    }
+
+    // Any string was accepted and stored, then shown to the admin reviewing the
+    // charity claim — so the "proof" an admin clicked was a URL the claimant
+    // chose, on a host they control, swappable after review. Constrained to our
+    // own upload storage, the same rule shul documents and ad artwork use.
+    if (!isUploadedImageUrl(documentUrl)) {
+      return NextResponse.json(
+        { error: "Upload the document rather than linking to one elsewhere" },
+        { status: 400 }
+      );
     }
 
     const [business] = await db

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { businesses } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { resend, EMAIL_FROM } from "@/lib/email/resend";
+import { timingSafeEqual } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,18 @@ async function verifyMuxSignature(
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
 
-    return computedSignature === signature;
+    // `===` on strings short-circuits at the first differing character, which
+    // leaks how much of a guess was right. Remote timing on a webhook is not a
+    // practical attack, but a signature comparison is the one place the
+    // constant-time form costs nothing.
+    //
+    // timingSafeEqual throws on a length mismatch, and the caller chooses the
+    // length — so the length is checked first, or this becomes a 500 instead of
+    // a rejection.
+    const expected = Buffer.from(computedSignature);
+    const provided = Buffer.from(signature);
+    if (expected.length !== provided.length) return false;
+    return timingSafeEqual(expected, provided);
   } catch {
     return false;
   }

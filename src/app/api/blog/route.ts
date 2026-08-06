@@ -7,8 +7,17 @@ import { buildSubstringCondition } from "@/lib/search/substring-search";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "12");
+    // Both clamped. `limit` was unbounded, so ?limit=100000 returned all 3,058
+    // posts — full HTML bodies — in one anonymous request. `page` needs the
+    // same treatment for a different reason: NaN or a negative page produced a
+    // NaN/negative OFFSET, which Postgres rejects with a 500.
+    const rawPage = parseInt(searchParams.get("page") || "1");
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+
+    const rawLimit = parseInt(searchParams.get("limit") || "12");
+    const limit =
+      Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 50) : 12;
+
     const categoryId = searchParams.get("categoryId");
     const search = (searchParams.get("search") || "").trim();
     const offset = (page - 1) * limit;

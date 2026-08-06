@@ -1,8 +1,8 @@
 # Security findings — 2026-08-04
 
-**Status as of 2026-08-06: items 0–11 are fixed; item 12 is partly fixed.**
-Details are recorded under each finding and summarised at the bottom. The Low
-list is untouched.
+**Status as of 2026-08-06: items 0–11 fixed, item 12 partly fixed, 6 of 13 Low
+items fixed.** Details are recorded under each finding, and what remains is
+listed under "What is left".
 
 **How this started.** A design spec of mine claimed "`token.role` is only set at
 sign-in". A reviewer checked it, found it false, and that led to a live privilege
@@ -173,17 +173,27 @@ consequence was missed.
 
 ## Low
 
-`commentModeration` self-settable on blog create · non-profit `documentUrl`
-unvalidated · shoutout edit skips the create-path scheduling rules ·
+### Fixed 2026-08-06
+
+| Finding | Fix |
+|---|---|
+| `events/conflicts` allows bulk organiser-email harvesting | Now requires a login (both callers are behind one), and `contactEmail` is no longer selected — `EventConflictModal` renders only organisation/contact name, so the address was returned to every caller and displayed to none. Same removal applied to the conflict list `POST /api/community/events` returns; the admin route keeps it, and the server-side query that notifies the other organiser is untouched |
+| Unbounded `?limit` on `/api/blog` | Clamped to 50. `?limit=100000` returned all 3,058 posts with full HTML bodies to an anonymous caller. `page` clamped too — a negative or NaN page produced a bad OFFSET and a 500 |
+| `commentModeration` self-settable on blog create | Dropped from the user create path. It is a post-level override that beats the site-wide setting, so an author could switch off moderation an admin had enabled for the whole site. `BlogPostEditor` already sent `null` for non-admins — the server just trusted the client |
+| Non-profit `documentUrl` unvalidated | Constrained to our own upload storage. It was any string, shown to the admin reviewing the charity claim — so the "proof" was a URL the claimant controlled and could swap after approval |
+| Mux signature comparison not constant-time | `timingSafeEqual`, with the length checked first (the caller chooses the length, and a mismatch throws) |
+| PayPal verification fails open by shape | Production now returns 503 when `PAYPAL_WEBHOOK_ID` is missing instead of trusting the event. **The variable IS set in production** (checked 2026-08-06), so nothing changes today — but this webhook is what flips a business out of `pending_payment`, so a future missing variable would mean free paid plans rather than a loud failure |
+
+Tests: `tests/low-severity-exposures.test.ts`, all verified red against the old code.
+
+### Still open
+
+`shoutout edit skips the create-path scheduling rules` ·
 `imageUrl`/`photoUrl`/`coverImageUrl` accept arbitrary hosts · contact form
-unauthenticated and unrated · `broadcast_at` unstamped on zero-recipient kosher
-alerts (latent re-broadcast) · unbounded `?limit` on `/api/blog` ·
-`events/conflicts` allows bulk organiser-email harvesting · `senderName`
-spoofing on classified contact · forgeable open/click analytics ·
-forgot-password status oracle · Mux and PayPal signature comparisons are not
-constant-time · PayPal verification is conditional on
-`PAYPAL_WEBHOOK_ID && NODE_ENV === "production"` — holds in production, but
-fails open by shape.
+unauthenticated and unrated (needs rate-limiting infrastructure, not a code
+change) · `broadcast_at` unstamped on zero-recipient kosher alerts (latent
+re-broadcast) · `senderName` spoofing on classified contact · forgeable
+open/click analytics · forgot-password status oracle.
 
 ---
 
@@ -220,7 +230,7 @@ Worth recording so the coverage is auditable rather than assumed.
 
 ## What is left
 
-- **The whole Low list**, unchanged.
+- **Seven Low items** — listed under "Still open" above.
 - **Approve/reject auditing** — see item 12.
 - **Item 2's deeper half.** A paid plan can no longer reach the review queue
   unpaid, but the downstream gates still read the joined `subscription_plans`

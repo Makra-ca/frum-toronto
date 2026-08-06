@@ -24,6 +24,19 @@ export async function POST(request: NextRequest) {
     const body = await request.text();
     const event = JSON.parse(body);
 
+    // This webhook is what flips a business from `pending_payment` into the
+    // review queue, so an unverified POST is a free paid plan. Verification was
+    // conditional on `PAYPAL_WEBHOOK_ID && NODE_ENV === "production"`, which
+    // fails OPEN by shape: lose the variable and every event is trusted.
+    //
+    // PAYPAL_WEBHOOK_ID is in fact set in production today (checked
+    // 2026-08-06), so this changes nothing now — it stops a future missing
+    // variable turning into free subscriptions instead of a loud failure.
+    if (process.env.NODE_ENV === "production" && !PAYPAL_WEBHOOK_ID) {
+      console.error("[PayPal Webhook] PAYPAL_WEBHOOK_ID is not set — refusing to trust this event");
+      return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
+    }
+
     // Verify webhook signature in production
     if (PAYPAL_WEBHOOK_ID && process.env.NODE_ENV === "production") {
       const headers = {

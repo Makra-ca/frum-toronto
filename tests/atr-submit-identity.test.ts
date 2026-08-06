@@ -14,7 +14,14 @@ import { createTestUser, cleanupTestUsers } from "./utils/test-db";
  * Both now come from the account row.
  */
 
-const notifySpy = vi.hoisted(() => vi.fn(async () => undefined));
+type NotifyArgs = { replyTo?: string; title?: string };
+// Typed argument so mock.calls[0][0] is inspectable — the replyTo assertion
+// below is the half of this finding that actually costs something.
+const notifySpy = vi.hoisted(() =>
+  vi.fn(async (payload: { replyTo?: string; title?: string }) => {
+    void payload;
+  })
+);
 
 vi.mock("@/lib/auth/auth", () => ({
   auth: vi.fn(async () => ({ user: { id: String(userId), role: "member" } })),
@@ -78,10 +85,11 @@ describe("submitted identity", () => {
   it("addresses the admin's reply to the account, not the body", async () => {
     // This is the half that actually costs something: replyTo is where the
     // rabbi's answer goes when he hits reply.
-    const call = notifySpy.mock.calls.at(-1)?.[0] as { replyTo?: string; title?: string };
-    expect(call.replyTo).toBe(ACCOUNT_EMAIL);
-    expect(call.title).toContain("Real Submitter");
-    expect(call.title).not.toContain("Bratefeld");
+    const call = notifySpy.mock.calls.at(-1)?.[0] as NotifyArgs | undefined;
+    expect(call).toBeDefined();
+    expect(call!.replyTo).toBe(ACCOUNT_EMAIL);
+    expect(call!.title).toContain("Real Submitter");
+    expect(call!.title).not.toContain("Bratefeld");
   });
 
   it("still accepts a submission with no name or email in the body at all", async () => {

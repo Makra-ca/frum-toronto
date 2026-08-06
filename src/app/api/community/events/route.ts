@@ -65,7 +65,11 @@ export async function POST(request: NextRequest) {
           startTime: events.startTime,
           contactName: events.contactName,
           organization: events.organization,
-          contactEmail: events.contactEmail,
+          // contactEmail deliberately NOT selected — this list is returned
+          // straight to the submitter, and EventConflictModal renders only the
+          // organisation or contact name. The separate query below (which does
+          // read the address, to notify the other organiser) is server-side and
+          // never reaches the client.
         })
         .from(events)
         .where(
