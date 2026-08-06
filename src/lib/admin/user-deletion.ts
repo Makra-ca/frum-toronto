@@ -98,6 +98,26 @@ export async function inventoryUserContent(userId: number): Promise<UserInventor
     if (n > 0) destroyed.push({ label: t.label, count: n });
   }
 
+  /*
+    Comments left by OTHER PEOPLE on this person's blog posts.
+
+    blog_comments.post_id is CASCADE, so deleting a post takes every comment on
+    it — whoever wrote them. The loop above counts blog_comments.author_id, i.e.
+    comments this person WROTE, which is a different set entirely. Without this
+    the dialog under-reports what purge destroys, on an irreversible action.
+
+    Only purge deletes the posts; reassign moves them to the Archive account and
+    the comments ride along. But the dry run does not know the mode yet, so it
+    reports the worst case and the wording says "if you delete everything".
+  */
+  const cascadedComments = await countCascadedPostComments(userId);
+  if (cascadedComments > 0) {
+    destroyed.push({
+      label: "Comments by others on their posts (only if you delete everything)",
+      count: cascadedComments,
+    });
+  }
+
   // Labels are not unique — ask_the_rabbi_submissions appears twice, as the
   // submitter and as the reviewer — so they are merged rather than shown as two
   // confusing rows with the same name.
@@ -116,6 +136,26 @@ export async function inventoryUserContent(userId: number): Promise<UserInventor
     // 409, and attribution needs no decision from anyone.
     totalOwned: mergedOwned.reduce((sum, r) => sum + r.count, 0),
   };
+}
+
+/**
+ * Comments written by anyone OTHER than this user, on posts this user authored.
+ *
+ * These vanish through `blog_comments.post_id` CASCADE when a purge deletes the
+ * posts. Counted separately because no single-column count can see them: they
+ * belong to other authors and are only reachable through the post.
+ */
+async function countCascadedPostComments(userId: number): Promise<number> {
+  const result = await db.execute(
+    sql`SELECT count(*)::int AS n
+        FROM blog_comments c
+        JOIN blog_posts p ON p.id = c.post_id
+        WHERE p.author_id = ${userId} AND c.author_id <> ${userId}`
+  );
+  const rows =
+    (result as unknown as { rows?: Array<{ n: number }> }).rows ??
+    (result as unknown as Array<{ n: number }>);
+  return Number(rows?.[0]?.n ?? 0);
 }
 
 async function countRows(table: string, column: string, userId: number): Promise<number> {

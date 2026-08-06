@@ -82,10 +82,18 @@ describe("the table map", () => {
     ]);
   });
 
-  it("names the cascade nobody can prevent", () => {
+  it("names every cascade nobody can prevent", () => {
     // NOT NULL *and* CASCADE: the database destroys these before any of our
     // code runs, in every mode. The UI has to say so out loud.
-    expect(ALWAYS_DESTROYED.map((t) => t.table)).toEqual(["ask_the_rabbi_comments"]);
+    //
+    // user_shuls.user_id was missed first time round — it is the same shape as
+    // the ATR comments but does not look like content, so it read as plumbing.
+    // Production has exactly one such row, meaning a single delete removes all
+    // shul-management data with no foreign-key error to stop it.
+    expect(ALWAYS_DESTROYED.map((t) => t.table).sort()).toEqual([
+      "ask_the_rabbi_comments",
+      "user_shuls",
+    ]);
   });
 
   it("lists no table twice under the same column", () => {

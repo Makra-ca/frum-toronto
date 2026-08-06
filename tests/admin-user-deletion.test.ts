@@ -22,7 +22,7 @@ vi.mock("@/lib/auth/auth", () => ({
 
 const { DELETE } = await import("@/app/api/admin/users/[id]/route");
 const { db } = await import("@/lib/db");
-const { users, blogPosts, simchas, auditLog, shuls, userShuls, eruvStatus } =
+const { users, blogPosts, blogComments, simchas, auditLog, shuls, userShuls, eruvStatus } =
   await import("@/lib/db/schema");
 const { ARCHIVE_USER_ID } = await import("@/lib/admin/user-deletion-tables");
 
@@ -364,5 +364,78 @@ describe("a clean account", () => {
       .from(users)
       .where(eq(users.id, cleanUserId));
     expect(gone).toBeUndefined();
+  });
+});
+
+describe("what the database destroys regardless of mode", () => {
+  it("counts other people's comments on this author's posts", async () => {
+    /*
+      blog_comments.post_id is CASCADE, so purging an author deletes their
+      posts and every comment on those posts — by ANYONE. The inventory counted
+      blog_comments.author_id (comments they WROTE), a different set entirely,
+      so the dialog under-reported what an irreversible action destroys.
+    */
+    const author = await createTestUser({
+      email: `test-casc-author-${stamp}@frumtoronto.test`,
+    });
+    const commenter = await createTestUser({
+      email: `test-casc-commenter-${stamp}@frumtoronto.test`,
+    });
+
+    const [post] = await db
+      .insert(blogPosts)
+      .values({
+        authorId: author.id,
+        title: `[TEST] Cascade Post ${stamp}`,
+        slug: `test-cascade-${stamp}`,
+        content: "<p>[TEST]</p>",
+        approvalStatus: "approved",
+        isActive: true,
+      })
+      .returning({ id: blogPosts.id });
+
+    const [comment] = await db
+      .insert(blogComments)
+      .values({ postId: post.id, authorId: commenter.id, content: "[TEST] someone else's comment" })
+      .returning({ id: blogComments.id });
+
+    const res = await call(author.id);
+    expect(res.status).toBe(409);
+    const body = await res.json();
+
+    const labels = body.destroyed.map((d: { label: string }) => d.label).join(" | ");
+    expect(labels).toMatch(/comments by others/i);
+
+    // Not counted as the author's own content — they did not write it.
+    expect(body.owned.map((o: { label: string }) => o.label)).not.toContain("Blog comments");
+
+    await db.delete(blogComments).where(eq(blogComments.id, comment.id));
+    await db.delete(blogPosts).where(eq(blogPosts.id, post.id));
+    await db.delete(users).where(inArray(users.id, [author.id, commenter.id]));
+  });
+
+  it("warns that deleting a shul manager removes their shul access", async () => {
+    // user_shuls.user_id is CASCADE + NOT NULL — same shape as the Ask the
+    // Rabbi comments, and easy to miss because it does not look like content.
+    // Production has exactly one such row, so one delete removes all of it.
+    const manager = await createTestUser({
+      email: `test-warn-manager-${stamp}@frumtoronto.test`,
+      role: "shul",
+    });
+    const [shul] = await db
+      .insert(shuls)
+      .values({ name: `[TEST] Warn Shul ${stamp}`, slug: `test-warn-${stamp}` })
+      .returning({ id: shuls.id });
+    await db.insert(userShuls).values({ userId: manager.id, shulId: shul.id });
+
+    const res = await call(manager.id);
+    const body = await res.json();
+
+    const labels = body.destroyed.map((d: { label: string }) => d.label).join(" | ");
+    expect(labels).toMatch(/shul manager/i);
+
+    await db.delete(userShuls).where(eq(userShuls.shulId, shul.id));
+    await db.delete(shuls).where(eq(shuls.id, shul.id));
+    await db.delete(users).where(eq(users.id, manager.id));
   });
 });

@@ -120,6 +120,17 @@ export async function PATCH(
     // splitting them without this guard would send twice.
     if (sendNotification && !alreadyBroadcast) {
       const notificationsSent = await sendKosherAlertBroadcast(updated);
+      // Stamped even though this is a deliberate re-send, because the stamp
+      // answers "has this row ever been announced", not "how many times".
+      // Without it: create silently (sendNotification false, stamp NULL by
+      // design) → Save & Notify (emailed, still NULL) → reject to fix a typo →
+      // approve → setApprovalStatus sees previous "rejected" and a NULL stamp,
+      // every guard passes, and the recall goes out a second time. The
+      // alreadyBroadcast flag above only covers the same request.
+      await db
+        .update(kosherAlerts)
+        .set({ broadcastAt: new Date() })
+        .where(eq(kosherAlerts.id, alertId));
       return NextResponse.json({ alert: updated, notificationsSent });
     }
 

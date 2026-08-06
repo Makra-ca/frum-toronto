@@ -148,12 +148,16 @@ export async function POST(request: NextRequest) {
     // which setApprovalStatus gates on exactly that column.
     if (sendNotification) {
       const notificationsSent = await sendKosherAlertBroadcast(newAlert);
-      if (notificationsSent > 0) {
-        await db
-          .update(kosherAlerts)
-          .set({ broadcastAt: new Date() })
-          .where(eq(kosherAlerts.id, newAlert.id));
-      }
+      // NOT gated on notificationsSent > 0. The recipient count is a property of
+      // the subscriber list on the day; whether the row was announced is a
+      // property of the ROW. Zero matching subscribers left it looking
+      // un-announced, so a later approve would announce it again — by which
+      // time there may well be subscribers.
+      void notificationsSent;
+      await db
+        .update(kosherAlerts)
+        .set({ broadcastAt: new Date() })
+        .where(eq(kosherAlerts.id, newAlert.id));
       return NextResponse.json(
         { alert: newAlert, notificationsSent },
         { status: 201 }

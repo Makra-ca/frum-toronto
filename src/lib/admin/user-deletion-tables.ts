@@ -111,4 +111,17 @@ export const OWNED_TABLES: ReadonlyArray<OwnedTable> = [
  */
 export const ALWAYS_DESTROYED = [
   { table: "ask_the_rabbi_comments", column: "author_id", label: "Ask the Rabbi comments" },
+  /*
+    user_shuls.user_id is CASCADE + NOT NULL — structurally identical to the
+    row above, and easy to miss because it does not look like content.
+
+    Deleting a shul manager silently removes their shul access, with no
+    foreign-key error to stop it. Production has exactly ONE such row, so a
+    single delete removes 100% of the shul-management data.
+
+    WARN rather than refuse: an admin may legitimately want to remove a shul
+    manager, and re-assigning is recoverable. Silently doing it is not
+    acceptable; refusing outright is too strong.
+  */
+  { table: "user_shuls", column: "user_id", label: "Shul manager assignments" },
 ] as const;

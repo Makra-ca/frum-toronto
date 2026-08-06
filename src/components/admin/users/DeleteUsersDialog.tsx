@@ -295,12 +295,26 @@ export function DeleteUsersDialog({
               // Always shown when present, in every mode. The database cascades
               // these away before our code runs; no option preserves them.
               <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                <p className="text-sm text-red-900">
-                  <strong>Ask the Rabbi comments will be deleted either
-                  way.</strong>{" "}
-                  The database removes them automatically with the account —
-                  there is no option that keeps them.
+                <p className="text-sm text-red-900 mb-2">
+                  <strong>These are removed by the database itself</strong> —
+                  no option below keeps them.
                 </p>
+                <ul className="text-sm text-red-900 space-y-2 max-h-40 overflow-y-auto">
+                  {deletable
+                    .filter((i) => i.destroyed.length > 0)
+                    .map((c) => (
+                      <li key={c.id}>
+                        <div className="font-medium">{c.email}</div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {c.destroyed.map((d) => (
+                            <Badge key={d.label} variant="destructive">
+                              {d.count} {d.label.toLowerCase()}
+                            </Badge>
+                          ))}
+                        </div>
+                      </li>
+                    ))}
+                </ul>
               </div>
             )}
           </div>

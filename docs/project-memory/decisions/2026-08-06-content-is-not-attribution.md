@@ -58,4 +58,26 @@ silently.
   a test catches one being added.
 - Verified by reinstating the bug and watching the integration test go red.
 
+## Follow-on, same review
+
+Four more findings from the same reviewer, all verified and fixed in the same
+pass:
+
+- **`broadcast_at` must not be gated on the recipient count.** Both kosher-alert
+  create paths only stamped when the send reached someone. The count is a
+  property of the subscriber list on the day; **whether the row was announced is
+  a property of the row.** Zero matching subscribers left it looking
+  un-announced, so a later approve would announce it again — by which time there
+  may well be subscribers.
+- **"Save & Notify" emailed without stamping** (`admin/kosher-alerts/[id]`),
+  completing a chain: create silently → notify → reject to fix a typo → approve
+  → second email to the whole list.
+- **`user_shuls.user_id` joined `ALWAYS_DESTROYED`.** CASCADE + NOT NULL, same
+  shape as the ATR comments, missed because it does not look like content.
+  Warned rather than refused: removing a shul manager can be legitimate and
+  re-assigning is recoverable, but doing it silently is not acceptable.
+- **`blog_comments.post_id` is CASCADE**, so purging an author destroys every
+  comment on their posts by anyone. The inventory counted comments they *wrote*
+  — a different set — and so under-reported an irreversible action.
+
 Related: [[deleting-a-user-asks-about-their-content]]

@@ -123,13 +123,16 @@ export async function POST(request: NextRequest) {
     // granted and revoked by an admin.
     if (autoApprove) {
       try {
-        const notified = await sendKosherAlertBroadcast(newAlert);
-        if (notified > 0) {
-          await db
-            .update(kosherAlerts)
-            .set({ broadcastAt: new Date() })
-            .where(eq(kosherAlerts.id, newAlert.id));
-        }
+        await sendKosherAlertBroadcast(newAlert);
+        // NOT gated on the recipient count. That count is a property of the
+        // subscriber list on the day; whether the row was announced is a
+        // property of the ROW. Zero matching subscribers left it looking
+        // un-announced, so a later approve would announce it again — by which
+        // time there may well be subscribers.
+        await db
+          .update(kosherAlerts)
+          .set({ broadcastAt: new Date() })
+          .where(eq(kosherAlerts.id, newAlert.id));
       } catch (emailError) {
         console.error("[KOSHER] Failed to send as-posted broadcast:", emailError);
       }
