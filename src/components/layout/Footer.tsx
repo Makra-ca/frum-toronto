@@ -82,6 +82,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/zmanim/month" className="text-blue-200 hover:text-white transition-colors">
+                  Monthly Zmanim Calendar
+                </Link>
+              </li>
+              <li>
                 <Link href="/shiurim" className="text-blue-200 hover:text-white transition-colors">
                   Weekly Shiurim
                 </Link>

@@ -2,9 +2,11 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   getZmanimForDate,
   getZmanimForWeek,
+  getZmanimForRange,
   getUpcomingShabbat,
   formatZmanTime,
 } from '@/lib/zmanim';
+import { moladFootnotesInRange } from '@/lib/kiddush-levana';
 import { formatZmanByKey } from '@/lib/zmanim-format';
 import { TORONTO_LOCATION, type ZmanimLocation } from '@/lib/zmanim-location';
 
@@ -251,5 +253,49 @@ describe('resolution is independent of the SERVER timezone', () => {
 
     expect(new Set(dates).size).toBe(1);
     expect(dates[0]).toContain('August 1, 2026');
+  });
+
+  it('derives the same molad civil dates from every server timezone', () => {
+    // Sh'vat 5793 is a ZERO-distance month: Rosh Chodesh falls on the same
+    // weekday as the molad. HDate.greg() hands back LOCAL midnight, so on a
+    // positive-offset server reading getUTCDate() off it lands one day earlier,
+    // which turns the (dow - dow) % 7 == 0 case into a full SEVEN-day step back:
+    // 2032-12-25 instead of 2033-01-01. Nothing else in the suite can see this,
+    // because the unit project is pinned TZ=UTC.
+    const results = serverZones.map((tz) => {
+      process.env.TZ = tz;
+      const f = moladFootnotesInRange(
+        new Date(Date.UTC(2032, 11, 29, 12)),
+        new Date(Date.UTC(2033, 0, 4, 12))
+      );
+      return { tz, days: f.map((x) => x.moladCivilDate.toISOString().slice(0, 10)) };
+    });
+
+    for (const r of results) {
+      expect(r.days, `server TZ ${r.tz}`).toContain('2033-01-01');
+    }
+
+    // And identical to each other, not merely each individually plausible.
+    expect(new Set(results.map((r) => r.days.join('|'))).size).toBe(1);
+  });
+
+  it('returns the same civil days from getZmanimForRange in every server timezone', () => {
+    const results = serverZones.map((tz) => {
+      process.env.TZ = tz;
+      const rows = getZmanimForRange(
+        new Date(Date.UTC(2026, 7, 1, 12)),
+        new Date(Date.UTC(2026, 7, 5, 12)),
+        TORONTO_LOCATION
+      );
+      return { tz, dates: rows.map((r) => r.date) };
+    });
+
+    for (const r of results) {
+      expect(r.dates, `server TZ ${r.tz}`).toHaveLength(5);
+      expect(r.dates[0], `server TZ ${r.tz}`).toContain('August 1, 2026');
+      expect(r.dates[4], `server TZ ${r.tz}`).toContain('August 5, 2026');
+    }
+
+    expect(new Set(results.map((r) => r.dates.join('|'))).size).toBe(1);
   });
 });

@@ -17,11 +17,15 @@ import {
   ChevronsLeft,
   ChevronsRight,
   CalendarSearch,
-  MapPin,
   Star,
 } from "lucide-react";
+import Link from "next/link";
 import { LocationPicker } from "@/components/zmanim/LocationPicker";
-import { buildZmanimParams } from "@/lib/zmanim-location";
+import {
+  buildZmanimParams,
+  isTorontoLocation,
+  type ZmanimLocation,
+} from "@/lib/zmanim-location";
 import { useStoredZmanimLocation } from "@/hooks/useStoredZmanimLocation";
 
 interface ZmanimDay {
@@ -62,6 +66,16 @@ function getStartOfWeek(date: Date): Date {
   // midnight sends the previous day for positive-offset viewers.
   d.setHours(12, 0, 0, 0);
   return d;
+}
+
+/**
+ * Link to the printable month sheet, carrying the chosen location so the sheet
+ * opens where the viewer already is. Toronto's params are omitted because it is
+ * the sheet's default.
+ */
+function monthSheetHref(location: ZmanimLocation): string {
+  if (isTorontoLocation(location)) return "/zmanim/month";
+  return `/zmanim/month?${buildZmanimParams(location).toString()}`;
 }
 
 function formatDateForInput(date: Date): string {
@@ -184,10 +198,6 @@ export function ZmanimPageContent() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           Zmanim for {location.label}
         </h1>
-        <p className="text-gray-600 flex items-center gap-1">
-          <MapPin className="h-4 w-4" />
-          {location.label}
-        </p>
         <div className="mt-4">
           <LocationPicker value={location} onChange={setLocation} />
         </div>
@@ -258,6 +268,12 @@ export function ZmanimPageContent() {
           {isLoading && (
             <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
           )}
+          <Link
+            href={monthSheetHref(location)}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            Monthly calendar →
+          </Link>
         </div>
 
         {/* Week/Month Navigation Row */}

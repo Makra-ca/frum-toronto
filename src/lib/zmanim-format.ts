@@ -28,7 +28,9 @@ export type RoundDirection = "up" | "down";
 export const ZMAN_DIRECTION = {
   // Permitted-from times: round UP, so nothing is done a moment too early.
   alotHaShachar: "up",
+  alotHaShachar72: "up",
   misheyakir: "up",
+  misheyakir45: "up",
   sunrise: "up",
   minchaGedola: "up",
   minchaKetana: "up",

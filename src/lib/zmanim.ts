@@ -9,7 +9,7 @@ import {
 /**
  * Build a @hebcal/core Location from a ZmanimLocation.
  */
-function toHebcalLocation(loc: ZmanimLocation): Location {
+export function toHebcalLocation(loc: ZmanimLocation): Location {
   return new Location(
     loc.lat,
     loc.lon,
@@ -22,7 +22,11 @@ function toHebcalLocation(loc: ZmanimLocation): Location {
 
 export interface ZmanimTimes {
   alotHaShachar: Date;
+  /** Fixed 72 clock minutes before sunrise (not degree-based). */
+  alotHaShachar72: Date;
   misheyakir: Date;
+  /** Fixed 45 clock minutes before sunrise. */
+  misheyakir45: Date;
   sunrise: Date;
   sofZmanShma: Date;
   sofZmanTfilla: Date;
@@ -158,10 +162,16 @@ export function getZmanimForDate(
   // Calculate all zmanim times
   const zmanimTimes: ZmanimTimes = {
     alotHaShachar: zmanim.alotHaShachar(),
+    alotHaShachar72: zmanim.alotHaShachar72(),
     // 10.2 degrees below the horizon, matching the rule MyZmanim publishes for
     // this row ("Sun is 10.2 degrees below horizon"). hebcal's misheyakir()
     // default is 11.5 degrees, which ran ~9.5 minutes earlier.
     misheyakir: zmanim.timeAtAngle(10.2, true),
+    // sunriseOffset's second argument is named `roundMinute` but TRUNCATES
+    // seconds. Passing `true` hands roundZman a value already at :00, so its
+    // "up" direction silently never applies and this prints a minute EARLY —
+    // on an earliest-permitted time. Keep `false`; roundZman owns rounding.
+    misheyakir45: zmanim.sunriseOffset(-45, false),
     sunrise: zmanim.sunrise(),
     sofZmanShma: zmanim.sofZmanShma(), // GRA / Vilna Gaon
     sofZmanTfilla: zmanim.sofZmanTfilla(), // GRA / Vilna Gaon
@@ -291,4 +301,69 @@ export function getUpcomingShabbat(
     parsha: saturdayZmanim.parsha || fridayZmanim.parsha,
     date: saturday,
   };
+}
+
+/**
+ * Every label applicable to a date: Yom Tov, Rosh Chodesh, fast days, Chol
+ * Hamoed.
+ *
+ * `ZmanimResponse.specialDay` cannot serve the sheet: it omits
+ * flags.ROSH_CHODESH entirely, and it is a single last-write-wins string, so a
+ * day that is both Rosh Chodesh and Chanukah collapses to one arbitrary label.
+ * It is left exactly as-is because the week view and the API consume it.
+ */
+export function labelsForDate(
+  date: Date,
+  location: ZmanimLocation = TORONTO_LOCATION,
+): string[] {
+  const dayDate = anchorCalendarDate(date);
+  const events = HebrewCalendar.calendar({
+    start: dayDate,
+    end: dayDate,
+    location: toHebcalLocation(location),
+    il: location.isIsrael,
+    sedrot: false,
+    candlelighting: false,
+  });
+
+  const WANTED =
+    flags.CHAG |
+    flags.ROSH_CHODESH |
+    flags.MINOR_FAST |
+    flags.MAJOR_FAST |
+    flags.MINOR_HOLIDAY |
+    flags.CHOL_HAMOED;
+
+  const labels: string[] = [];
+  for (const ev of events) {
+    if (ev.getFlags() & WANTED) {
+      const desc = ev.getDesc();
+      if (!labels.includes(desc)) labels.push(desc);
+    }
+  }
+  return labels;
+}
+
+/**
+ * Zmanim for every civil day in [from, to], inclusive.
+ *
+ * Uses addAnchoredDays rather than setDate so each day stays pinned at exactly
+ * 12:00 UTC — a DST transition inside the range must not duplicate or skip a
+ * civil day.
+ */
+export function getZmanimForRange(
+  from: Date,
+  to: Date,
+  location: ZmanimLocation = TORONTO_LOCATION,
+): ZmanimResponse[] {
+  const start = anchorCalendarDate(from);
+  const end = anchorCalendarDate(to);
+  if (end.getTime() < start.getTime()) return [];
+
+  const days = Math.round((end.getTime() - start.getTime()) / 86_400_000);
+  const out: ZmanimResponse[] = [];
+  for (let i = 0; i <= days; i++) {
+    out.push(getZmanimForDate(addAnchoredDays(start, i), location));
+  }
+  return out;
 }

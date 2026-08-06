@@ -1,0 +1,74 @@
+/* Print rules for the month sheet.
+ *
+ * Everything here is gated on .zmanim-sheet-print. A CSS import in a route
+ * segment still ships a global stylesheet, so a bare `header { display: none }`
+ * inside @media print would ALSO strip the site header when someone prints the
+ * WEEK view at /zmanim. Header and Footer are rendered by LayoutWrapper, i.e.
+ * outside this page component, so they can only be reached by a global selector
+ * — hence body:has(...) as the gate rather than a descendant selector.
+ */
+@media print {
+  body:has(.zmanim-sheet-print) header,
+  body:has(.zmanim-sheet-print) footer,
+  .zmanim-sheet-print .no-print {
+    display: none !important;
+  }
+
+  .zmanim-sheet-print {
+    max-width: none;
+    padding: 0;
+    margin: 0;
+    /* Keep the row shading and the today highlight on paper. */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* The scroll container must not clip on paper: there is no scrollbar to use. */
+  .zmanim-sheet-print .overflow-x-auto {
+    overflow: visible !important;
+    border: 0 !important;
+  }
+
+  .zmanim-sheet-print table {
+    width: 100%;
+    font-size: 8pt;
+    border-collapse: collapse;
+  }
+
+  /* Repeat the headings on every sheet of paper, and stop sticky positioning
+     from parking the header block over the first rows. */
+  .zmanim-sheet-print thead {
+    display: table-header-group;
+  }
+
+  .zmanim-sheet-print thead,
+  .zmanim-sheet-print th,
+  .zmanim-sheet-print td {
+    position: static !important;
+  }
+
+  .zmanim-sheet-print tr {
+    page-break-inside: avoid;
+  }
+
+  .zmanim-sheet-print th,
+  .zmanim-sheet-print td {
+    padding: 1pt 3pt;
+  }
+
+  /* The legend and disclaimer MUST print. A pinned sheet of unexplained times,
+     with nothing saying which opinion each column follows and no instruction to
+     verify with a rav, is the worst possible outcome for this page. */
+  .zmanim-sheet-print .sheet-legend {
+    display: block !important;
+    page-break-inside: avoid;
+    margin-top: 6pt;
+    background: none;
+    font-size: 7.5pt;
+  }
+
+  @page {
+    size: landscape;
+    margin: 10mm;
+  }
+}

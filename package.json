@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",
-    "@hebcal/core": "^6.0.6",
+    "@hebcal/core": "^6.9.1",
+    "@hebcal/learning": "^6.9.7",
     "@hookform/resolvers": "^5.2.2",
     "@neondatabase/serverless": "^1.0.2",
     "@radix-ui/react-accordion": "^1.2.12",
