@@ -5,6 +5,8 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-06 | Two sessions on one repo: one builds and commits, one only reviews | [one-session-builds-one-reviews](2026-08-06-one-session-builds-one-reviews.md) |
+| 2026-08-06 | The Approvals queue is editable, with its own focused editor | [approvals-queue-is-editable](2026-08-06-approvals-queue-is-editable.md) |
 | 2026-08-06 | The admin UI is exercised in a browser on the test branch, with a real password | [admin-ui-is-tested-on-the-test-branch](2026-08-06-admin-ui-is-tested-on-the-test-branch.md) |
 | 2026-08-06 | A row is either the user's content or a record they acted on — purge never deletes the second | [content-is-not-attribution](2026-08-06-content-is-not-attribution.md) |
 | 2026-08-06 | The bulk-cleanup cohort is defined by owning nothing, not by being unverified | [unverified-is-not-a-proxy-for-bot](2026-08-06-unverified-is-not-a-proxy-for-bot.md) |
