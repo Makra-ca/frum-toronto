@@ -5,6 +5,7 @@ import { blogPosts } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { blogEditSchema } from "@/lib/validations/submission-edits";
 import { applyEdit, SubmissionEditError } from "@/lib/submissions/apply-edit";
+import { canSetModerationOverride } from "@/lib/comments/moderation";
 import { canEditRow } from "@/lib/submissions/ownership";
 import { assertCanPost } from "@/lib/auth/require-verified";
 import { notifyAdminOfTrustedEdit } from "@/lib/notifications";
@@ -165,6 +166,22 @@ export async function PATCH(
     if (!(await canEditRow("blog", post as Record<string, unknown>, userId, session.user.role))) {
       return NextResponse.json(
         { error: "You can only edit your own posts" },
+        { status: 403 }
+      );
+    }
+
+    // Same direction rule as the create path. Checked here rather than inside
+    // applyEdit because applyEdit's whitelist answers "may this field be
+    // written", not "may this VALUE be written by this person".
+    if (
+      !canSetModerationOverride(
+        session.user.role === "admin",
+        result.data.commentModeration,
+        post.commentModeration
+      )
+    ) {
+      return NextResponse.json(
+        { error: "Only an admin can turn comment moderation off for a post." },
         { status: 403 }
       );
     }

@@ -158,3 +158,37 @@ export function decideBlogComment(input: {
     siteModeration: input.siteModeration,
   });
 }
+
+/**
+ * Whether a given person may set a given per-item override.
+ *
+ * Authors get the control, but only to make their own post STRICTER. They may
+ * choose "hold for approval" or defer to the site; they may not TURN
+ * MODERATION OFF.
+ *
+ * The asymmetry is the point. Letting an author pick "open" hands them a way
+ * around a decision that is not theirs — an admin who turns moderation on for
+ * a post after comments turn abusive, or who holds the whole site, would be
+ * overridden by the author editing their own post. Tightening carries no such
+ * risk: the worst case is comments waiting for review.
+ *
+ * `current` matters. Without it, an author whose post an admin had already set
+ * to "open" could not edit their post AT ALL — the editor resends the current
+ * value with every save, so a typo fix would be refused. The rule is about
+ * CHANGING the setting, not about carrying it.
+ */
+export function canSetModerationOverride(
+  isAdmin: boolean,
+  next: string | null | undefined,
+  current?: string | null
+): boolean {
+  if (isAdmin) return true;
+
+  const normalise = (v: string | null | undefined) => v ?? null;
+  // Resubmitting whatever is already there is always fine, including "open".
+  if (current !== undefined && normalise(next) === normalise(current)) {
+    return true;
+  }
+
+  return normalise(next) === null || next === "approved";
+}

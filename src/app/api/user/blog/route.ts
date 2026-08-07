@@ -6,6 +6,7 @@ import { eq, desc } from "drizzle-orm";
 import { blogPostSchema } from "@/lib/validations/blog";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import { canSetModerationOverride } from "@/lib/comments/moderation";
 import { resolveApprovalStatus } from "@/lib/submissions/auto-approve";
 
 function generateSlug(name: string): string {
@@ -103,13 +104,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // commentModeration is deliberately NOT destructured. It is a post-level
-    // OVERRIDE that wins over the site-wide `blog_comment_moderation` setting
-    // (blog/[slug]/comments/route.ts:170-175), so accepting it here let any
-    // author set their own post to "open" and switch off the moderation an
-    // admin had turned on for the whole site. Admins can still set it through
-    // the admin route; a member's post inherits the site setting, as null.
-    const { title, content, contentJson, coverImageUrl, excerpt, categoryId, customCategory } = result.data;
+    // commentModeration is a post-level OVERRIDE that wins over the site-wide
+    // setting, so an author accepting it unfiltered could set their own post to
+    // "open" and switch off moderation an admin had turned on for the site.
+    //
+    // Authors may now set it, but only in the strict direction — see
+    // canSetModerationOverride. Anything else is refused rather than silently
+    // dropped: an author who asks to loosen and is told nothing would believe
+    // the setting took.
+    const { title, content, contentJson, coverImageUrl, excerpt, categoryId, customCategory, commentModeration } = result.data;
+
+    if (!canSetModerationOverride(session.user.role === "admin", commentModeration)) {
+      return NextResponse.json(
+        { error: "Only an admin can turn comment moderation off for a post." },
+        { status: 403 }
+      );
+    }
     const userId = parseInt(session.user.id);
 
     // The same helper the edit path uses. This was the last create path still
@@ -139,7 +149,7 @@ export async function POST(request: NextRequest) {
         authorId: userId,
         categoryId: categoryId || null,
         customCategory: customCategory || null,
-        commentModeration: null,
+        commentModeration: commentModeration || null,
         approvalStatus,
         publishedAt,
       })

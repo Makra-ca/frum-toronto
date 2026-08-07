@@ -100,7 +100,7 @@ export function BlogPostEditor({
       excerpt: excerpt.trim() || null,
       categoryId: isCustomCategory ? null : categoryId,
       customCategory: isCustomCategory ? customCategory.trim() || null : null,
-      commentModeration: isAdmin ? commentModeration : null,
+      commentModeration,
     });
   };
 
@@ -177,29 +177,34 @@ export function BlogPostEditor({
           )}
         </div>
 
-        {/* Comment Moderation - Admin only */}
-        {isAdmin && (
-          <div className="space-y-2">
-            <Label>Comment Moderation</Label>
-            <Select
-              value={commentModeration || "default"}
-              onValueChange={(val) =>
-                setCommentModeration(val === "default" ? null : val)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Use default" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Use default</SelectItem>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="require_approval">
-                  Require approval
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        {/*
+          Authors see this too, but without "Open": they may make their own
+          post stricter, never looser. See canSetModerationOverride.
+        */}
+        <div className="space-y-2">
+          <Label>Comment Moderation</Label>
+          <Select
+            value={commentModeration || "default"}
+            onValueChange={(val) =>
+              setCommentModeration(val === "default" ? null : val)
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Use default" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Use default</SelectItem>
+              {isAdmin && <SelectItem value="open">Open</SelectItem>}
+              <SelectItem value="approved">Require approval</SelectItem>
+            </SelectContent>
+          </Select>
+          {!isAdmin && (
+            <p className="text-xs text-gray-500">
+              You can require approval on your own post. Only an admin can turn
+              moderation off.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Excerpt */}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MODERATION_VALUES } from "@/lib/comments/moderation";
 import type { SubmissionType } from "@/lib/submissions/types";
 import { isUploadedImageUrl } from "@/lib/safe-url";
 
@@ -154,6 +155,11 @@ export const blogEditSchema = z.object({
   excerpt: optionalText(500),
   categoryId: z.number().int().positive().optional().nullable(),
   customCategory: optionalText(100),
+  // The route checks the DIRECTION (canSetModerationOverride) — an author may
+  // only make their own post stricter. The enum here just rejects values the
+  // comment route would not recognise; note the admin editor used to send
+  // "require_approval", which this would refuse.
+  commentModeration: z.enum(MODERATION_VALUES).optional().nullable(),
 });
 
 /** Events keep publicEventSchema, which the create path already uses. */

@@ -122,11 +122,15 @@ describe("/api/blog pagination bounds", () => {
 });
 
 describe("blog comment moderation", () => {
-  it("cannot be set by the author on their own post", async () => {
+  it("cannot be TURNED OFF by the author on their own post", async () => {
     // commentModeration is a post-level OVERRIDE that beats the site-wide
-    // setting, so accepting it here let an author switch off moderation an
-    // admin had turned on for the whole site. The editor already sent null for
-    // non-admins — the server simply trusted whatever arrived.
+    // setting, so accepting it unfiltered let an author switch off moderation
+    // an admin had turned on for the whole site.
+    //
+    // Updated 2026-08-06: authors may now set it, but only in the strict
+    // direction, and a refusal is now EXPLICIT. The route used to accept the
+    // request and silently null the field, which left the author believing
+    // comments were open on their post when they were not.
     const res = await createBlogPost(
       new Request("http://localhost/api/user/blog", {
         method: "POST",
@@ -139,16 +143,7 @@ describe("blog comment moderation", () => {
       }) as never
     );
 
-    expect(res.status).toBe(201);
-    const created = await res.json();
-    createdPostIds.push(created.id);
-
-    const [row] = await db
-      .select({ commentModeration: blogPosts.commentModeration })
-      .from(blogPosts)
-      .where(eq(blogPosts.id, created.id));
-
-    // null = inherit the site-wide setting, which is the point.
-    expect(row.commentModeration).toBeNull();
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toMatch(/only an admin/i);
   });
 });

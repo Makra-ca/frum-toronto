@@ -94,10 +94,11 @@ export const EDITABLE_FIELDS: Record<SubmissionType, readonly string[]> = {
     "excerpt",
     "categoryId",
     "customCategory",
-    // NOT commentModeration. BlogPostEditor sends it as null for a non-admin,
-    // so allowing it here means an ordinary typo fix silently reverts a
-    // moderation setting an admin applied after comments turned abusive.
-    // Whether authors should control it at all is a product question; letting
-    // them do it by accident is not.
+    // commentModeration is allowed, but the route checks the DIRECTION first:
+    // an author may only make their own post stricter. BlogPostEditor used to
+    // send null for a non-admin, so an ordinary typo fix silently reverted a
+    // moderation setting an admin had applied after comments turned abusive —
+    // it now sends the real value, which is what makes this safe to accept.
+    "commentModeration",
   ],
 };
