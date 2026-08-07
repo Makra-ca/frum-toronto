@@ -44,9 +44,7 @@ export function EruvStatusPanel({ shabbosDate, status, previous }: EruvStatusPan
       <div className="flex items-start gap-2 border-t bg-amber-50 px-6 py-4">
         <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
         <p className="text-sm text-amber-900">
-          Always verify the eruv status before Shabbos. This page reflects what
-          has been reported to FrumToronto and is not a substitute for checking
-          the eruv hotline.
+          Always verify the eruv status before Shabbos.
         </p>
       </div>
     </div>
