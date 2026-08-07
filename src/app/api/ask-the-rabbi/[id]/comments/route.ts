@@ -17,6 +17,7 @@ import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import { logAudit, getIpFromRequest } from "@/lib/audit";
 import { canManageAtr } from "@/lib/auth/atr-permissions";
 
 export const dynamic = "force-dynamic";
@@ -314,7 +315,13 @@ export async function DELETE(
     const isManager = await canManageAtr(session);
 
     const [comment] = await db
-      .select({ id: askTheRabbiComments.id, authorId: askTheRabbiComments.authorId, parentId: askTheRabbiComments.parentId })
+      .select({
+        id: askTheRabbiComments.id,
+        authorId: askTheRabbiComments.authorId,
+        parentId: askTheRabbiComments.parentId,
+        // Needed for the audit entry: after this the text is shown nowhere.
+        content: askTheRabbiComments.content,
+      })
       .from(askTheRabbiComments)
       .where(and(eq(askTheRabbiComments.id, commentId), eq(askTheRabbiComments.questionId, questionId)))
       .limit(1);
@@ -335,6 +342,22 @@ export async function DELETE(
       .update(askTheRabbiComments)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(askTheRabbiComments.id, commentId));
+
+
+    // Audited only when someone removes a comment that is not theirs. A person
+    // deleting their own is ordinary use; a moderator removing another
+    // person's is an action that should be answerable for.
+    if (comment.authorId !== userId) {
+      await logAudit({
+        actorId: userId,
+        actorEmail: session.user.email ?? "unknown",
+        action: "DELETE",
+        entityType: "atr_comment",
+        entityId: commentId,
+        entityTitle: comment.content?.slice(0, 120) ?? null,
+        ipAddress: getIpFromRequest(request),
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { askTheRabbiComments, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { logAudit, getIpFromRequest } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,12 @@ export async function PATCH(
       updates.isActive = result.data.isActive;
     }
 
+    const [previous] = await db
+      .select({ approvalStatus: askTheRabbiComments.approvalStatus })
+      .from(askTheRabbiComments)
+      .where(eq(askTheRabbiComments.id, commentId))
+      .limit(1);
+
     const [updated] = await db
       .update(askTheRabbiComments)
       .set(updates)
@@ -73,6 +80,25 @@ export async function PATCH(
     if (!updated) {
       return NextResponse.json({ error: "Comment not found" }, { status: 404 });
     }
+
+    // This surface has a second class of moderator — canManageAskTheRabbi —
+    // who is not an admin, so "who did this" is a real question here.
+    await logAudit({
+      actorId: parseInt(session!.user.id!),
+      actorEmail: session!.user.email ?? "unknown",
+      action:
+        result.data.approvalStatus === "rejected" ? "REJECT" : "APPROVE",
+      entityType: "atr_comment",
+      entityId: commentId,
+      entityTitle: updated.content.slice(0, 120),
+      changes: {
+        approvalStatus: {
+          before: previous?.approvalStatus ?? null,
+          after: updated.approvalStatus,
+        },
+      },
+      ipAddress: getIpFromRequest(request),
+    });
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -106,11 +132,24 @@ export async function DELETE(
       .update(askTheRabbiComments)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(askTheRabbiComments.id, commentId))
-      .returning({ id: askTheRabbiComments.id });
+      .returning({
+        id: askTheRabbiComments.id,
+        content: askTheRabbiComments.content,
+      });
 
     if (!updated) {
       return NextResponse.json({ error: "Comment not found" }, { status: 404 });
     }
+
+    await logAudit({
+      actorId: parseInt(session!.user.id!),
+      actorEmail: session!.user.email ?? "unknown",
+      action: "DELETE",
+      entityType: "atr_comment",
+      entityId: commentId,
+      entityTitle: updated.content.slice(0, 120),
+      ipAddress: getIpFromRequest(_request),
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

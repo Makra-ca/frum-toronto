@@ -6,6 +6,7 @@ import { eq, and, asc } from "drizzle-orm";
 import { blogCommentSchema } from "@/lib/validations/blog";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import { logAudit, getIpFromRequest } from "@/lib/audit";
 import { applyTombstones } from "@/lib/comments/tombstone";
 import {
   decideBlogComment,
@@ -298,7 +299,13 @@ export async function DELETE(
     }
 
     const [comment] = await db
-      .select({ id: blogComments.id, authorId: blogComments.authorId, parentId: blogComments.parentId })
+      .select({
+        id: blogComments.id,
+        authorId: blogComments.authorId,
+        parentId: blogComments.parentId,
+        // Needed for the audit entry: after this the text is shown nowhere.
+        content: blogComments.content,
+      })
       .from(blogComments)
       .where(and(eq(blogComments.id, commentId), eq(blogComments.postId, post.id)))
       .limit(1);
@@ -319,6 +326,22 @@ export async function DELETE(
       .update(blogComments)
       .set({ deletedAt: new Date() })
       .where(eq(blogComments.id, commentId));
+
+
+    // Audited only when someone removes a comment that is not theirs. A person
+    // deleting their own is ordinary use; a moderator removing another
+    // person's is an action that should be answerable for.
+    if (comment.authorId !== userId) {
+      await logAudit({
+        actorId: userId,
+        actorEmail: session.user.email ?? "unknown",
+        action: "DELETE",
+        entityType: "blog_comment",
+        entityId: commentId,
+        entityTitle: comment.content?.slice(0, 120) ?? null,
+        ipAddress: getIpFromRequest(request),
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

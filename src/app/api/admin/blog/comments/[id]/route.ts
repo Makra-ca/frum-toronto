@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { blogComments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { logAudit, getIpFromRequest } from "@/lib/audit";
 
 const updateCommentSchema = z.object({
   approvalStatus: z.enum(["pending", "approved", "rejected"]),
@@ -29,6 +30,12 @@ export async function PATCH(
       return NextResponse.json({ error: result.error.issues[0].message }, { status: 400 });
     }
 
+    const [previous] = await db
+      .select({ approvalStatus: blogComments.approvalStatus })
+      .from(blogComments)
+      .where(eq(blogComments.id, commentId))
+      .limit(1);
+
     const [updated] = await db
       .update(blogComments)
       .set({
@@ -41,6 +48,24 @@ export async function PATCH(
     if (!updated) {
       return NextResponse.json({ error: "Comment not found" }, { status: 404 });
     }
+
+    // Moderation had no audit trail at all. It matters more now that Blocked
+    // actually works: a comment can vanish and nothing recorded who did it.
+    await logAudit({
+      actorId: parseInt(session.user.id!),
+      actorEmail: session.user.email ?? "unknown",
+      action: result.data.approvalStatus === "approved" ? "APPROVE" : "REJECT",
+      entityType: "blog_comment",
+      entityId: commentId,
+      entityTitle: updated.content.slice(0, 120),
+      changes: {
+        approvalStatus: {
+          before: previous?.approvalStatus ?? null,
+          after: result.data.approvalStatus,
+        },
+      },
+      ipAddress: getIpFromRequest(request),
+    });
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -75,6 +100,18 @@ export async function DELETE(
     if (!deleted) {
       return NextResponse.json({ error: "Comment not found" }, { status: 404 });
     }
+
+    await logAudit({
+      actorId: parseInt(session.user.id!),
+      actorEmail: session.user.email ?? "unknown",
+      action: "DELETE",
+      entityType: "blog_comment",
+      entityId: commentId,
+      // The text is about to stop being visible anywhere; the log is the only
+      // place left that records what was removed.
+      entityTitle: deleted.content.slice(0, 120),
+      ipAddress: getIpFromRequest(request),
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
