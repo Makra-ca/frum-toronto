@@ -2446,3 +2446,110 @@ eslint 0 in touched files.
 there is no harness for a real Google round trip. Verified by reading the
 `@auth/core` source rather than by execution — worth a live Google signup on
 the next deploy to confirm end to end.
+
+---
+
+### 2026-08-07 — Eruv status page, and the staleness bug it uncovered
+
+Branch `feature/eruv-page` (worktree `../ft-eruv`), 9 commits, **not merged, not
+pushed**. Spec: `docs/superpowers/specs/2026-08-07-eruv-status-page-design.md`.
+
+**State:** 796 unit + 627 integration tests green, `tsc` 0 errors, `npm run
+build` green with `/eruv` **ƒ dynamic** and `/zmanim` still **○ static**.
+
+#### What was actually broken
+
+`/eruv` returned 404 and never existed, yet `EruvWidget` linked to it from two
+places (`:90` and `:159`). With `eruv_status` empty in production the homepage
+showed "Unavailable" **and** a link to a 404. `LiveStrip.tsx:66` carried a
+comment noting the page's absence — the hero was worked around, the widget was
+not.
+
+The quieter defect: `GET /api/community/eruv` returned the newest row by
+`status_date` with **no recency guard**, so a status entered a month earlier
+displayed as current. `heroData.ts` carried the same query, with a comment
+saying it *deliberately* mirrored the API so the two could not contradict each
+other on one page — which meant changing the API required changing it too.
+
+#### The design decision
+
+A status is now stored against **the Shabbos it applies to**, and looked up by
+that exact date. A stale status becomes **unrepresentable** rather than
+something to detect with a cutoff. Rejected alternatives: an N-day staleness
+cutoff, and an always-show-the-age banner.
+
+**Yom Tov is deliberately out of scope** (owner's call). hebcal's `flags.CHAG`
+identifies Rosh Hashanah I/II, Yom Kippur, Sukkot I/II, Shmini Atzeret and
+Simchat Torah while correctly excluding Chol Hamoed — verified against 2026.
+Note Sat 2026-09-26 is both Shabbos and Sukkot I, so any occasion list must
+dedupe by date.
+
+#### The fact that shaped the UI
+
+**The eruv is not confirmed until roughly Friday.** So Sunday–Thursday there is
+no row for the coming Shabbos, *every week*. The empty state is the page's
+NORMAL state, not an exception. Hence "Not yet checked for Shabbos, Aug 15 —
+usually confirmed on Friday", with the previous result underneath as **dated**
+context, carried in a separate `previous` API field so no consumer can render a
+past result as current.
+
+**"Not yet checked" must never render as DOWN.** Same practical caution,
+different claim; showing absence as red DOWN is a false statement about the
+eruv. Pinned by tests verified to fail against that exact sabotage.
+
+Saturday-night rollover is **midnight Toronto, not tzeis** — since nothing is
+entered before Friday, flipping at tzeis would only replace a real status with
+"not yet checked" three hours early. No zmanim coupling.
+
+#### Traps this session paid for
+
+- **A timezone sweep can pass against broken code.** The first version used a
+  Friday-evening instant: a UTC server misreads it as Saturday, but
+  Friday→coming-Saturday and Saturday→itself resolve to the SAME date, so the
+  wrong reasoning gave the right answer. It must be a **Saturday evening**
+  instant, where the misread rolls to Sunday and changes the result. Copying the
+  proven pattern from `zmanim-calc.test.ts` did not transfer its power — the
+  *inputs* have to make the bug observable.
+- **`vi.useFakeTimers()` and real database calls do not mix.** Fake timers
+  replace the `setTimeout` undici uses for socket connect, so Neon queries in the
+  same test intermittently `ETIMEDOUT`. Looks exactly like the flaky test branch.
+  Fixed by making `now` a parameter of `getCurrentEruvStatus` — better design and
+  the actual fix.
+- **`ResizeObserver` was missing from `tests/unit-setup.ts`.** Radix's
+  popper-backed primitives (Tooltip, Popover, HoverCard) position through
+  Floating UI, which observes the trigger. Without it the popup opens then throws
+  mid-position, the content never lands in the DOM, and it reads as "the tooltip
+  never opened". Now stubbed; any future Popover test would have hit this.
+- **`currentShabbos` is NOT `getUpcomingShabbat`.** The latter computes
+  `dayOfWeek <= 5 ? 5 - dayOfWeek : 6` (`zmanim.ts:290`), so on Saturday it skips
+  to next week. Correct for candle lighting, wrong here.
+- **`git worktree add` run from the parent directory** creates a worktree of the
+  WRONG repo — `frumtoronto/`'s parent is the separate `Makra-work-files` repo.
+- **`pkill -f "next-server"` killed another worktree's dev server.** Match on the
+  worktree path, not the binary name.
+
+#### Important Numbers — investigated, not changed
+
+Fully built and working (`/community/important-numbers`, admin at
+`/admin/community/important-numbers`). It renders empty **because the table has
+0 rows** — pure content gap, no code defect. Legacy MSSQL has no equivalent
+table, so there is nothing to import.
+
+It is administered under **Community** but linked publicly under **Alerts ▾**
+(`navigation.ts:35`), which is why it could not be found on the site. **The nav
+was deliberately left unchanged** (owner's call); a `PublicLocationHint` on both
+admin pages now names the public URL and the nav path instead.
+
+Known quirk, unaddressed: `category` is free text with no picker, so "Schools"
+and "schools" render as two sections.
+
+#### Open items
+
+- **`/eruv` is not in the main nav** — reachable only via the homepage widget.
+  Worth deciding whether it belongs under Alerts ▾.
+- The page ships empty until someone enters the first status.
+- If Friday updates lapse the page goes quiet rather than wrong, but **nobody is
+  nudged**. A reminder is out of scope here.
+- The populated (UP/DOWN) state was verified by component and integration tests,
+  **not in a browser** — the live check exercised the empty state, which is what
+  production is in.
