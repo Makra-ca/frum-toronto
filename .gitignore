@@ -55,3 +55,6 @@ setup-intergration.txt
 # Kept out of git deliberately: committed PII is effectively permanent in history.
 imported-members.txt
 imported-members-passwords.txt
+
+# Snapshots taken before destructive cleanup scripts — contain production rows
+junk-shul-snapshot-*.json
