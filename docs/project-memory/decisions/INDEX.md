@@ -5,6 +5,10 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-07 | Shul affiliation is required at signup, with honest opt-outs instead of "Other" | [shul-affiliation-is-required-with-honest-opt-outs](2026-08-07-shul-affiliation-is-required-with-honest-opt-outs.md) |
+| 2026-08-07 | Legacy ShulAffiliation is imported and matched, not discarded | [legacy-shul-affiliation-is-imported-not-discarded](2026-08-07-legacy-shul-affiliation-is-imported-not-discarded.md) |
+| 2026-08-07 | A member's shul affiliation is private to them and admins | [shul-affiliation-is-private](2026-08-07-shul-affiliation-is-private.md) |
+| 2026-08-07 | A shul a member types becomes a suggestion, never an auto-created shul | [typed-shuls-are-suggestions-not-shuls](2026-08-07-typed-shuls-are-suggestions-not-shuls.md) |
 | 2026-08-07 | Only the author edits a comment; the edit is re-moderated and disclosed | [only-the-author-edits-a-comment](2026-08-07-only-the-author-edits-a-comment.md) |
 | 2026-08-06 | Blog comments get a real site-wide setting and honour `commentPermission`, forward-only | [blog-comment-moderation-controls](2026-08-06-blog-comment-moderation-controls.md) |
 | 2026-08-06 | Deleted comments are tombstoned so replies survive | [deleted-comments-are-tombstoned](2026-08-06-deleted-comments-are-tombstoned.md) |
