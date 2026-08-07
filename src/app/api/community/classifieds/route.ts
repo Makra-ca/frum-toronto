@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { communityClassifiedSchema } from "@/lib/validations/community-submissions";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { classifieds } from "@/lib/db/schema";
@@ -19,6 +20,16 @@ export async function POST(request: NextRequest) {
     if (notAllowed) return notAllowed;
 
     const body = await request.json();
+
+    // Raw body before this: no length cap on title (varchar 255), no email
+    // check, and `price` went to a decimal(10,2) uncoerced.
+    const parsed = communityClassifiedSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0].message },
+        { status: 400 }
+      );
+    }
     const {
       title,
       description,
@@ -30,26 +41,7 @@ export async function POST(request: NextRequest) {
       contactPhone,
       location,
       imageUrl,
-    } = body;
-
-    if (!title?.trim()) {
-      return NextResponse.json({ error: "Title is required" }, { status: 400 });
-    }
-    if (!description?.trim() || description.trim().length < 10) {
-      return NextResponse.json(
-        { error: "Description must be at least 10 characters" },
-        { status: 400 }
-      );
-    }
-    if (description.trim().length > 2000) {
-      return NextResponse.json(
-        { error: "Description must be 2,000 characters or less" },
-        { status: 400 }
-      );
-    }
-    if (!categoryId) {
-      return NextResponse.json({ error: "Category is required" }, { status: 400 });
-    }
+    } = parsed.data;
 
     // Check auto-approve permission
     const userId = parseInt(session.user.id);
@@ -69,16 +61,18 @@ export async function POST(request: NextRequest) {
       .insert(classifieds)
       .values({
         userId,
-        title: title.trim(),
-        description: description.trim(),
-        categoryId: parseInt(categoryId),
-        price: price || null,
-        priceType: priceType || null,
-        contactName: contactName?.trim() || null,
-        contactEmail: contactEmail?.trim() || null,
-        contactPhone: contactPhone?.trim() || null,
-        location: location?.trim() || null,
-        imageUrl: imageUrl || null,
+        title,
+        description,
+        categoryId,
+        // decimal(10,2) is a string column in Drizzle; the schema has already
+        // proved this is a real, in-range number.
+        price: price == null ? null : String(price),
+        priceType: priceType ?? null,
+        contactName,
+        contactEmail,
+        contactPhone,
+        location,
+        imageUrl,
         expiresAt,
         approvalStatus: autoApprove ? "approved" : "pending",
         isActive: true,

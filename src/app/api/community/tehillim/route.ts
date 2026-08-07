@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { communityTehillimSchema } from "@/lib/validations/community-submissions";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { tehillimList } from "@/lib/db/schema";
@@ -55,17 +56,19 @@ export async function POST(request: Request) {
     if (notAllowed) return notAllowed;
 
     const body = await request.json();
-    const { hebrewName, englishName, motherHebrewName, reason, durationDays } = body;
 
-    const hasHebrewName = hebrewName && hebrewName.trim() !== "";
-    const hasEnglishName = englishName && englishName.trim() !== "";
-
-    if (!hasHebrewName && !hasEnglishName) {
+    // Raw body before this: four varchar(200) columns with no length check,
+    // and `parseInt(durationDays) || 14` silently rewrote anything it could
+    // not read — "abc" became 14 and 900 became 30, with nothing said.
+    const parsed = communityTehillimSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Either Hebrew name or English name is required" },
+        { error: parsed.error.issues[0].message },
         { status: 400 }
       );
     }
+    const { hebrewName, englishName, motherHebrewName, reason, durationDays } =
+      parsed.data;
 
     // Also treats an admin as an auto-approver, which this route did not —
     // see the note on the shiva create route.
@@ -78,7 +81,8 @@ export async function POST(request: Request) {
     const canAutoApprove = approvalStatus === "approved";
 
     // Calculate expiration date (default 14 days if not specified, max 30)
-    const days = Math.min(Math.max(parseInt(durationDays) || 14, 1), 30);
+    // The schema has already bounded this to 1–30; 14 is the default.
+    const days = durationDays ?? 14;
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + days);
     const expiresAtStr = expiresAt.toISOString().split("T")[0];
@@ -87,10 +91,10 @@ export async function POST(request: Request) {
       .insert(tehillimList)
       .values({
         userId: parseInt(session.user.id),
-        hebrewName: hebrewName?.trim() || null,
-        englishName: englishName?.trim() || null,
-        motherHebrewName: motherHebrewName?.trim() || null,
-        reason: reason?.trim() || null,
+        hebrewName,
+        englishName,
+        motherHebrewName,
+        reason,
         isActive: true,
         approvalStatus,
         expiresAt: expiresAtStr,

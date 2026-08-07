@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { communityShivaSchema } from "@/lib/validations/community-submissions";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { shivaNotifications } from "@/lib/db/schema";
@@ -53,6 +54,18 @@ export async function POST(request: Request) {
     if (notAllowed) return notAllowed;
 
     const body = await request.json();
+
+    // Raw body before this: the two dates went to `date NOT NULL` columns
+    // unchecked, and nothing compared them — an end before the start makes the
+    // notice invisible from the moment it is posted, because the public page
+    // filters on shiva_end >= today.
+    const parsed = communityShivaSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0].message },
+        { status: 400 }
+      );
+    }
     const {
       niftarName,
       niftarNameHebrew,
@@ -69,22 +82,7 @@ export async function POST(request: Request) {
       mealInfo,
       donationInfo,
       contactPhone,
-    } = body;
-
-    // Validate required fields
-    if (!niftarName || !niftarName.trim()) {
-      return NextResponse.json(
-        { error: "Name of the niftar is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!shivaStart || !shivaEnd) {
-      return NextResponse.json(
-        { error: "Shiva start and end dates are required" },
-        { status: 400 }
-      );
-    }
+    } = parsed.data;
 
     // Shared with the edit path and with every other type. Note this now also
     // treats an admin as an auto-approver, which this route did NOT: five of
@@ -98,33 +96,37 @@ export async function POST(request: Request) {
     );
     const canAutoApprove = approvalStatus === "approved";
 
-    // Validate mourner names array
-    const validMournerNames = Array.isArray(mournerNames)
-      ? mournerNames.filter((name: string) => typeof name === "string" && name.trim())
-      : [];
+    // The schema already dropped blank entries.
+    const validMournerNames = mournerNames ?? [];
 
     const [newNotice] = await db
       .insert(shivaNotifications)
       .values({
         userId: parseInt(session.user.id),
-        niftarName: niftarName.trim(),
+        niftarName,
         niftarNameHebrew: niftarNameHebrew?.trim() || null,
         mournerNames: validMournerNames,
         shivaAddress: shivaAddress?.trim() || null,
         shivaStart,
         shivaEnd,
-        shivaHours: shivaHours?.trim() || null,
-        daveningTimes: daveningTimes?.trim() || null,
-        levayaInfo: levayaInfo?.trim() || null,
-        zoomInfo: zoomInfo?.trim() || null,
-        minyanInfo: minyanInfo?.trim() || null,
+        // The schema trims and maps "" to null, so these arrive ready.
+        shivaHours,
+        daveningTimes,
+        levayaInfo,
+        zoomInfo,
+        minyanInfo,
         // Was destructured from the body and stored with NO validation at all,
         // then rendered as an href on the public page. zoomInfo two fields up was
         // hardened in the same pass and this was missed.
-        attachmentUrl: isUploadedImageUrl(attachmentUrl) ? attachmentUrl.trim() : null,
-        mealInfo: mealInfo?.trim() || null,
-        donationInfo: donationInfo?.trim() || null,
-        contactPhone: contactPhone?.trim() || null,
+        // The host allowlist stays exactly as it was — the schema caps the
+        // length, it does NOT vouch for where the URL points.
+        attachmentUrl:
+          attachmentUrl && isUploadedImageUrl(attachmentUrl)
+            ? attachmentUrl
+            : null,
+        mealInfo,
+        donationInfo,
+        contactPhone,
         approvalStatus,
       })
       .returning();
