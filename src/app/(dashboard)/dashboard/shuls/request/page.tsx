@@ -18,10 +18,21 @@ import { ArrowLeft, Send, Loader2, CheckCircle, Clock, XCircle } from "lucide-re
 import { toast } from "sonner";
 import { formatInstant } from "@/lib/datetime";
 
+/**
+ * Shape of a row from `/api/shuls`.
+ *
+ * This page previously fetched `/api/davening` — its own comment said "fetch all
+ * shuls" while the URL said otherwise — and read `businessName`/`address`, which
+ * that endpoint does not return (it returns `shulName`/`shulAddress`, keyed by
+ * the DAVENING SCHEDULE's id). So every option rendered as "Shul #N" with no
+ * name, and submitting sent a schedule id as `shulId`: the requester was granted
+ * a different shul than the one they picked, or none at all.
+ */
 interface Shul {
   id: number;
-  businessName: string | null;
+  name: string | null;
   address: string | null;
+  city: string | null;
 }
 
 interface MyRequest {
@@ -44,17 +55,19 @@ export default function RequestShulPage() {
 
   async function fetchData() {
     try {
-      // Fetch all shuls (public endpoint)
-      const shulsRes = await fetch("/api/davening");
+      // Shuls, from the shuls endpoint. It already filters to active shuls and
+      // orders by name, so no client-side sorting is needed.
+      const shulsRes = await fetch("/api/shuls");
       if (shulsRes.ok) {
-        const shulsData = await shulsRes.json();
-        // Map the shuls data
-        const mappedShuls = shulsData.map((s: { id: number; businessName: string; address: string }) => ({
-          id: s.id,
-          businessName: s.businessName,
-          address: s.address,
-        }));
-        setShuls(mappedShuls);
+        const shulsData: Shul[] = await shulsRes.json();
+        setShuls(
+          shulsData.map((s) => ({
+            id: s.id,
+            name: s.name,
+            address: s.address,
+            city: s.city,
+          }))
+        );
       }
 
       // Fetch my requests
@@ -173,25 +186,33 @@ export default function RequestShulPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label>Select Shul</Label>
-                <Select value={selectedShulId} onValueChange={setSelectedShulId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a shul to manage" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableShuls.length === 0 ? (
-                      <SelectItem value="" disabled>
-                        No shuls available
-                      </SelectItem>
-                    ) : (
-                      availableShuls.map((shul) => (
+                {/*
+                  The empty case is rendered OUTSIDE the Select rather than as a
+                  disabled <SelectItem value="">. Radix throws on an empty
+                  SelectItem value, so the old markup crashed this page whenever
+                  no shul was available — which is reachable as soon as a member
+                  has a pending request for every shul.
+                */}
+                {availableShuls.length === 0 ? (
+                  <p className="text-sm text-gray-500 border rounded-md p-3">
+                    There are no shuls available to request right now.
+                  </p>
+                ) : (
+                  <Select value={selectedShulId} onValueChange={setSelectedShulId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a shul to manage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableShuls.map((shul) => (
                         <SelectItem key={shul.id} value={shul.id.toString()}>
-                          {shul.businessName || `Shul #${shul.id}`}
-                          {shul.address && ` - ${shul.address}`}
+                          {shul.name || `Shul #${shul.id}`}
+                          {shul.address && ` — ${shul.address}`}
+                          {shul.city && `, ${shul.city}`}
                         </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div>
                 <Label htmlFor="message">
@@ -236,7 +257,13 @@ export default function RequestShulPage() {
                         {getStatusIcon(request.status)}
                         <div>
                           <p className="font-medium">
-                            {shul?.businessName || `Shul #${request.shulId}`}
+                            {/*
+                              Same field bug as the picker: this read
+                              `businessName`, which no endpoint returns, so every
+                              existing request in this list displayed as
+                              "Shul #N" rather than naming the shul.
+                            */}
+                            {shul?.name || `Shul #${request.shulId}`}
                           </p>
                           <p className="text-sm text-gray-500">
                             Requested on{" "}
