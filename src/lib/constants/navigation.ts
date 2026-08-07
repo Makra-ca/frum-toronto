@@ -29,6 +29,7 @@ export const mainNavigation: NavItem[] = [
     href: "/alerts",
     children: [
       { label: "Bulletins & Alerts", href: "/alerts" },
+      { label: "Eruv Status", href: "/eruv" },
       { label: "Kosher Alerts", href: "/kosher-alerts" },
       { label: "Shiva Notifications", href: "/shiva" },
       { label: "Tehillim List", href: "/community/tehillim" },

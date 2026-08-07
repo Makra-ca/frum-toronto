@@ -149,7 +149,7 @@ export default function EruvManagementPage() {
 
   return (
     <div className="space-y-6">
-      <PublicLocationHint href="/eruv" navPath="Homepage widget → Eruv Information" />
+      <PublicLocationHint href="/eruv" navPath="Alerts → Eruv Status (and the homepage widget)" />
 
       {/* Form */}
       <Card>
