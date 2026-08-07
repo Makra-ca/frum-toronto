@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { simchas, simchaTypes } from "@/lib/db/schema";
-import { desc, eq, and, sql } from "drizzle-orm";
+import { simchaBrowseOrder } from "@/lib/simchas/ordering";
+import { eq, and, sql } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PartyPopper, Calendar, MapPin, Info } from "lucide-react";
@@ -60,7 +61,7 @@ async function getSimchas(typeSlug: string | undefined, page: number, search: st
       .from(simchas)
       .leftJoin(simchaTypes, eq(simchas.typeId, simchaTypes.id))
       .where(whereClause)
-      .orderBy(desc(simchas.createdAt), desc(simchas.id))
+      .orderBy(...simchaBrowseOrder)
       .limit(PAGE_SIZE)
       .offset((page - 1) * PAGE_SIZE),
     db

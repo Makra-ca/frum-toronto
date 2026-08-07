@@ -109,6 +109,12 @@ export function SimchaSubmitModal() {
       toast.error("Family name is required");
       return;
     }
+    if (!form.eventDate) {
+      // Required since /simchas began sorting by the simcha date: a blank one
+      // files the announcement under the day it was submitted.
+      toast.error("Please enter the date of the simcha");
+      return;
+    }
     if (!form.announcement.trim() || form.announcement.length < 10) {
       toast.error("Please provide an announcement (at least 10 characters)");
       return;
@@ -123,7 +129,7 @@ export function SimchaSubmitModal() {
           familyName: form.familyName,
           announcement: form.announcement,
           typeId: form.typeId || null,
-          eventDate: form.eventDate || null,
+          eventDate: form.eventDate,
           location: form.location || null,
           photoUrl: form.photoUrl || null,
         }),
@@ -249,7 +255,7 @@ export function SimchaSubmitModal() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="eventDate">Event Date</Label>
+                  <Label htmlFor="eventDate">Date of the Simcha *</Label>
                   <Input
                     id="eventDate"
                     type="date"

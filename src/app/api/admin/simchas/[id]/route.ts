@@ -6,12 +6,16 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { setApprovalStatus } from "@/lib/submissions/set-approval-status";
 import { APPROVAL_STATUSES } from "@/lib/submissions/statuses";
+import { simchaDateField } from "@/lib/validations/simcha";
 import { revalidatePath } from "next/cache";
 
 const updateSchema = z.object({
   familyName: z.string().max(200).optional(),
   announcement: z.string().optional(),
-  eventDate: z.string().optional().nullable(),
+  // Optional so a partial update still works (approving does not resend the
+  // form), but NOT nullable: clearing the date would drop the announcement
+  // back to sorting by its post date.
+  eventDate: simchaDateField.optional(),
   location: z.string().max(200).optional().nullable(),
   photoUrl: z.string().max(500).optional().nullable(),
   typeId: z.number().optional().nullable(),
@@ -91,7 +95,7 @@ export async function PATCH(
       updates.announcement = result.data.announcement?.trim() || "";
     }
     if (result.data.eventDate !== undefined) {
-      updates.eventDate = result.data.eventDate || null;
+      updates.eventDate = result.data.eventDate;
     }
     if (result.data.location !== undefined) {
       updates.location = result.data.location?.trim() || null;

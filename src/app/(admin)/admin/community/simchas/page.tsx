@@ -92,6 +92,8 @@ export default function SimchasManagementPage() {
   // Edit dialog
   const [editEntry, setEditEntry] = useState<SimchaEntry | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  // Carried into the next New Simcha dialog; see startCreate.
+  const [lastEventDate, setLastEventDate] = useState("");
   const [editForm, setEditForm] = useState({
     familyName: "",
     announcement: "",
@@ -179,6 +181,12 @@ export default function SimchasManagementPage() {
       toast.error("Family name is required");
       return;
     }
+    if (!editForm.eventDate) {
+      // The API rejects this too; catching it here means a message rather than
+      // a 400 after the admin has typed a whole announcement.
+      toast.error("Enter the date of the simcha");
+      return;
+    }
     if (!editForm.announcement.trim()) {
       toast.error("Announcement is required");
       return;
@@ -208,6 +216,9 @@ export default function SimchasManagementPage() {
       );
 
       if (res.ok) {
+        // Remember it only on a successful create — a failed save should not
+        // change what the next dialog opens with.
+        if (isCreating) setLastEventDate(editForm.eventDate);
         toast.success(isCreating ? "Simcha created" : "Simcha updated");
         setEditEntry(null);
         setIsCreating(false);
@@ -223,12 +234,21 @@ export default function SimchasManagementPage() {
     }
   };
 
+  /**
+   * Adding a batch of simchas is the normal job here, not the exception —
+   * catching up on a backlog means twenty entries that all share one date.
+   * Carrying the last date forward means typing it once instead of twenty
+   * times, which is what produced 13 rows all stamped 2026-04-24.
+   *
+   * Deliberately NOT persisted. A date remembered from three weeks ago,
+   * silently prefilled, is easy to save without looking at.
+   */
   const startCreate = () => {
     setEditEntry(null);
     setEditForm({
       familyName: "",
       announcement: "",
-      eventDate: "",
+      eventDate: lastEventDate,
       location: "",
       photoUrl: "",
       typeId: "",
@@ -501,7 +521,7 @@ export default function SimchasManagementPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="eventDate">Event Date</Label>
+              <Label htmlFor="eventDate">Date of the Simcha *</Label>
               <Input
                 id="eventDate"
                 type="date"

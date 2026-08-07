@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { simchas, simchaTypes } from "@/lib/db/schema";
-import { eq, and, desc, ne } from "drizzle-orm";
+import { simchaBrowseOrder } from "@/lib/simchas/ordering";
+import { eq, and, ne } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -60,7 +61,7 @@ async function getRelated(typeSlug: string | null, excludeId: number) {
         ne(simchas.id, excludeId)
       )
     )
-    .orderBy(desc(simchas.createdAt), desc(simchas.id))
+    .orderBy(...simchaBrowseOrder)
     .limit(4);
 }
 

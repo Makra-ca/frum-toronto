@@ -5,12 +5,15 @@ import { simchas, simchaTypes } from "@/lib/db/schema";
 import { desc, eq, and, or, ilike, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { simchaDateField } from "@/lib/validations/simcha";
 
 const createSchema = z.object({
   familyName: z.string().trim().min(1, "Family name is required").max(200),
   announcement: z.string().trim().min(1, "Announcement is required"),
   typeId: z.number().int().nullable().optional(),
-  eventDate: z.string().optional().nullable(),
+  // Required: /simchas sorts by COALESCE(event_date, created_at), so a blank
+  // date silently files the announcement under the day it was typed.
+  eventDate: simchaDateField,
   location: z.string().trim().max(200).optional().nullable(),
   photoUrl: z.string().max(500).optional().nullable(),
 });
@@ -125,7 +128,7 @@ export async function POST(request: NextRequest) {
         familyName: d.familyName.trim(),
         announcement: d.announcement.trim(),
         typeId: d.typeId ?? null,
-        eventDate: d.eventDate || null,
+        eventDate: d.eventDate,
         location: d.location?.trim() || null,
         photoUrl: d.photoUrl || null,
         approvalStatus: "approved",

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { simchaCreateSchema } from "@/lib/validations/simcha";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { simchas } from "@/lib/db/schema";
@@ -20,14 +21,19 @@ export async function POST(request: NextRequest) {
     if (notAllowed) return notAllowed;
 
     const body = await request.json();
-    const { familyName, announcement, typeId, eventDate, location, photoUrl } = body;
 
-    if (!familyName?.trim()) {
-      return NextResponse.json({ error: "Family name is required" }, { status: 400 });
+    // This route had no schema at all — raw destructuring plus two hand-rolled
+    // checks — so eventDate reached the insert unvalidated and an over-length
+    // familyName or location surfaced as a raw Postgres error, not a 400.
+    const parsed = simchaCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0].message },
+        { status: 400 }
+      );
     }
-    if (!announcement?.trim() || announcement.length < 10) {
-      return NextResponse.json({ error: "Announcement must be at least 10 characters" }, { status: 400 });
-    }
+    const { familyName, announcement, typeId, eventDate, location, photoUrl } =
+      parsed.data;
 
     // Check auto-approve permission
     const userId = parseInt(session.user.id);
@@ -39,11 +45,11 @@ export async function POST(request: NextRequest) {
       .insert(simchas)
       .values({
         userId,
-        familyName: familyName.trim(),
-        announcement: announcement.trim(),
-        typeId: typeId ? parseInt(typeId) : null,
-        eventDate: eventDate || null,
-        location: location?.trim() || null,
+        familyName,
+        announcement,
+        typeId: typeId ?? null,
+        eventDate,
+        location: location || null,
         photoUrl: photoUrl || null,
         approvalStatus: autoApprove ? "approved" : "pending",
         isActive: true,

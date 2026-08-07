@@ -193,6 +193,9 @@ async function getSimchasData(typeSlugs?: string[]): Promise<SimchaData[]> {
     .from(simchas)
     .innerJoin(simchaTypes, eq(simchas.typeId, simchaTypes.id))
     .where(and(...conditions))
+    // Post date, NOT the browse order in src/lib/simchas/ordering.ts.
+    // A newsletter answers "what is new since the last one", so a simcha
+    // entered today belongs in today's issue even if it happened in April.
     .orderBy(desc(simchas.createdAt))
     .limit(10);
 
