@@ -24,6 +24,7 @@ import {
 import { Loader2, Save, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { formatInstant } from "@/lib/datetime";
+import { PublicLocationHint } from "@/components/admin/PublicLocationHint";
 
 interface EruvEntry {
   id: number;
@@ -148,6 +149,8 @@ export default function EruvManagementPage() {
 
   return (
     <div className="space-y-6">
+      <PublicLocationHint href="/eruv" navPath="Homepage widget → Eruv Information" />
+
       {/* Form */}
       <Card>
         <CardContent className="pt-6">

@@ -19,3 +19,19 @@ if (typeof Element !== "undefined") {
   Element.prototype.releasePointerCapture ??= () => {};
   Element.prototype.scrollIntoView ??= () => {};
 }
+
+// Radix's popper-backed primitives (Tooltip, Popover, HoverCard, …) position
+// themselves with Floating UI, which observes the trigger for size changes.
+// jsdom implements no ResizeObserver, so the popup opens and then throws
+// "ResizeObserver is not defined" while positioning. The content never reaches
+// the DOM, and the failure reads as though the popup simply never opened.
+//
+// A no-op suffices: nothing asserts on geometry, which jsdom reports as zero
+// regardless.
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+}
