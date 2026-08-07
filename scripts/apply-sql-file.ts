@@ -23,10 +23,24 @@ if (!file) {
 
 const raw = fs.readFileSync(path.resolve(file), "utf8");
 
-// Guard: this runner is for additive DDL only.
+/**
+ * Guard against the operations that destroy DATA.
+ *
+ * Note what this does NOT block: DROP CONSTRAINT, DROP INDEX, ALTER COLUMN.
+ * Those are schema changes a migration legitimately makes — realigning a
+ * foreign key, for instance — and blocking them would make this runner
+ * useless for exactly the migrations that most need reviewing.
+ *
+ * The message says so, because "contains destructive SQL" reads as a much
+ * broader promise than four DROP forms and it is easy to trust it too far.
+ */
 const FORBIDDEN = /\b(DROP\s+(TABLE|DATABASE|SCHEMA|COLUMN)|TRUNCATE|DELETE\s+FROM)\b/i;
 if (FORBIDDEN.test(raw.replace(/--[^\n]*/g, ""))) {
-  console.error("REFUSED: file contains destructive SQL. Apply it manually and deliberately.");
+  console.error(
+    "REFUSED: file drops a table/database/schema/column, truncates, or deletes rows.\n" +
+      "Apply it manually and deliberately. (This check does NOT cover\n" +
+      "DROP CONSTRAINT, DROP INDEX or ALTER COLUMN — review those yourself.)"
+  );
   process.exit(1);
 }
 
