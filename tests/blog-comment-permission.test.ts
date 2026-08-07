@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users, blogPosts, blogComments, siteSettings } from "@/lib/db/schema";
-import { BLOG_COMMENT_MODERATION_KEY } from "@/lib/blog/comment-moderation";
+import { BLOG_COMMENT_MODERATION_KEY } from "@/lib/comments/moderation";
 
 /**
  * `users.commentPermission` is set per account in Admin → Users and offers

@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { resolveCommentApprovalStatus } from "@/lib/permissions/auto-approve-targets";
-import { askTheRabbi, askTheRabbiComments, users } from "@/lib/db/schema";
+import {
+  decideComment,
+  parseModeration,
+  COMMENT_SURFACES,
+} from "@/lib/comments/moderation";
+import {
+  askTheRabbi,
+  askTheRabbiComments,
+  users,
+  siteSettings,
+} from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
@@ -192,13 +201,35 @@ export async function POST(
       }
     }
 
+    // The site-wide default for this surface. Ask the Rabbi had no policy
+    // layer at all until now — only the per-person permission — so a site set
+    // to "hold for approval" silently did nothing here.
+    const [setting] = await db
+      .select({ value: siteSettings.value })
+      .from(siteSettings)
+      .where(eq(siteSettings.key, COMMENT_SURFACES.askTheRabbi.key))
+      .limit(1);
+
     // Ask the Rabbi questions are answered, not approved, so comment
     // moderation is the one approval step canAutoApproveAskTheRabbi can govern.
-    const approvalStatus = resolveCommentApprovalStatus({
-      isManager,
+    // There is no per-question override, hence no itemModeration.
+    const outcome = decideComment({
+      isAdmin: isManager,
+      canSkipModeration: dbUser?.canAutoApproveAskTheRabbi === true,
       commentPermission: dbUser?.commentPermission,
-      canAutoApproveAskTheRabbi: dbUser?.canAutoApproveAskTheRabbi,
+      siteModeration: parseModeration(setting?.value),
     });
+
+    // Blocked is already handled above, before any work is done. Reaching it
+    // here would mean the two checks disagree, so fail closed.
+    if (outcome === "blocked") {
+      return NextResponse.json(
+        { error: "You are not permitted to comment." },
+        { status: 403 }
+      );
+    }
+
+    const approvalStatus = outcome === "hold" ? "pending" : "approved";
 
     const [newComment] = await db
       .insert(askTheRabbiComments)

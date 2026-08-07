@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   decideBlogComment,
+  decideComment,
   parseModeration,
   DEFAULT_SITE_MODERATION,
   BLOG_COMMENT_MODERATION_KEY,
-} from "@/lib/blog/comment-moderation";
+  COMMENT_SURFACES,
+} from "@/lib/comments/moderation";
 
 /**
  * Before this module the blog comment route read the post override and the
@@ -183,5 +185,80 @@ describe("admins", () => {
         commentPermission: "blocked",
       })
     ).toBe("publish");
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The surface-agnostic decision, shared by blog and Ask the Rabbi.
+ * ------------------------------------------------------------------ */
+
+describe("decideComment across both surfaces", () => {
+  const atr = {
+    isAdmin: false,
+    commentPermission: "allowed" as string | null | undefined,
+    siteModeration: DEFAULT_SITE_MODERATION,
+  };
+
+  it("gives each surface its own settings key", () => {
+    // Sharing one key would mean supervising the blog silently supervised
+    // Torah Q&A as well.
+    expect(COMMENT_SURFACES.blog.key).toBe("blog_comment_moderation");
+    expect(COMMENT_SURFACES.askTheRabbi.key).toBe("atr_comment_moderation");
+    expect(COMMENT_SURFACES.blog.key).not.toBe(COMMENT_SURFACES.askTheRabbi.key);
+  });
+
+  it("holds an Ask the Rabbi comment when its site setting says approved", () => {
+    // Ask the Rabbi had no policy layer at all before this.
+    expect(decideComment({ ...atr, siteModeration: "approved" })).toBe("hold");
+  });
+
+  it("publishes when Ask the Rabbi's setting is open", () => {
+    expect(decideComment({ ...atr, siteModeration: "open" })).toBe("publish");
+  });
+
+  describe("canSkipModeration (canAutoApproveAskTheRabbi)", () => {
+    it("beats a Requires Approval account, as it always did", () => {
+      expect(
+        decideComment({
+          ...atr,
+          canSkipModeration: true,
+          commentPermission: "requires_approval",
+        })
+      ).toBe("publish");
+    });
+
+    it("beats a site setting of approved", () => {
+      expect(
+        decideComment({
+          ...atr,
+          canSkipModeration: true,
+          siteModeration: "approved",
+        })
+      ).toBe("publish");
+    });
+
+    it("does NOT override a block", () => {
+      // The flag says "your comments need no review", not "you may comment
+      // after being barred". Only an admin overrides a block.
+      expect(
+        decideComment({
+          ...atr,
+          canSkipModeration: true,
+          commentPermission: "blocked",
+        })
+      ).toBe("blocked");
+    });
+  });
+
+  it("has no per-item override on Ask the Rabbi", () => {
+    // There is no per-question moderation column, so the site setting is the
+    // only policy input. Passing undefined must not accidentally open it up.
+    expect(
+      decideComment({
+        ...atr,
+        itemModeration: undefined,
+        siteModeration: "approved",
+      })
+    ).toBe("hold");
   });
 });

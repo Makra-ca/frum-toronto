@@ -16,6 +16,8 @@
  * comment moderation instead.
  */
 
+import { decideComment } from "@/lib/comments/moderation";
+
 export type BusinessApprovalInput = {
   /** Waiting on PayPal. Nothing is paid for yet, so nothing may go live. */
   pendingPayment: boolean;
@@ -75,19 +77,29 @@ export type CommentApprovalInput = {
  * step there for a flag to skip. The one real approval step in Ask the Rabbi is
  * comment moderation, which is what this governs: a holder's comments go live
  * even if their account is set to moderated.
+ *
+ * Delegates to `decideComment`, which is now the single implementation shared
+ * with the blog. Kept as a named wrapper because this file is where the
+ * "is this permission toggle actually wired to anything" question is answered,
+ * and `tests/dead-permission-toggles.test.ts` asks it here.
+ *
+ * It omits the site-wide setting on purpose: callers that need the full
+ * decision (including a block) should use `decideComment` directly. This one
+ * answers only "does this person's account force review".
  */
 export function resolveCommentApprovalStatus({
   isManager,
   commentPermission,
   canAutoApproveAskTheRabbi,
 }: CommentApprovalInput): "approved" | "pending" {
-  if (isManager || canAutoApproveAskTheRabbi) return "approved";
-
-  const permission = commentPermission ?? "allowed";
-  if (permission === "moderated" || permission === "requires_approval") {
-    return "pending";
-  }
-  return "approved";
+  const outcome = decideComment({
+    isAdmin: isManager,
+    canSkipModeration: canAutoApproveAskTheRabbi === true,
+    commentPermission,
+    siteModeration: "open",
+  });
+  // A block cannot reach here: callers check it separately and return 403.
+  return outcome === "hold" ? "pending" : "approved";
 }
 
 export type ShulRequestInput = {

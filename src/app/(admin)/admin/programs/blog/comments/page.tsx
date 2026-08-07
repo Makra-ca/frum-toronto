@@ -219,7 +219,7 @@ export default function BlogCommentsPage() {
           </Select>
         </div>
 
-        <Link href="/admin/programs/blog/comment-settings" className="ml-auto">
+        <Link href="/admin/programs/comment-settings" className="ml-auto">
           <Button variant="outline" size="sm">
             <Settings className="h-4 w-4 mr-1.5" />
             Comment Settings

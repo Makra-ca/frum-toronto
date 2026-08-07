@@ -11,7 +11,7 @@ import {
   parseModeration,
   BLOG_COMMENT_MODERATION_KEY,
   DEFAULT_SITE_MODERATION,
-} from "@/lib/blog/comment-moderation";
+} from "@/lib/comments/moderation";
 
 export async function GET(
   request: NextRequest,
