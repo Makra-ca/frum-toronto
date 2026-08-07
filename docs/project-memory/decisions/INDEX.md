@@ -5,6 +5,7 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-07 | Only the author edits a comment; the edit is re-moderated and disclosed | [only-the-author-edits-a-comment](2026-08-07-only-the-author-edits-a-comment.md) |
 | 2026-08-06 | Blog comments get a real site-wide setting and honour `commentPermission`, forward-only | [blog-comment-moderation-controls](2026-08-06-blog-comment-moderation-controls.md) |
 | 2026-08-06 | Deleted comments are tombstoned so replies survive | [deleted-comments-are-tombstoned](2026-08-06-deleted-comments-are-tombstoned.md) |
 | 2026-08-06 | Blog comments stay open; moderation exists and is deliberately off | [blog-comments-stay-open](2026-08-06-blog-comments-stay-open.md) |

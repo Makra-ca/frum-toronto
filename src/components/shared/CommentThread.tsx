@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { MessageSquare, Loader2, CornerDownRight, Trash2 } from "lucide-react";
+import { MessageSquare, Loader2, CornerDownRight, Trash2, Pencil } from "lucide-react";
 import Link from "next/link";
 import { applyTombstones } from "@/lib/comments/tombstone";
 
@@ -28,6 +28,9 @@ interface CommentThreadComment {
    * the row can be styled as a tombstone and stripped of its actions.
    */
   isDeleted?: boolean;
+  /** Set when the AUTHOR changed the text. Shown, because a reply quoting a
+   *  comment that has since changed misleads everyone reading afterwards. */
+  editedAt?: string | null;
 }
 
 interface CommentThreadProps {
@@ -94,6 +97,9 @@ export function CommentThread({
   const [replyContent, setReplyContent] = useState("");
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [savingEditId, setSavingEditId] = useState<number | null>(null);
 
   const fetchComments = useCallback(async () => {
     try {
@@ -176,6 +182,52 @@ export function CommentThread({
     }
   };
 
+  const submitEdit = async (commentId: number, content: string) => {
+    const res = await fetch(`${apiBase}?commentId=${commentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to edit comment");
+    return data;
+  };
+
+  const handleSubmitEdit = async (commentId: number) => {
+    if (!editContent.trim()) return;
+    setSavingEditId(commentId);
+    try {
+      const updated = await submitEdit(commentId, editContent.trim());
+
+      // An edit is re-moderated exactly like a new comment, so it can come
+      // back pending. Dropping it from the list is the honest render: it is no
+      // longer public, and leaving the new text on screen would tell the
+      // author it went live.
+      if (updated.approvalStatus === "approved") {
+        setComments((prev) =>
+          prev.map((c) =>
+            c.id === commentId
+              ? { ...c, content: updated.content, editedAt: updated.editedAt }
+              : c
+          )
+        );
+        toast.success("Comment updated");
+      } else {
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+        toast.success("Your edit has been submitted for approval");
+      }
+
+      setEditingId(null);
+      setEditContent("");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to edit comment"
+      );
+    } finally {
+      setSavingEditId(null);
+    }
+  };
+
   const handleDeleteComment = async (commentId: number) => {
     if (!confirm("Delete this comment?")) return;
     setDeletingId(commentId);
@@ -214,6 +266,91 @@ export function CommentThread({
   const currentUserId = session?.user?.id ? parseInt(session.user.id) : null;
   const isAdmin = session?.user?.role === "admin";
   const canModerate = isAdmin || session?.user?.canManageAskTheRabbi === true;
+
+
+  /**
+   * The body of one comment: the text, or the inline editor when it is being
+   * edited, plus the "edited" marker.
+   *
+   * A plain function rather than a component so React does not remount the
+   * Textarea on every keystroke — a nested component defined during render is
+   * a new type each time, which loses focus and the cursor position.
+   */
+  const renderBody = (comment: CommentThreadComment) => {
+    if (editingId === comment.id) {
+      return (
+        <div className="space-y-2">
+          <Textarea
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            rows={3}
+            className="text-sm"
+          />
+          <div className="flex items-center gap-2 justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => {
+                setEditingId(null);
+                setEditContent("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => handleSubmitEdit(comment.id)}
+              disabled={
+                savingEditId === comment.id ||
+                !editContent.trim() ||
+                editContent.trim() === comment.content
+              }
+            >
+              {savingEditId === comment.id ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <p
+          className={
+            comment.isDeleted
+              ? "text-sm italic text-gray-400"
+              : "text-sm text-gray-700 whitespace-pre-wrap"
+          }
+        >
+          {comment.isDeleted
+            ? "This comment was removed. The replies below it were kept."
+            : comment.content}
+        </p>
+        {comment.editedAt && !comment.isDeleted && (
+          <span className="text-xs text-gray-400 italic">edited</span>
+        )}
+      </>
+    );
+  };
+
+  /** Only the author edits — never an admin. Rewriting someone else's words
+   *  under their name is worse than anything moderation prevents. */
+  const canEdit = (comment: CommentThreadComment) =>
+    !comment.isDeleted &&
+    currentUserId !== null &&
+    currentUserId === comment.authorId;
+
+  const startEdit = (comment: CommentThreadComment) => {
+    setReplyingTo(null);
+    setEditingId(comment.id);
+    setEditContent(comment.content);
+  };
 
   const topLevelComments = comments.filter((c) => c.parentId === null);
   const getReplies = (commentId: number) =>
@@ -320,17 +457,7 @@ export function CommentThread({
                           {getRelativeTime(comment.createdAt)}
                         </span>
                       </div>
-                      <p
-                        className={
-                          comment.isDeleted
-                            ? "text-sm italic text-gray-400"
-                            : "text-sm text-gray-700 whitespace-pre-wrap"
-                        }
-                      >
-                        {comment.isDeleted
-                          ? "This comment was removed. The replies below it were kept."
-                          : comment.content}
-                      </p>
+                      {renderBody(comment)}
                       {/*
                         No Reply and no Delete on a tombstone. Replying would
                         attach a new comment to something nobody can read, and
@@ -351,6 +478,17 @@ export function CommentThread({
                             <CornerDownRight className="h-3 w-3 mr-1" />
                             Reply
                           </Button>
+                          {canEdit(comment) && editingId !== comment.id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs text-gray-500 h-7 px-2"
+                              onClick={() => startEdit(comment)}
+                            >
+                              <Pencil className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                          )}
                           {(canModerate || currentUserId === comment.authorId) && (
                             <Button
                               variant="ghost"
@@ -426,9 +564,18 @@ export function CommentThread({
                                 {getRelativeTime(reply.createdAt)}
                               </span>
                             </div>
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {reply.content}
-                            </p>
+                            {renderBody(reply)}
+                            {canEdit(reply) && editingId !== reply.id && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs text-gray-500 h-6 px-1.5 mt-1"
+                                onClick={() => startEdit(reply)}
+                              >
+                                <Pencil className="h-3 w-3 mr-1" />
+                                Edit
+                              </Button>
+                            )}
                             {(isAdmin || currentUserId === reply.authorId) && (
                               <Button
                                 variant="ghost"

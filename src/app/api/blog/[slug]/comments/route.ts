@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { blogPosts, blogComments, users, siteSettings } from "@/lib/db/schema";
+import { blogPosts, blogComments, users } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
-import { blogCommentSchema } from "@/lib/validations/blog";
+import { blogCommentSchema, blogCommentEditSchema } from "@/lib/validations/blog";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
 import { logAudit, getIpFromRequest } from "@/lib/audit";
 import { applyTombstones } from "@/lib/comments/tombstone";
+import { resolveCommentOutcome } from "@/lib/comments/resolve";
 import {
-  decideBlogComment,
-  parseModeration,
-  BLOG_COMMENT_MODERATION_KEY,
-  DEFAULT_SITE_MODERATION,
-} from "@/lib/comments/moderation";
+  refuseCommentEdit,
+  EDIT_REFUSAL_MESSAGES,
+  EDIT_REFUSAL_STATUS,
+} from "@/lib/comments/edit";
 
 export async function GET(
   request: NextRequest,
@@ -51,6 +51,7 @@ export async function GET(
         parentId: blogComments.parentId,
         createdAt: blogComments.createdAt,
         deletedAt: blogComments.deletedAt,
+        editedAt: blogComments.editedAt,
         authorFirstName: users.firstName,
         authorLastName: users.lastName,
       })
@@ -75,6 +76,9 @@ export async function GET(
       content: c.content,
       parentId: c.parentId,
       createdAt: c.createdAt,
+      // Null on a tombstone: whether a removed comment was ever edited is
+      // not something a reader needs, and it is one more fact about it.
+      editedAt: c.isDeleted ? null : c.editedAt,
       isDeleted: c.isDeleted,
       authorName: c.isDeleted
         ? null
@@ -148,21 +152,18 @@ export async function POST(
 
     const { content, parentId } = result.data;
 
-    // The account-level control, which this route never used to read — an
-    // account set to "Blocked" in Admin → Users could comment here freely.
-    // Read before the parent lookup so a blocked request costs one query.
-    const [dbUser] = await db
-      .select({ commentPermission: users.commentPermission })
-      .from(users)
-      .where(eq(users.id, parseInt(session.user.id)))
-      .limit(1);
+    // The same resolution the EDIT path uses. This route never read
+    // `commentPermission` at all before, so an account set to "Blocked" in
+    // Admin → Users could comment here freely. Resolved before the parent
+    // lookup so a blocked request does no further work.
+    const outcome = await resolveCommentOutcome({
+      userId: parseInt(session.user.id),
+      isAdmin: session.user.role === "admin",
+      surface: "blog",
+      itemModeration: post.commentModeration,
+    });
 
-    const isAdmin = session.user.role === "admin";
-
-    if (
-      !isAdmin &&
-      (dbUser?.commentPermission ?? "allowed") === "blocked"
-    ) {
+    if (outcome === "blocked") {
       // Same wording and status as Ask the Rabbi, so a blocked person sees one
       // consistent message wherever they try to comment.
       return NextResponse.json(
@@ -198,35 +199,6 @@ export async function POST(
           { status: 400 }
         );
       }
-    }
-
-    // The site-wide default. Only consulted when the post has no override of
-    // its own, so an "open" or "approved" post costs no extra query.
-    let siteModeration = DEFAULT_SITE_MODERATION;
-    if (!post.commentModeration) {
-      const [setting] = await db
-        .select({ value: siteSettings.value })
-        .from(siteSettings)
-        .where(eq(siteSettings.key, BLOG_COMMENT_MODERATION_KEY))
-        .limit(1);
-      siteModeration = parseModeration(setting?.value);
-    }
-
-    const outcome = decideBlogComment({
-      isAdmin,
-      commentPermission: dbUser?.commentPermission,
-      postModeration: post.commentModeration,
-      siteModeration,
-    });
-
-    // "blocked" is already handled above, before any work is done. Reaching it
-    // here would mean the two checks disagree, so fail closed rather than
-    // guessing which one is right.
-    if (outcome === "blocked") {
-      return NextResponse.json(
-        { error: "You are not permitted to comment." },
-        { status: 403 }
-      );
     }
 
     const approvalStatus = outcome === "hold" ? "pending" : "approved";
@@ -347,5 +319,173 @@ export async function DELETE(
   } catch (error) {
     console.error("[API] Error deleting blog comment:", error);
     return NextResponse.json({ error: "Failed to delete comment" }, { status: 500 });
+  }
+}
+
+// PATCH /api/blog/[slug]/comments?commentId=xxx
+//
+// The author corrects their own comment. There was no edit route at all until
+// now, so a typo could only be fixed by deleting and reposting — which on a
+// reply loses its place in the thread.
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
+
+    const { slug } = await params;
+    const { searchParams } = new URL(request.url);
+    const commentId = parseInt(searchParams.get("commentId") || "");
+    if (isNaN(commentId)) {
+      return NextResponse.json({ error: "Invalid comment ID" }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const parsed = blogCommentEditSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0].message },
+        { status: 400 }
+      );
+    }
+
+    const [post] = await db
+      .select({
+        id: blogPosts.id,
+        title: blogPosts.title,
+        commentModeration: blogPosts.commentModeration,
+      })
+      .from(blogPosts)
+      .where(
+        and(
+          eq(blogPosts.slug, slug),
+          eq(blogPosts.approvalStatus, "approved"),
+          eq(blogPosts.isActive, true)
+        )
+      )
+      .limit(1);
+
+    if (!post) {
+      return NextResponse.json({ error: "Blog post not found" }, { status: 404 });
+    }
+
+    const [comment] = await db
+      .select({
+        id: blogComments.id,
+        authorId: blogComments.authorId,
+        content: blogComments.content,
+        deletedAt: blogComments.deletedAt,
+        approvalStatus: blogComments.approvalStatus,
+      })
+      .from(blogComments)
+      .where(
+        and(eq(blogComments.id, commentId), eq(blogComments.postId, post.id))
+      )
+      .limit(1);
+
+    if (!comment) {
+      return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+    }
+
+    const userId = parseInt(session.user.id);
+    const refusal = refuseCommentEdit(comment, userId);
+    if (refusal) {
+      return NextResponse.json(
+        { error: EDIT_REFUSAL_MESSAGES[refusal] },
+        { status: EDIT_REFUSAL_STATUS[refusal] }
+      );
+    }
+
+    // Re-moderated exactly like a new comment. Without this, a site set to
+    // "hold for approval" is defeated by posting something innocuous, waiting
+    // for approval, then editing it into whatever you wanted to say.
+    const outcome = await resolveCommentOutcome({
+      userId,
+      isAdmin: session.user.role === "admin",
+      surface: "blog",
+      itemModeration: post.commentModeration,
+    });
+
+    if (outcome === "blocked") {
+      return NextResponse.json(
+        { error: "You are not permitted to comment." },
+        { status: 403 }
+      );
+    }
+
+    const approvalStatus = outcome === "hold" ? "pending" : "approved";
+    const wasPublic = comment.approvalStatus === "approved";
+
+    const [updated] = await db
+      .update(blogComments)
+      .set({
+        content: parsed.data.content,
+        // editedAt, not updatedAt: updatedAt also moves on approve/reject, so
+        // it cannot honestly be shown to a reader as "the author changed this".
+        editedAt: new Date(),
+        approvalStatus,
+      })
+      .where(eq(blogComments.id, commentId))
+      .returning();
+
+    // Logged only when the old text had already been public. That is the
+    // bait-and-switch case: people read one thing and the record now says
+    // another, and the audit entry is the only place the original survives.
+    if (wasPublic) {
+      await logAudit({
+        actorId: userId,
+        actorEmail: session.user.email ?? "unknown",
+        action: "UPDATE",
+        entityType: "blog_comment",
+        entityId: commentId,
+        entityTitle: parsed.data.content.slice(0, 120),
+        changes: {
+          content: { before: comment.content, after: parsed.data.content },
+          approvalStatus: {
+            before: comment.approvalStatus,
+            after: approvalStatus,
+          },
+        },
+        ipAddress: getIpFromRequest(request),
+      });
+    }
+
+    if (approvalStatus === "pending") {
+      await notifyAdminOfSubmission({
+        contentType: "blog_comment",
+        title: `Edited blog comment on "${post.title}"`,
+        body:
+          `Post: ${post.title}\n` +
+          `By: ${session.user.name || session.user.email || "Unknown user"}\n\n` +
+          parsed.data.content,
+        linkUrl: "/admin/programs/blog/comments",
+        status: "pending",
+      });
+    }
+
+    return NextResponse.json({
+      id: updated.id,
+      content: updated.content,
+      parentId: updated.parentId,
+      createdAt: updated.createdAt,
+      editedAt: updated.editedAt,
+      approvalStatus: updated.approvalStatus,
+    });
+  } catch (error) {
+    console.error("[API] Error editing blog comment:", error);
+    return NextResponse.json(
+      { error: "Failed to edit comment" },
+      { status: 500 }
+    );
   }
 }

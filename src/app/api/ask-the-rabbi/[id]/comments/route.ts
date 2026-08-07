@@ -2,17 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { applyTombstones } from "@/lib/comments/tombstone";
+import { resolveCommentOutcome } from "@/lib/comments/resolve";
 import {
-  decideComment,
-  parseModeration,
-  COMMENT_SURFACES,
-} from "@/lib/comments/moderation";
-import {
-  askTheRabbi,
-  askTheRabbiComments,
-  users,
-  siteSettings,
-} from "@/lib/db/schema";
+  refuseCommentEdit,
+  EDIT_REFUSAL_MESSAGES,
+  EDIT_REFUSAL_STATUS,
+} from "@/lib/comments/edit";
+import { askTheRabbi, askTheRabbiComments, users } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
@@ -30,6 +26,9 @@ const commentSchema = z.object({
     .max(2000, "Comment must be 2000 characters or less"),
   parentId: z.number().int().positive().nullable().optional(),
 });
+
+/** An edit changes the text and nothing else — never the parent or question. */
+const commentEditSchema = commentSchema.pick({ content: true });
 
 // GET /api/ask-the-rabbi/[id]/comments
 // Public — returns approved, active comments for a published question
@@ -65,6 +64,7 @@ export async function GET(
         approvalStatus: askTheRabbiComments.approvalStatus,
         createdAt: askTheRabbiComments.createdAt,
         deletedAt: askTheRabbiComments.deletedAt,
+        editedAt: askTheRabbiComments.editedAt,
         authorFirstName: users.firstName,
         authorLastName: users.lastName,
       })
@@ -89,6 +89,9 @@ export async function GET(
       parentId: c.parentId,
       approvalStatus: c.approvalStatus,
       createdAt: c.createdAt,
+      // Null on a tombstone: whether a removed comment was ever edited is
+      // not something a reader needs, and it is one more fact about it.
+      editedAt: c.isDeleted ? null : c.editedAt,
       isDeleted: c.isDeleted,
       authorName: c.isDeleted
         ? null
@@ -167,15 +170,22 @@ export async function POST(
     const isManager =
       session.user.role === "admin" || dbUser?.canManageAskTheRabbi === true;
 
-    // Check commentPermission (managers always bypass this)
-    if (!isManager) {
-      const permission = dbUser?.commentPermission ?? "allowed";
-      if (permission === "blocked") {
-        return NextResponse.json(
-          { error: "You are not permitted to comment." },
-          { status: 403 }
-        );
-      }
+    // The same resolution the EDIT path uses, so the two cannot diverge —
+    // an edit that moderated differently from a create would be a hole, not an
+    // inconsistency. Resolved before the parent lookup so a blocked request
+    // does no further work.
+    const outcome = await resolveCommentOutcome({
+      userId,
+      isAdmin: isManager,
+      surface: "askTheRabbi",
+      canSkipModeration: dbUser?.canAutoApproveAskTheRabbi === true,
+    });
+
+    if (outcome === "blocked") {
+      return NextResponse.json(
+        { error: "You are not permitted to comment." },
+        { status: 403 }
+      );
     }
 
     // Validate parentId if provided — must be a top-level comment on this question
@@ -208,34 +218,6 @@ export async function POST(
           { status: 400 }
         );
       }
-    }
-
-    // The site-wide default for this surface. Ask the Rabbi had no policy
-    // layer at all until now — only the per-person permission — so a site set
-    // to "hold for approval" silently did nothing here.
-    const [setting] = await db
-      .select({ value: siteSettings.value })
-      .from(siteSettings)
-      .where(eq(siteSettings.key, COMMENT_SURFACES.askTheRabbi.key))
-      .limit(1);
-
-    // Ask the Rabbi questions are answered, not approved, so comment
-    // moderation is the one approval step canAutoApproveAskTheRabbi can govern.
-    // There is no per-question override, hence no itemModeration.
-    const outcome = decideComment({
-      isAdmin: isManager,
-      canSkipModeration: dbUser?.canAutoApproveAskTheRabbi === true,
-      commentPermission: dbUser?.commentPermission,
-      siteModeration: parseModeration(setting?.value),
-    });
-
-    // Blocked is already handled above, before any work is done. Reaching it
-    // here would mean the two checks disagree, so fail closed.
-    if (outcome === "blocked") {
-      return NextResponse.json(
-        { error: "You are not permitted to comment." },
-        { status: 403 }
-      );
     }
 
     const approvalStatus = outcome === "hold" ? "pending" : "approved";
@@ -363,5 +345,151 @@ export async function DELETE(
   } catch (error) {
     console.error("[ATR COMMENTS] Error deleting comment:", error);
     return NextResponse.json({ error: "Failed to delete comment" }, { status: 500 });
+  }
+}
+
+// PATCH /api/ask-the-rabbi/[id]/comments?commentId=xxx
+//
+// The author corrects their own comment. See the blog equivalent — same three
+// rules, and note that admins and ATR managers are NOT exempt from the
+// ownership check here. Moderating someone's words is theirs to do; rewriting
+// them under that person's name is not.
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
+    const notAllowed = await assertCanPost(session.user.id);
+    if (notAllowed) return notAllowed;
+
+    const { id } = await params;
+    const questionId = parseInt(id);
+    const { searchParams } = new URL(request.url);
+    const commentId = parseInt(searchParams.get("commentId") || "");
+
+    if (isNaN(questionId) || isNaN(commentId)) {
+      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const parsed = commentEditSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0].message },
+        { status: 400 }
+      );
+    }
+
+    const [comment] = await db
+      .select({
+        id: askTheRabbiComments.id,
+        authorId: askTheRabbiComments.authorId,
+        content: askTheRabbiComments.content,
+        deletedAt: askTheRabbiComments.deletedAt,
+        approvalStatus: askTheRabbiComments.approvalStatus,
+      })
+      .from(askTheRabbiComments)
+      .where(
+        and(
+          eq(askTheRabbiComments.id, commentId),
+          eq(askTheRabbiComments.questionId, questionId)
+        )
+      )
+      .limit(1);
+
+    if (!comment) {
+      return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+    }
+
+    const userId = parseInt(session.user.id);
+    const refusal = refuseCommentEdit(comment, userId);
+    if (refusal) {
+      return NextResponse.json(
+        { error: EDIT_REFUSAL_MESSAGES[refusal] },
+        { status: EDIT_REFUSAL_STATUS[refusal] }
+      );
+    }
+
+    const [dbUser] = await db
+      .select({ canAutoApproveAskTheRabbi: users.canAutoApproveAskTheRabbi })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const outcome = await resolveCommentOutcome({
+      userId,
+      isAdmin: await canManageAtr(session),
+      surface: "askTheRabbi",
+      canSkipModeration: dbUser?.canAutoApproveAskTheRabbi === true,
+    });
+
+    if (outcome === "blocked") {
+      return NextResponse.json(
+        { error: "You are not permitted to comment." },
+        { status: 403 }
+      );
+    }
+
+    const approvalStatus = outcome === "hold" ? "pending" : "approved";
+    const wasPublic = comment.approvalStatus === "approved";
+
+    const [updated] = await db
+      .update(askTheRabbiComments)
+      .set({
+        content: parsed.data.content,
+        editedAt: new Date(),
+        approvalStatus,
+        updatedAt: new Date(),
+      })
+      .where(eq(askTheRabbiComments.id, commentId))
+      .returning();
+
+    if (wasPublic) {
+      await logAudit({
+        actorId: userId,
+        actorEmail: session.user.email ?? "unknown",
+        action: "UPDATE",
+        entityType: "atr_comment",
+        entityId: commentId,
+        entityTitle: parsed.data.content.slice(0, 120),
+        changes: {
+          content: { before: comment.content, after: parsed.data.content },
+          approvalStatus: {
+            before: comment.approvalStatus,
+            after: approvalStatus,
+          },
+        },
+        ipAddress: getIpFromRequest(request),
+      });
+    }
+
+    if (approvalStatus === "pending") {
+      await notifyAdminOfSubmission({
+        contentType: "atr_comment",
+        title: "Edited Ask the Rabbi comment",
+        body:
+          `By: ${session.user.name || session.user.email || "Unknown user"}\n\n` +
+          parsed.data.content,
+        linkUrl: "/admin/programs/rabbi?tab=comments",
+        status: "pending",
+      });
+    }
+
+    return NextResponse.json({
+      id: updated.id,
+      content: updated.content,
+      parentId: updated.parentId,
+      createdAt: updated.createdAt,
+      editedAt: updated.editedAt,
+      approvalStatus: updated.approvalStatus,
+    });
+  } catch (error) {
+    console.error("[ATR COMMENTS] Error editing comment:", error);
+    return NextResponse.json({ error: "Failed to edit comment" }, { status: 500 });
   }
 }

@@ -750,6 +750,9 @@ export const blogComments = pgTable("blog_comments", {
   // hide/show — a tombstoned parent still renders (as "[deleted]") when it has
   // live replies, so the thread beneath it survives.
   deletedAt: timestamp("deleted_at"),
+  // Stamped when the AUTHOR changes the text. Distinct from updatedAt, which
+  // also moves on moderation, so only this one is safe to show a reader.
+  editedAt: timestamp("edited_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
@@ -1027,6 +1030,8 @@ export const askTheRabbiComments = pgTable("ask_the_rabbi_comments", {
   isActive: boolean("is_active").default(true).notNull(),
   /** See blogComments.deletedAt — same meaning, same rules. */
   deletedAt: timestamp("deleted_at"),
+  /** See blogComments.editedAt. */
+  editedAt: timestamp("edited_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [

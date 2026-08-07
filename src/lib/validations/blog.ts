@@ -20,6 +20,11 @@ export const blogCommentSchema = z.object({
 
 export type BlogCommentFormData = z.infer<typeof blogCommentSchema>;
 
+/** An edit changes the text and nothing else — never the parent or the post. */
+export const blogCommentEditSchema = z.object({
+  content: z.string().min(1, "Comment cannot be empty").max(2000),
+});
+
 export const blogCategorySchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   displayOrder: z.number().optional(),
