@@ -1,6 +1,6 @@
 ---
 name: deleted-comments-are-tombstoned
-description: Deleting a comment that has replies leaves a tombstone; the replies survive. NOT YET BUILT
+description: Deleting a comment that has replies leaves a tombstone; the replies survive. BUILT 2026-08-06
 type: decision
 date: 2026-08-06
 status: accepted
@@ -11,15 +11,21 @@ becomes a tombstone — *"This comment was deleted"* — and the **replies stay
 readable**. A comment with no replies is hard-deleted, because there is nothing
 to preserve.
 
-**⚠️ DECIDED, NOT BUILT.** Today's code still does the opposite: deleting a
-top-level comment silently deletes every reply to it.
+**✅ BUILT 2026-08-06.** All four delete paths now soft-delete, and
+`applyTombstones` in `src/lib/comments/tombstone.ts` decides what a reader sees.
 
-```js
-// src/app/api/blog/[slug]/comments/route.ts — current behaviour
-if (comment.parentId === null) {
-  await db.delete(blogComments).where(eq(blogComments.parentId, commentId));
-}
-```
+What the code actually did before, which was worse than "the opposite" — it was
+three different things depending on the button:
+
+| Path | Old behaviour |
+|---|---|
+| User deletes own top-level | App-level cascade — replies **destroyed** |
+| Admin deletes via the queue | Bare `DELETE` — replies **orphaned**: they matched no parent, were not top-level, so `CommentThread` rendered them nowhere while they sat in the table forever |
+| Admin deletes an ATR comment | Soft delete (`is_active = false`) only |
+
+And `blog_comments.parent_id` was a bare `integer` with **no foreign key at
+all**, so nothing at the database level prevented any of it.
+
 
 **Context:** The split across platforms is real and reasoned. YouTube, Facebook
 and Instagram take the replies with the parent. Reddit, Hacker News and Disqus
@@ -48,14 +54,23 @@ by **both** blog (via the thin `BlogComments.tsx` wrapper) and Ask the Rabbi. On
 shared component means one render change covers both surfaces.
 
 Remaining work:
+**What shipped:**
 
-1. `deleted_at` on `blog_comments` and `ask_the_rabbi_comments` (both databases)
-2. Both DELETE routes: tombstone if the comment has replies, hard-delete if not.
-   **Blank the content** — a deletion should actually remove the words, not hide
-   them behind a flag.
-3. `CommentThread`: render the tombstone
-4. Both GET routes: return tombstoned rows so the thread structure survives
-5. Tests, including: deleting a parent leaves the replies readable
+1. `migrations/2026-08-06-comment-tombstones.sql` — `deleted_at` on both comment
+   tables, the missing `blog_comments.parent_id` foreign key, and Ask the
+   Rabbi's realigned to `ON DELETE CASCADE`. Applied to primary and test.
+2. All four delete routes soft-delete. The two app-level cascades are gone.
+3. `applyTombstones()` in `src/lib/comments/tombstone.ts` — the single rule,
+   applied by both public GETs. Text and author are blanked **server-side**; a
+   tombstone that shipped the original and hid it in CSS would still be in the
+   JSON.
+4. `CommentThread` renders the tombstone and drops its Reply and Delete
+   actions, and its optimistic delete now applies the same rule — filtering the
+   row out locally reproduced the orphaning bug in the UI until a reload.
+5. Both admin queues and the pending badge exclude deleted rows, so the count
+   cannot outrun the list.
+6. 14 unit + 10 integration tests; six verified to go red against the old
+   delete behaviour.
 
 **Consequences:**
 

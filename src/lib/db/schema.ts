@@ -741,9 +741,15 @@ export const blogComments = pgTable("blog_comments", {
   postId: integer("post_id").notNull().references(() => blogPosts.id, { onDelete: "cascade" }),
   authorId: integer("author_id").notNull().references(() => users.id),
   content: text("content").notNull(),
-  parentId: integer("parent_id"),
+  // Self-reference added 2026-08-06. This was a bare integer for the life of
+  // the blog, so nothing stopped a delete from orphaning replies.
+  parentId: integer("parent_id").references((): AnyPgColumn => blogComments.id, { onDelete: "cascade" }),
   approvalStatus: varchar("approval_status", { length: 20 }).default("pending").notNull(),
   isActive: boolean("is_active").default(true),
+  // Set when the comment is removed. Distinct from isActive, which is an admin
+  // hide/show — a tombstoned parent still renders (as "[deleted]") when it has
+  // live replies, so the thread beneath it survives.
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
@@ -1016,9 +1022,11 @@ export const askTheRabbiComments = pgTable("ask_the_rabbi_comments", {
   questionId: integer("question_id").notNull().references(() => askTheRabbi.id, { onDelete: "cascade" }),
   authorId: integer("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
-  parentId: integer("parent_id").references((): AnyPgColumn => askTheRabbiComments.id),
+  parentId: integer("parent_id").references((): AnyPgColumn => askTheRabbiComments.id, { onDelete: "cascade" }),
   approvalStatus: varchar("approval_status", { length: 20 }).default("approved").notNull(),
   isActive: boolean("is_active").default(true).notNull(),
+  /** See blogComments.deletedAt — same meaning, same rules. */
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [

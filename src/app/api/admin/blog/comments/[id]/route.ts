@@ -49,7 +49,10 @@ export async function PATCH(
   }
 }
 
-// DELETE - Hard delete comment
+// DELETE - soft delete, so replies beneath the comment survive as a thread.
+// This was a bare DELETE with no reply handling at all, which ORPHANED every
+// reply: they matched no parent and were not top-level, so CommentThread
+// rendered them nowhere while they stayed in the table forever.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -64,7 +67,8 @@ export async function DELETE(
     const commentId = parseInt(id);
 
     const [deleted] = await db
-      .delete(blogComments)
+      .update(blogComments)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(blogComments.id, commentId))
       .returning();
 

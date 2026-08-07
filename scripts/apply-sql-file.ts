@@ -30,14 +30,65 @@ if (FORBIDDEN.test(raw.replace(/--[^\n]*/g, ""))) {
   process.exit(1);
 }
 
-// Strip line comments, then split on semicolons.
-const statements = raw
-  .split("\n")
-  .map((l) => l.replace(/--.*$/, ""))
-  .join("\n")
-  .split(";")
-  .map((s) => s.trim())
-  .filter(Boolean);
+/**
+ * Strip line comments, then split on semicolons — but NOT semicolons inside a
+ * dollar-quoted body.
+ *
+ * A naive `.split(";")` tears `DO $$ ... ; ... $$` apart and Postgres reports
+ * "unterminated dollar-quoted string", which reads like a syntax error in the
+ * migration rather than a bug in this runner. Any PL/pgSQL block hits it, so
+ * conditional DDL (`IF NOT EXISTS ... THEN ALTER TABLE`) was effectively
+ * unusable here.
+ *
+ * Postgres tags a dollar quote as `$tag$`, and the closing delimiter must match
+ * the opening one exactly, so tracking the active tag is enough.
+ */
+function splitStatements(sql: string): string[] {
+  const withoutComments = sql
+    .split("\n")
+    .map((l) => l.replace(/--.*$/, ""))
+    .join("\n");
+
+  const out: string[] = [];
+  let current = "";
+  let dollarTag: string | null = null;
+
+  for (let i = 0; i < withoutComments.length; i++) {
+    if (dollarTag) {
+      if (withoutComments.startsWith(dollarTag, i)) {
+        current += dollarTag;
+        i += dollarTag.length - 1;
+        dollarTag = null;
+        continue;
+      }
+      current += withoutComments[i];
+      continue;
+    }
+
+    const opening = /^\$[A-Za-z_][A-Za-z0-9_]*\$|^\$\$/.exec(
+      withoutComments.slice(i)
+    );
+    if (opening) {
+      dollarTag = opening[0];
+      current += dollarTag;
+      i += dollarTag.length - 1;
+      continue;
+    }
+
+    if (withoutComments[i] === ";") {
+      out.push(current);
+      current = "";
+      continue;
+    }
+
+    current += withoutComments[i];
+  }
+  out.push(current);
+
+  return out.map((s) => s.trim()).filter(Boolean);
+}
+
+const statements = splitStatements(raw);
 
 async function main() {
   const url = process.env.DATABASE_URL;

@@ -6,6 +6,7 @@ import { eq, and, asc } from "drizzle-orm";
 import { blogCommentSchema } from "@/lib/validations/blog";
 import { notifyAdminOfSubmission } from "@/lib/notifications";
 import { assertCanPost } from "@/lib/auth/require-verified";
+import { applyTombstones } from "@/lib/comments/tombstone";
 import {
   decideBlogComment,
   parseModeration,
@@ -48,6 +49,7 @@ export async function GET(
         content: blogComments.content,
         parentId: blogComments.parentId,
         createdAt: blogComments.createdAt,
+        deletedAt: blogComments.deletedAt,
         authorFirstName: users.firstName,
         authorLastName: users.lastName,
       })
@@ -62,14 +64,21 @@ export async function GET(
       )
       .orderBy(asc(blogComments.createdAt));
 
-    const mapped = comments.map((c) => ({
+    // Deleted rows are fetched, not filtered in SQL, because a deleted parent
+    // must survive as a tombstone when its replies are still live. The text
+    // and author are blanked server-side — hiding them in the client would
+    // still ship them in this response.
+    const mapped = applyTombstones(comments).map((c) => ({
       id: c.id,
       authorId: c.authorId,
       content: c.content,
       parentId: c.parentId,
       createdAt: c.createdAt,
-      authorName:
-        [c.authorFirstName, c.authorLastName].filter(Boolean).join(" ") || "Anonymous",
+      isDeleted: c.isDeleted,
+      authorName: c.isDeleted
+        ? null
+        : [c.authorFirstName, c.authorLastName].filter(Boolean).join(" ") ||
+          "Anonymous",
     }));
 
     return NextResponse.json(mapped);
@@ -302,12 +311,14 @@ export async function DELETE(
       return NextResponse.json({ error: "You can only delete your own comments" }, { status: 403 });
     }
 
-    // Cascade-delete replies when deleting a top-level comment
-    if (comment.parentId === null) {
-      await db.delete(blogComments).where(eq(blogComments.parentId, commentId));
-    }
-
-    await db.delete(blogComments).where(eq(blogComments.id, commentId));
+    // Soft delete. The old code hard-deleted the comment AND every reply to
+    // it, so removing one's own question destroyed other people's answers.
+    // Now the row stays: applyTombstones drops it if nothing replied, and
+    // keeps it as "[deleted]" if a reply is still live.
+    await db
+      .update(blogComments)
+      .set({ deletedAt: new Date() })
+      .where(eq(blogComments.id, commentId));
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -6,7 +6,7 @@ import {
   askTheRabbi,
   users,
 } from "@/lib/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, isNull } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +40,8 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const offset = (page - 1) * limit;
 
-    const conditions = [];
+    // Deleted comments never appear in the queue — see the blog equivalent.
+    const conditions = [isNull(askTheRabbiComments.deletedAt)];
 
     if (status !== "all") {
       conditions.push(eq(askTheRabbiComments.approvalStatus, status));

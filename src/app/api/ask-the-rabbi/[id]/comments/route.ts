@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
+import { applyTombstones } from "@/lib/comments/tombstone";
 import {
   decideComment,
   parseModeration,
@@ -62,6 +63,7 @@ export async function GET(
         parentId: askTheRabbiComments.parentId,
         approvalStatus: askTheRabbiComments.approvalStatus,
         createdAt: askTheRabbiComments.createdAt,
+        deletedAt: askTheRabbiComments.deletedAt,
         authorFirstName: users.firstName,
         authorLastName: users.lastName,
       })
@@ -76,15 +78,21 @@ export async function GET(
       )
       .orderBy(asc(askTheRabbiComments.createdAt));
 
-    const mapped = comments.map((c) => ({
+    // Deleted rows are fetched, not filtered in SQL: a deleted parent must
+    // survive as a tombstone while its replies are live. Text and author are
+    // blanked server-side, not hidden in the client.
+    const mapped = applyTombstones(comments).map((c) => ({
       id: c.id,
       authorId: c.authorId,
       content: c.content,
       parentId: c.parentId,
       approvalStatus: c.approvalStatus,
       createdAt: c.createdAt,
-      authorName:
-        [c.authorFirstName, c.authorLastName].filter(Boolean).join(" ") || "Anonymous",
+      isDeleted: c.isDeleted,
+      authorName: c.isDeleted
+        ? null
+        : [c.authorFirstName, c.authorLastName].filter(Boolean).join(" ") ||
+          "Anonymous",
     }));
 
     return NextResponse.json(mapped);
@@ -275,7 +283,8 @@ export async function POST(
 }
 
 // DELETE /api/ask-the-rabbi/[id]/comments?commentId=xxx
-// Users can delete their own comments; admins/ATR managers can delete any (with cascade)
+// Users can delete their own comments; admins/ATR managers can delete any.
+// Soft delete — see src/lib/comments/tombstone.ts for what a reader then sees.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -318,12 +327,14 @@ export async function DELETE(
       return NextResponse.json({ error: "You can only delete your own comments" }, { status: 403 });
     }
 
-    // If deleting a top-level comment, cascade-delete its replies first
-    if (comment.parentId === null) {
-      await db.delete(askTheRabbiComments).where(eq(askTheRabbiComments.parentId, commentId));
-    }
-
-    await db.delete(askTheRabbiComments).where(eq(askTheRabbiComments.id, commentId));
+    // Soft delete. This used to hard-delete the comment AND every reply, so
+    // deleting one's own comment destroyed other people's answers beneath it —
+    // the worst case on this surface, where a reply is usually a standalone
+    // answer to a halachic question.
+    await db
+      .update(askTheRabbiComments)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(askTheRabbiComments.id, commentId));
 
     return NextResponse.json({ success: true });
   } catch (error) {

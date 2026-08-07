@@ -8,15 +8,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { MessageSquare, Loader2, CornerDownRight, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { applyTombstones } from "@/lib/comments/tombstone";
+
+/** Stand-in timestamp for the optimistic update; only its presence matters. */
+const DELETED = new Date(0);
 
 interface CommentThreadComment {
   id: number;
   authorId: number | null;
   content: string;
-  authorName: string;
+  /** Null on a tombstone — the API strips the author of a deleted comment. */
+  authorName: string | null;
   parentId: number | null;
   createdAt: string;
   approvalStatus?: string;
+  /**
+   * A deleted comment kept only because live replies hang off it. Its text and
+   * author are already gone by the time it reaches here; this flag exists so
+   * the row can be styled as a tombstone and stripped of its actions.
+   */
+  isDeleted?: boolean;
 }
 
 interface CommentThreadProps {
@@ -171,7 +182,27 @@ export function CommentThread({
     try {
       const res = await fetch(`${apiBase}?commentId=${commentId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
-      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      // Dropping the row locally would orphan its replies in the UI until a
+      // reload — the same defect the server side just stopped doing. Reuse the
+      // one rule so the optimistic update matches what a refetch would return.
+      setComments((prev) =>
+        applyTombstones(
+          prev.map((c) => ({
+            ...c,
+            // The list has no timestamps; any non-null value means "deleted".
+            deletedAt: c.id === commentId || c.isDeleted ? DELETED : null,
+          }))
+        ).map((c) => ({
+          id: c.id,
+          authorId: c.isDeleted ? null : c.authorId,
+          content: c.content,
+          parentId: c.parentId,
+          createdAt: c.createdAt,
+          approvalStatus: c.approvalStatus,
+          isDeleted: c.isDeleted,
+          authorName: c.isDeleted ? null : c.authorName,
+        }))
+      );
       toast.success("Comment deleted");
     } catch {
       toast.error("Failed to delete comment");
@@ -274,17 +305,38 @@ export function CommentThread({
                     {/* Top-level comment */}
                     <Card className="p-4">
                       <div className="flex items-baseline justify-between mb-1">
-                        <span className="font-semibold text-sm">
-                          {comment.authorName}
+                        <span
+                          className={
+                            comment.isDeleted
+                              ? "text-sm italic text-gray-400"
+                              : "font-semibold text-sm"
+                          }
+                        >
+                          {comment.isDeleted
+                            ? "Deleted comment"
+                            : comment.authorName}
                         </span>
                         <span className="text-xs text-gray-400">
                           {getRelativeTime(comment.createdAt)}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                        {comment.content}
+                      <p
+                        className={
+                          comment.isDeleted
+                            ? "text-sm italic text-gray-400"
+                            : "text-sm text-gray-700 whitespace-pre-wrap"
+                        }
+                      >
+                        {comment.isDeleted
+                          ? "This comment was removed. The replies below it were kept."
+                          : comment.content}
                       </p>
-                      {session?.user && (
+                      {/*
+                        No Reply and no Delete on a tombstone. Replying would
+                        attach a new comment to something nobody can read, and
+                        there is nothing left to delete.
+                      */}
+                      {session?.user && !comment.isDeleted && (
                         <div className="flex items-center gap-1 mt-2">
                           <Button
                             variant="ghost"

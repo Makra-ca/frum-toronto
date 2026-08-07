@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { blogPosts, blogCategories, blogComments, users } from "@/lib/db/schema";
-import { eq, and, or, desc, sql, ilike } from "drizzle-orm";
+import { eq, and, or, desc, sql, ilike, isNull } from "drizzle-orm";
 import { blogPostSchema } from "@/lib/validations/blog";
 
 function generateSlug(name: string): string {
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
         authorLastName: users.lastName,
         categoryName: blogCategories.name,
         commentCount: sql<number>`(SELECT count(*) FROM blog_comments WHERE post_id = ${blogPosts.id})`,
-        pendingCommentsCount: sql<number>`(SELECT count(*) FROM blog_comments WHERE post_id = ${blogPosts.id} AND approval_status = 'pending' AND is_active = true)`,
+        pendingCommentsCount: sql<number>`(SELECT count(*) FROM blog_comments WHERE post_id = ${blogPosts.id} AND approval_status = 'pending' AND is_active = true AND deleted_at IS NULL)`,
       })
       .from(blogPosts)
       .leftJoin(users, eq(blogPosts.authorId, users.id))
@@ -114,7 +114,10 @@ export async function GET(request: NextRequest) {
       .where(
         and(
           eq(blogComments.approvalStatus, "pending"),
-          eq(blogComments.isActive, true)
+          eq(blogComments.isActive, true),
+          // Must match the queue's own filter, or the badge counts rows the
+          // page will not show and the admin chases a number that never drops.
+          isNull(blogComments.deletedAt)
         )
       );
     const pendingCommentsCount = Number(pendingCommentsResult?.count || 0);

@@ -82,7 +82,9 @@ export async function PATCH(
 }
 
 // DELETE /api/admin/ask-the-rabbi/comments/[id]
-// Soft delete — sets isActive = false
+// Soft delete. Stamps deleted_at rather than flipping is_active: is_active is
+// an admin hide/show and says nothing about whether a thread beneath the
+// comment should survive. See src/lib/comments/tombstone.ts.
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -102,7 +104,7 @@ export async function DELETE(
 
     const [updated] = await db
       .update(askTheRabbiComments)
-      .set({ isActive: false, updatedAt: new Date() })
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(askTheRabbiComments.id, commentId))
       .returning({ id: askTheRabbiComments.id });
 

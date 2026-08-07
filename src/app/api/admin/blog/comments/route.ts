@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { blogComments, blogPosts, users } from "@/lib/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, isNull } from "drizzle-orm";
 
 // GET - List comments with filters and pagination
 export async function GET(request: NextRequest) {
@@ -18,7 +18,10 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") || "pending";
     const offset = (page - 1) * limit;
 
-    const conditions = [];
+    // Deleted comments never appear in the queue. The row survives so a
+    // thread beneath it keeps its shape, but there is nothing left to moderate
+    // and its text is no longer shown to anyone.
+    const conditions = [isNull(blogComments.deletedAt)];
 
     if (status !== "all") {
       conditions.push(eq(blogComments.approvalStatus, status));
