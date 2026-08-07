@@ -56,6 +56,28 @@ Made by the owner during brainstorming, recorded so they are not re-litigated:
 | Staleness | **Tie the status to the Shabbos it applies to** | Rejected both a staleness cutoff and an age banner. Admin picks *which Shabbos*, and the public side looks the row up by that date, so a stale row simply doesn't match. Structural, not heuristic. |
 | Yom Tov | **Out of scope — Saturdays only** | Considered and explicitly dropped. Yom Tov is detectable via hebcal's `CHAG` flag if it is ever wanted; see "Deliberately not built". |
 | Migration | **None** | `status_date` keeps its type and unique constraint; only its meaning changes, from "the day I typed this" to "the Shabbos this applies to". The table is empty, so no existing row is reinterpreted. |
+| Saturday-night rollover | **Midnight Toronto**, not tzeis | Settled once the operational fact below was known: nothing is entered before Friday, so flipping at tzeis would only replace a real status with "not yet checked" three hours early. |
+| Mid-week state | **"Not yet checked" + last Shabbos for context** | See below. |
+
+### The operational fact that shapes this
+
+**The eruv is not known to be up until roughly Friday**, so a status is realistically
+only ever entered on Friday. This is not an edge case — it is the normal weekly
+rhythm, and it means:
+
+- Sunday through Thursday there is **no row** for the coming Shabbos, every week.
+  The empty state is the *default* state of this page, not an exception.
+- Any design that treats "no status" as a failure or hides the widget would blank
+  the homepage five days out of seven.
+- It also settles the rollover question. Whether the page flips at tzeis or at
+  midnight, Saturday night shows "not yet checked" for next week either way, so
+  keeping the finished Shabbos visible until midnight is strictly better.
+
+Mid-week the page and widget therefore show **"Not yet checked for Shabbos, Aug 15
+— usually updated Friday"**, with the **previous** Shabbos's result underneath as
+dated context ("Last Shabbos (Aug 8): UP"). The previous result is labelled with
+its own date so it cannot be misread as current — which is the precise failure
+this whole design exists to prevent.
 
 ## Design
 
@@ -97,13 +119,22 @@ Parsha labels come from `getZmanimForDate(saturday).parsha`, already available.
 Returns:
 
 ```json
-{ "shabbosDate": "2026-08-08", "status": { "isUp": true, "message": "...", "updatedAt": "..." } }
+{
+  "shabbosDate": "2026-08-15",
+  "status": null,
+  "previous": { "statusDate": "2026-08-08", "isUp": true, "message": "...", "updatedAt": "..." }
+}
 ```
 
 `status` is the `eruv_status` row whose `status_date` equals `shabbosDate`, or
 **`null`** when no row exists. Because the lookup is by exact date, a status
 entered for an earlier Shabbos can never surface as this week's. The current
 `orderBy(desc(statusDate)).limit(1)` is replaced by an equality lookup.
+
+`previous` is the most recent row **strictly before** `shabbosDate` — the
+context line for the five days a week when `status` is null. It is a separate
+field, never merged into `status`, so no consumer can accidentally render a past
+result as the current one. Both are `null` on a cold table.
 
 This is a **response-shape change**. The only consumer is `EruvWidget`, which is
 updated in the same change. The existing shape is already inconsistent — it
@@ -132,17 +163,27 @@ row rather than failing.
 Server component at `src/app/(public)/eruv/page.tsx`, `force-dynamic` (matching
 the other admin-managed public pages).
 
-- Current Shabbos status: UP / DOWN / **not yet confirmed** when the row is `null`.
-- Which Shabbos it is for, stated explicitly — "for Shabbos, Aug 8".
-- The message, and when it was last updated.
-- Recent history: the last several Shabbatot with their statuses.
-- The existing "always verify before Shabbos" caution, carried over from the widget.
+Three states, and the **empty one is the common case** (Sunday–Thursday):
+
+| `status` | Shows |
+|---|---|
+| present | `UP` / `DOWN`, "for Shabbos, Aug 8", the message, last-updated |
+| `null`, `previous` present | "Not yet checked for Shabbos, Aug 15 — usually updated Friday", then "Last Shabbos (Aug 8): UP" |
+| both `null` | "Not yet checked" alone — the cold-start state until the first row is ever entered |
+
+Plus recent history (the last several Shabbatot) and the existing "always verify
+before Shabbos" caution carried over from the widget.
+
+The not-yet-checked state must be visually distinct from `DOWN`. "Not checked"
+and "eruv is down" lead to the same practical action but are different claims,
+and rendering absence as a red DOWN would be a false statement about the eruv.
 
 ### 5. Widget fix
 
-`EruvWidget.tsx` — both `<Link href="/eruv">` now resolve. The widget also
-states which Shabbos the status is for, so "UP" is never undated, and renders
-the "not yet confirmed" state when `status` is `null`.
+`EruvWidget.tsx` — both `<Link href="/eruv">` now resolve. The widget carries the
+same three states as the page, so it stays useful mid-week rather than reading
+"Unavailable", and always states which Shabbos it means, so "UP" is never
+undated.
 
 ## Testing
 
@@ -160,9 +201,15 @@ Unit (`tests/unit/eruv-shabbos.test.ts`), against `src/lib/eruv/shabbos.ts`:
   Shabbos.
 - `listUpcomingShabbatot` returns only Saturdays, in order, with labels.
 
-Integration: the public API returns `status: null` when the only row is for a
-past Shabbos — the regression test for the staleness defect. Verify it fails
-against the current `orderBy(desc).limit(1)` implementation before trusting it.
+Integration, against the public API:
+
+- **The staleness regression test**: with only a row for a past Shabbos, `status`
+  is `null` and that row appears as `previous`, never as `status`. Verify this
+  fails against the current `orderBy(desc).limit(1)` implementation before
+  trusting it.
+- The mid-week shape — `status: null` with a populated `previous` — since that is
+  the state five days out of seven and therefore the one most worth pinning.
+- Cold table: both `status` and `previous` are `null`, no crash.
 
 The page and widget are React components; the repo has jsdom configured
 (`tests/unit-setup.ts`, per-file `// @vitest-environment jsdom`), so the
@@ -184,14 +231,15 @@ verified in the browser.
 
 ## Risks
 
-- **The rollover boundary is midnight Toronto, not tzeis.** Saturday 11 PM still
-  shows that day's Shabbos. This errs toward displaying the occasion that just
-  ended rather than jumping ahead, which is the safe direction, and it avoids
-  coupling this module to the zmanim engine. Noted so it is a decision, not a
-  surprise.
 - **The page is only as good as the data.** With `eruv_status` empty, `/eruv`
-  will read "not yet confirmed" until someone enters a status. That is honest
-  and correct, but the owner should know the page ships empty.
+  ships reading "not yet checked" and stays that way until someone enters the
+  first status. Honest and correct, but the owner should expect it.
+- **If Friday updates lapse, the page goes quiet rather than wrong.** That is the
+  intended trade: the failure mode is "we don't know" instead of a confident
+  stale UP. It does mean nobody is alerted when the update is simply forgotten —
+  no reminder or nudge is in scope here.
+- **"Not yet checked" is not "down".** They imply the same caution but are
+  different claims; the UI must not collapse one into the other.
 - **`@hebcal/core` is ESM-only** in this repo — `npx tsx` on a standalone script
   fails with `ERR_PACKAGE_PATH_NOT_EXPORTED`. Anything touching hebcal has to be
   exercised through vitest.
