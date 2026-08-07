@@ -8,11 +8,12 @@
 // permanently. The two API routes whose work this replaces both carry
 // `force-dynamic` today.
 
-import { and, count, desc, eq, gte, lte } from "drizzle-orm";
+import { and, count, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { safeQuery } from "@/lib/db/safe-query";
 import { businesses, shuls, events, eruvStatus } from "@/lib/db/schema";
 import { getZmanimForDate, getUpcomingShabbat } from "@/lib/zmanim";
+import { currentShabbos } from "@/lib/eruv/shabbos";
 import { TORONTO_LOCATION } from "@/lib/zmanim-location";
 import type { HeroEruv, HeroZmanimSnapshot } from "@/components/home/hero/HeroLiveData";
 import type { HeroCounts } from "@/components/home/hero/heroNodes";
@@ -52,11 +53,19 @@ export async function getHeroData(): Promise<HeroData> {
             lte(events.startTime, weekFromNow),
           ),
         ),
-      // LATEST row by statusDate, with no staleness cutoff — deliberately the same
-      // query /api/community/eruv uses. Admins post a row per update rather than
-      // per day, so a `statusDate = today` filter would usually find nothing and the
-      // strip would contradict EruvWidget further down the same page.
-      db.select().from(eruvStatus).orderBy(desc(eruvStatus.statusDate)).limit(1),
+      // The status for the Shabbos currently in effect — the same lookup
+      // /api/community/eruv performs, so the strip and EruvWidget further down
+      // the same page cannot disagree.
+      //
+      // This previously took the latest row with no staleness cutoff, so a
+      // status entered weeks earlier displayed as current. Midweek this now
+      // finds nothing and the strip drops the eruv segment, which is correct:
+      // the eruv is generally not confirmed until Friday.
+      db
+        .select()
+        .from(eruvStatus)
+        .where(eq(eruvStatus.statusDate, currentShabbos()))
+        .limit(1),
     ]);
 
   type HeroRows = Awaited<ReturnType<typeof loadHeroRows>>;
