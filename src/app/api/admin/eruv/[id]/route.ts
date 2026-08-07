@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { eruvStatus } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { isShabbosDate } from "@/lib/eruv/shabbos";
 
 // PATCH - Update an eruv status entry
 export async function PATCH(
@@ -27,6 +28,14 @@ export async function PATCH(
     const updates: Record<string, unknown> = {};
 
     if (body.statusDate !== undefined) {
+      // Same rule as POST: a status moved onto a non-Saturday becomes
+      // permanently invisible, since the public side looks it up by that date.
+      if (typeof body.statusDate !== "string" || !isShabbosDate(body.statusDate)) {
+        return NextResponse.json(
+          { error: "Status date must be a Saturday (YYYY-MM-DD)" },
+          { status: 400 },
+        );
+      }
       updates.statusDate = body.statusDate;
     }
     if (body.isUp !== undefined) {

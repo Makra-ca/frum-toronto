@@ -3,6 +3,10 @@ import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
 import { eruvStatus } from "@/lib/db/schema";
 import { desc } from "drizzle-orm";
+import { isShabbosDate, listUpcomingShabbatot } from "@/lib/eruv/shabbos";
+
+/** How many Shabbatot the admin can choose from. ~3 months of runway. */
+const SELECTABLE_SHABBATOT = 12;
 
 // GET - List recent 30 eruv statuses
 export async function GET() {
@@ -19,7 +23,12 @@ export async function GET() {
       .orderBy(desc(eruvStatus.statusDate))
       .limit(30);
 
-    return NextResponse.json({ statuses });
+    // Computed here rather than in the client so hebcal stays out of the admin
+    // bundle, and so the options can never disagree with the server's own
+    // notion of which Shabbos is current.
+    const shabbatot = listUpcomingShabbatot(new Date(), SELECTABLE_SHABBATOT);
+
+    return NextResponse.json({ statuses, shabbatot });
   } catch (error) {
     console.error("[API] Error fetching eruv statuses:", error);
     return NextResponse.json({ error: "Failed to fetch eruv statuses" }, { status: 500 });
@@ -40,6 +49,15 @@ export async function POST(request: NextRequest) {
 
     if (!statusDate) {
       return NextResponse.json({ error: "Status date is required" }, { status: 400 });
+    }
+
+    // A status is looked up by the Shabbos it applies to, so one stored against
+    // any other day could never be found — and would fail silently.
+    if (typeof statusDate !== "string" || !isShabbosDate(statusDate)) {
+      return NextResponse.json(
+        { error: "Status date must be a Saturday (YYYY-MM-DD)" },
+        { status: 400 },
+      );
     }
 
     if (typeof isUp !== "boolean") {

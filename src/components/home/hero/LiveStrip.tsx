@@ -63,7 +63,11 @@ export function LiveStrip({ underFixedNav = true }: LiveStripProps) {
           </Link>
         )}
 
-        {/* Plain text, not a link: there is no public /eruv page. */}
+        {/*
+          Plain text, not a link. /eruv now exists, so this is a deliberate
+          choice rather than the absence of a destination — the neighbouring
+          zman is the one link this strip carries.
+        */}
         {eruv && (
           <>
             <span aria-hidden="true" className="text-slate-400">

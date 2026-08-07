@@ -41,6 +41,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PublicLocationHint } from "@/components/admin/PublicLocationHint";
 
 interface ImportantNumber {
   id: number;
@@ -185,7 +186,15 @@ export default function ImportantNumbersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/*
+          Administered under Community, but linked publicly under Alerts — the
+          mismatch that made this page hard to find on the site at all.
+        */}
+        <PublicLocationHint
+          href="/community/important-numbers"
+          navPath="Alerts → Important Numbers"
+        />
         <Button onClick={openCreateDialog}>
           <Plus className="h-4 w-4 mr-2" />
           Add Number

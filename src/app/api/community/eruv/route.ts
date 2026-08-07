@@ -1,23 +1,29 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { eruvStatus } from "@/lib/db/schema";
-import { desc } from "drizzle-orm";
+import { getCurrentEruvStatus } from "@/lib/eruv/current-status";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * The eruv status for the Shabbos currently in effect.
+ *
+ * `status` is looked up by exact date, so a status entered for an earlier
+ * Shabbos can never be returned as the current one — the staleness problem is
+ * structural rather than something to tune with a cutoff.
+ *
+ * `status` is null for most of the week: the eruv is generally not confirmed
+ * until Friday, so Sunday through Thursday there is genuinely nothing yet. That
+ * is the normal state, not an error.
+ *
+ * `previous` is the most recent status STRICTLY BEFORE this Shabbos, offered as
+ * dated context for those quiet days. It is a separate field and never merged
+ * into `status`, so no consumer can render a past result as current.
+ *
+ * The query lives in @/lib/eruv/current-status so this route and the /eruv page
+ * cannot drift apart on what counts as current.
+ */
 export async function GET() {
   try {
-    const [latest] = await db
-      .select()
-      .from(eruvStatus)
-      .orderBy(desc(eruvStatus.statusDate))
-      .limit(1);
-
-    if (!latest) {
-      return NextResponse.json({ status: null });
-    }
-
-    return NextResponse.json(latest);
+    return NextResponse.json(await getCurrentEruvStatus());
   } catch (error) {
     console.error("[API] Error fetching eruv status:", error);
     return NextResponse.json({ error: "Failed to fetch eruv status" }, { status: 500 });
