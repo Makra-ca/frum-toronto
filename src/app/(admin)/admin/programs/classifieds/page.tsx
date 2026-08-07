@@ -46,6 +46,10 @@ import {
   Eye,
   Star,
   MessageSquare,
+  User,
+  UserCircle,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatInstant } from "@/lib/datetime";
@@ -59,6 +63,10 @@ interface ClassifiedEntry {
   priceType: string | null;
   contactName: string | null;
   contactEmail: string | null;
+  /** The account behind the listing — distinct from contactEmail. */
+  posterEmail?: string | null;
+  posterFirstName?: string | null;
+  posterLastName?: string | null;
   contactPhone: string | null;
   location: string | null;
   imageUrl: string | null;
@@ -131,6 +139,18 @@ export default function ClassifiedsManagementPage() {
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
   // Delete dialog
+  // Ids whose full description is showing. The card clamps to 2 lines, which
+  // for a 2,000-character listing means the admin could not read what they
+  // were approving without opening the edit dialog.
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const toggleExpanded = (id: number) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   const [deleteEntry, setDeleteEntry] = useState<ClassifiedEntry | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -430,7 +450,72 @@ export default function ClassifiedsManagementPage() {
                       </div>
 
                       <h3 className="font-medium text-lg mb-1">{entry.title}</h3>
-                      <p className="text-gray-600 text-sm line-clamp-2 mb-2">{entry.description}</p>
+                      <p
+                        className={`text-gray-600 text-sm mb-1 whitespace-pre-wrap ${
+                          expandedIds.has(entry.id) ? "" : "line-clamp-2"
+                        }`}
+                      >
+                        {entry.description}
+                      </p>
+                      {/* Only offered when there is plausibly more to see —
+                          the clamp is 2 lines, so short listings need no toggle. */}
+                      {entry.description.length > 140 && (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(entry.id)}
+                          className="text-xs text-blue-600 hover:underline mb-2"
+                        >
+                          {expandedIds.has(entry.id) ? "Show less" : "Show more"}
+                        </button>
+                      )}
+
+                      {/* Contact details. None of this was on the card before,
+                          so the only way to reach a seller was to open Edit. */}
+                      {(entry.contactName ||
+                        entry.contactEmail ||
+                        entry.contactPhone ||
+                        entry.posterEmail) && (
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 mb-2">
+                          {entry.contactName && (
+                            <span className="flex items-center gap-1">
+                              <User className="h-3 w-3 text-gray-400" />
+                              {entry.contactName}
+                            </span>
+                          )}
+                          {entry.contactEmail && (
+                            <a
+                              href={`mailto:${entry.contactEmail}`}
+                              className="flex items-center gap-1 text-blue-600 hover:underline"
+                            >
+                              <Mail className="h-3 w-3" />
+                              {entry.contactEmail}
+                            </a>
+                          )}
+                          {entry.contactPhone && (
+                            <a
+                              href={`tel:${entry.contactPhone}`}
+                              className="flex items-center gap-1 text-blue-600 hover:underline"
+                            >
+                              <Phone className="h-3 w-3" />
+                              {entry.contactPhone}
+                            </a>
+                          )}
+                          {/* Shown only when it differs from the contact
+                              address: the account is who to chase when the
+                              public one bounces or was mistyped. */}
+                          {entry.posterEmail &&
+                            entry.posterEmail !== entry.contactEmail && (
+                              <a
+                                href={`mailto:${entry.posterEmail}`}
+                                className="flex items-center gap-1 text-gray-500 hover:underline"
+                                title="The account that posted this listing"
+                              >
+                                <UserCircle className="h-3 w-3" />
+                                account: {entry.posterEmail}
+                              </a>
+                            )}
+                        </div>
+                      )}
 
                       <div className="flex items-center gap-4 text-xs text-gray-400">
                         {formatPrice(entry.price, entry.priceType) && (

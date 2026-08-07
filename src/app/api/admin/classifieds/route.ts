@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { classifieds, classifiedCategories } from "@/lib/db/schema";
+import { classifieds, classifiedCategories, users } from "@/lib/db/schema";
 import { desc, eq, and, or, ilike, sql } from "drizzle-orm";
 import { z } from "zod";
 import { fromDateTimeInputs } from "@/lib/datetime";
@@ -76,9 +76,17 @@ export async function GET(request: NextRequest) {
         categoryId: classifieds.categoryId,
         categoryName: classifiedCategories.name,
         createdAt: classifieds.createdAt,
+        // The ACCOUNT behind the listing, as distinct from contactEmail, which
+        // is whatever the seller typed for buyers to use. An admin following
+        // something up needs the address that actually reaches the person, and
+        // this route did not return it at all.
+        posterEmail: users.email,
+        posterFirstName: users.firstName,
+        posterLastName: users.lastName,
       })
       .from(classifieds)
       .leftJoin(classifiedCategories, eq(classifieds.categoryId, classifiedCategories.id))
+      .leftJoin(users, eq(classifieds.userId, users.id))
       .where(whereClause)
       // updated_at, not created_at: a correction to an older item has to
       // surface. Ordering by creation buries an edited 2023 simcha under
