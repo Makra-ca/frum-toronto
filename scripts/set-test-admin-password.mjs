@@ -17,7 +17,7 @@ import bcrypt from "bcryptjs";
 const env = {};
 config({ path: ".env.test", processEnv: env });
 
-const TEST_ENDPOINT = "ep-still-block-ahs6wvfm";
+const TEST_ENDPOINT = "ep-polished-heart-ahl7bvmv";
 const url = env.DATABASE_URL;
 
 if (!url) throw new Error("No DATABASE_URL in .env.test");

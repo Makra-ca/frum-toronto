@@ -25,7 +25,7 @@ const testUrl = (() => {
   return env.DATABASE_URL;
 })();
 
-const TEST_ENDPOINT = "ep-still-block-ahs6wvfm";
+const TEST_ENDPOINT = "ep-polished-heart-ahl7bvmv";
 
 if (!prodUrl || !testUrl) {
   throw new Error("Need DATABASE_URL in both .env and .env.test");
