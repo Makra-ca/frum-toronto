@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { eruvStatus } from "@/lib/db/schema";
-import { desc, eq, lt } from "drizzle-orm";
-import { currentShabbos } from "@/lib/eruv/shabbos";
+import { getCurrentEruvStatus } from "@/lib/eruv/current-status";
 
 export const dynamic = "force-dynamic";
 
@@ -20,29 +17,13 @@ export const dynamic = "force-dynamic";
  * `previous` is the most recent status STRICTLY BEFORE this Shabbos, offered as
  * dated context for those quiet days. It is a separate field and never merged
  * into `status`, so no consumer can render a past result as current.
+ *
+ * The query lives in @/lib/eruv/current-status so this route and the /eruv page
+ * cannot drift apart on what counts as current.
  */
 export async function GET() {
   try {
-    const shabbosDate = currentShabbos();
-
-    const [status] = await db
-      .select()
-      .from(eruvStatus)
-      .where(eq(eruvStatus.statusDate, shabbosDate))
-      .limit(1);
-
-    const [previous] = await db
-      .select()
-      .from(eruvStatus)
-      .where(lt(eruvStatus.statusDate, shabbosDate))
-      .orderBy(desc(eruvStatus.statusDate))
-      .limit(1);
-
-    return NextResponse.json({
-      shabbosDate,
-      status: status ?? null,
-      previous: previous ?? null,
-    });
+    return NextResponse.json(await getCurrentEruvStatus());
   } catch (error) {
     console.error("[API] Error fetching eruv status:", error);
     return NextResponse.json({ error: "Failed to fetch eruv status" }, { status: 500 });
