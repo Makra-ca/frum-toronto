@@ -1,222 +1,280 @@
-# Shul Affiliation — Implementation Plan
+# Shuls — Implementation Plan (revision 2)
 
-**Spec:** [2026-08-07-shul-affiliation-design.md](../specs/2026-08-07-shul-affiliation-design.md) (revision 2)
+**Spec:** [2026-08-07-shul-affiliation-design.md](../specs/2026-08-07-shul-affiliation-design.md)
 **Date:** 2026-08-07
 **Status:** Not started
 
-## Ordering rationale
-
-The sequence is not arbitrary. Three dependencies force it:
-
-1. **Junk-shul cleanup precedes the directory import**, or `[TEST] Shaarei Shomayim Congregation`
-   fails to normalise while the queue simultaneously suggests creating Shaarei Shomayim.
-2. **The directory import precedes the affiliation import**, or the 64% auto-match rate collapses to
-   the 5% revision 1 measured against 9 shuls.
-3. **`/privacy` precedes anything member-facing**, because the field cannot be collected under a
-   policy that does not describe it.
-
-Each chunk ends green: `tsc` 0 errors, eslint no new errors, full suite passing. Commit per chunk.
-
-**Every test must be confirmed to fail against the unfixed code before it counts.** The ads review
-found tests that passed against three separately injected bugs. Reintroduce the defect, watch it go
-red, restore, note it in the commit.
+> **Revision 2** reflects four rounds of adversarial review and Daniel's sequencing decision:
+> **fix what is broken → import the directory → add the member field.** Revision 1 assumed the
+> member field was how the directory gets built. It isn't — the legacy directory supplies it
+> directly — so the member field moves last and shrinks.
+>
+> Also reflects Daniel's correction on consent: restoring a field members gave this same site is
+> continuity, not a new collection. See
+> [`restoring-a-field-is-not-new-collection`](../../project-memory/decisions/2026-08-07-restoring-a-field-is-not-new-collection.md).
+> `/privacy` is worth writing; it is **not** a gate on this work.
 
 ---
 
-## Chunk 0 — Prerequisites and traps (no feature code)
+## Why this order
 
-Independent of the feature; each is a trap it would otherwise spring.
+1. **Phase A is broken in production today.** It is not setup for the rest — it is a live bug fix
+   that happens to be in the way.
+2. **The directory must exist before the member field**, or members match against 9 shuls instead
+   of ~126 and everyone types instead of picking. Auto-match goes from ~5% to 64%.
+3. **The publish toggle must exist before any bulk import**, or 126 rows are permanently live or
+   permanently invisible with no middle.
 
-- **0.1** `/api/shuls/route.ts:28` — replace `db.select()` with an explicit column list.
-  *Test:* response body keys are exactly the intended set; a new column on `shuls` does not appear.
-- **0.2** `admin/audit-log/page.tsx:117` — prefix any CSV cell matching `/^[=+\-@\t\r]/` with `'`.
-  *Test:* a cell of `=HYPERLINK("http://x","y")` is neutralised.
-- **0.3** Record the registration baseline: weekly `count(users) group by week` for the 8 weeks
-  before launch. Write the numbers into spec §9. Not code — a measurement that must exist before
-  a required field ships.
-- **0.4** `/privacy` route carrying the existing text **plus** a shul-affiliation purpose and a
-  contact for access/correction. Link from the footer (replacing the URL-less dialog) and from the
-  register form. **Get Daniel's sign-off on the wording before merging.**
+Each chunk ends green: `tsc` 0 errors, no new eslint errors, full suite passing. Commit per chunk.
+**Every test is confirmed to fail against the unfixed code before it counts** — reintroduce the
+defect, watch it go red, restore, say so in the commit.
 
 ---
 
-## Chunk 1 — Normalisation
+# PHASE A — Fix what is broken (independent of everything else)
 
-- **1.1** `src/lib/shul-names.ts` — `normalizeShulName`. Entity decoding (including the cp1252
-  numeric range, reusing `htmlToText`'s table from `scripts/legacy-import/lib.ts`), lowercase,
-  punctuation removed **entirely**, whitespace collapsed. Returns `""` for unusable input; callers
-  must discard rather than store.
-- **1.2** Tests — pinned against real legacy values:
-  - `Aish HaTorah &#45; Thornhill` → `aish hatorah thornhill`
-  - `B'nai Torah` → `bnai torah` (**the pinned punctuation rule**; space-substitution gives
-    `b nai torah` and breaks the match — 90 rows / 54 values turn on this)
-  - `.` and `&#47;` → `""`
-  - `Shaarei Shomayim` and `Shaarei Tefillah` do **not** collapse
-  - `shoavei mayim` / `Shoavei Mayim` do collapse
+### A1 — `/dashboard/shuls/request` submits the wrong shul
 
-No database work in this chunk. It is pure, so it is cheap to get exactly right first.
+`src/app/(dashboard)/dashboard/shuls/request/page.tsx:48` fetches **`/api/davening`**, which returns
+davening-*schedule* rows. It then reads `s.businessName` and `s.address`, **neither of which exists
+on that response** — so every option renders as `Shul #{id}` with no address, and the id submitted
+is the schedule's, not the shul's. Live: choosing "Shul #3" requests management of
+`[TEST] Chabad of Midtown`.
 
----
+This is the only self-service route to shul management, and it is wrong today.
 
-## Chunk 2 — Junk shul cleanup
+- Point it at `/api/shuls`; use `name`; render the address.
+- `page.tsx:182` renders `<SelectItem value="">` when the list is empty — Radix throws on an empty
+  value (the documented gotcha in CLAUDE.md). Render a disabled message instead.
+- *Test:* the option list matches active shuls, and the submitted `shulId` is the shul's own id.
 
-**Must run before Chunk 3.** All five rows have `events` with `NO ACTION` FKs, so `DELETE` fails —
-verified. Do not attempt it.
+### A2 — Merge the duplicate `[TEST]` shuls
 
-- **2.1** Audit script: for each of ids 1–5, list referencing rows in `events`, `shiurim`,
-  `davening_schedules`, `shul_documents`, `user_shuls`. Read-only; output reviewed by Daniel.
-- **2.2** Rename ids 2–5 to their real names (`Shaarei Shomayim Congregation`,
-  `Sephardic Kehila Centre`, `Beth Jacob V'Anshei Drildz`, and whichever the fourth resolves to),
-  treating them as thin real entries. Deactivate `makra.ca` (id 1) and reassign or delete its 3
-  `davening_schedules` and 1 `user_shuls` row.
-- **2.3** Verify: no active shul name matches `^\[TEST\]` or `makra`. Public `/shuls` shows only
-  real shuls.
+Already recorded in `OPEN-THREADS.md` §2b days ago, and revision 1 of this plan got it wrong by
+proposing a rename.
 
-**Daniel decides 2.2 before it runs** — renaming a row that has events attached changes what those
-events say they belong to.
+```
+id 2  [TEST] Beth Jacob V'Anshei Drildz     ←→  id 9  Beth Jacob V'Anshei Drildz Congregation
+id 4  [TEST] Shaarei Shomayim Congregation  ←→  id 7  Shaarei Shomayim
+id 3  [TEST] Chabad of Midtown              — no real counterpart
+id 5  [TEST] Sephardic Kehila Centre        — no real counterpart (and NOT in the legacy Minyan set)
+id 1  makra.ca                              — holds 3 davening_schedules + the only user_shuls row
+```
 
----
+**Merge, do not rename.** Renaming creates two Shaarei Shomayim rows, and the affiliation import
+would then mark those members `ambiguous` and leave them unlinked — lowering the match rate this
+whole sequence exists to protect.
 
-## Chunk 3 — Legacy shul directory import
+- Audit script first (read-only): referencing rows in `events`, `shiurim`, `davening_schedules`,
+  `shul_documents`, `user_shuls`, **and `shul_registration_requests`** (revision 1 omitted the last).
+- Reassign children from the junk row to the surviving real row, then delete the junk row.
+- ids 3 and 5 have no counterpart: deactivate (once A3 exists) pending Daniel's call.
+- `makra.ca`: deactivate; its `user_shuls` row is the only one in the database — **do not delete it
+  without telling Daniel whose access it is.**
+- **Daniel decides** the id 3 / id 5 disposition and the `user_shuls` row before this runs.
+- *Test:* no active shul name matches `^\[TEST\]`; **and** no active shul slug starts with `test-`.
 
-- **3.1** `scripts/legacy-import/shul-directory.ts`, dry-run by default. Reads the 166
-  `Minyan=1` listings; maps `Company`, `Address`, `City`, `PostalCode`, `PhoneNumber`, `Email`,
-  `WebUrl`, `Latitude`, `Longitude`.
-- **3.2** **Review gate.** Writes `docs/legacy-shul-candidates.md` — every candidate with its
-  address, flagged where the name looks like an address rather than a shul (`120 Bremner
-  Boulevard | 8th Floor`, `175 Bloor Street East`). `--commit` **refuses to run** unless a reviewed
-  file with explicit keep/drop marks is supplied. Daniel reviews.
-- **3.3** Commit path: insert kept candidates as shuls, `isActive = false` (unpublished) until they
-  have an address and at least one davening time. `old_id` recorded so a re-run is idempotent, with
-  a partial unique index as the legacy import already does elsewhere.
-- **3.4** Davening schedules: 734 rows / 122 listings. Import where the shape maps onto
-  `daveningSchedules`; **report and skip** where it does not. Do not guess a schedule.
-- **3.5** Verify: shul count, how many have an address, how many have a schedule; re-run inserts 0.
+### A3 — A publish/unpublish control for shuls
 
----
+`isActive` is **not writable from anywhere**: absent from `shulSchema` and `ShulForm`, hardcoded
+`true` in `POST /api/admin/shuls:84`, and absent from both PUT routes. Nothing can create or make an
+inactive shul.
 
-## Chunk 4 — Schema
+- Add `isActive` to `shulSchema`, `ShulForm`, and both admin write paths; show the state in
+  `ShulTable`.
+- *Test:* an admin can deactivate and reactivate; a deactivated shul disappears from `/shuls`.
 
-- **4.1** Migration: four columns on `users` (§2.1), the six-value `shul_status`, and
-  `shul_name_aliases` (§2.3) with its four-value status.
-- **4.2** CHECK constraints per the §2.1 invariant table, including `btrim(...) <> ''` on the text
-  columns. **Declared with drizzle `check()` in `schema.ts`, not only in the migration** — `db:push`
-  silently drops SQL-only constraints, proven in the ads work.
-- **4.3** `BEFORE DELETE` trigger on `shuls`: rewrite affected members to `typed`/`imported`,
-  preserving `shul_name_text`, before the cascade nulls `shul_id`.
-- **4.4** Apply to **primary and the Neon test branch**. A migration applied to one is how every
-  plan-capability test failed with `column does not exist`.
-- **4.5** Tests — and 4.5.3 is the one that matters:
-  - all six statuses accepted; `imported` + `shul_id` accepted; blank text rejected
-  - `listed` with NULL `shul_id` rejected
-  - **deleting a shul with a linked member SUCCEEDS**, the member becomes `typed`/`imported`, and
-    `shul_name_text` survives. *Write this test first and watch it fail without the trigger* — the
-    trigger-less design does not merely mis-handle this, it makes deletion impossible.
+### A4 — `/davening/[shulId]` ignores `isActive`
 
----
+`src/app/(public)/davening/[shulId]/page.tsx:29` looks a shul up by id with **no** active check, and
+renders name, address, phone, email, rabbi and nusach. Ids are sequential, so `/davening/15`…`/180`
+would be live public pages the moment the directory import commits — including the office towers the
+review pass exists to catch.
 
-## Chunk 5 — Member affiliation import
+- Add the `isActive` filter; `notFound()` when inactive.
+- *Test:* an inactive shul 404s there, mirroring `/shuls/[slug]`.
 
-- **5.1** `scripts/legacy-import/shul-affiliations.ts`, dry-run by default.
-- **5.2** Member→user join: `old_member_id` first, **email fallback second** (recovers 193 of the
-  202 unreachable). The 9 with no route are **reported by name**, not silently skipped.
-- **5.3** Dedup for the 141 duplicate emails / 39 conflicting affiliations: newest `CreatedDate`,
-  then higher `MemberID`, matching `members.ts:139-152`. Without this the first run is
-  non-deterministic.
-- **5.4** Resolution: existing alias → exact single candidate → unique prefix → unmatched.
-  More than one candidate ⇒ `ambiguous` alias, member left unlinked. A `dismissed` alias resolves
-  to **unmatched**, never to a link.
-- **5.5** Everything written as `imported`, `shul_answered_at` NULL. Never `listed` or `typed`.
-- **5.6** Alias inserts `ON CONFLICT DO NOTHING` so a re-run cannot reset an admin decision.
-- **5.7** Output **aggregate-only** — counts per outcome, top unmatched normalised names with
-  counts. **No row-level person→shul output** without an explicit `--show-rows` flag.
-- **5.8** Tests: idempotent re-run writes 0; alias decisions survive; dedup deterministic;
-  `dismissed` → unmatched; empty normalisation creates nothing.
-- **5.9** Verify against the measured expectation: ~122 values / ~1,498 members auto-resolved (64%),
-  12 ambiguous, ~434 unmatched. **A materially different result means the directory import or the
-  normaliser is wrong** — do not proceed past a mismatch.
+### A5 — `generateSlug` puts the trim in the wrong place
+
+`src/app/api/admin/shuls/route.ts:9-16` (duplicated at `[id]/route.ts:9-16`) calls `.trim()` **after**
+converting spaces to hyphens, so a leading or trailing space becomes a hyphen it can never remove.
+Already in production: `kollel-yad-yosef-`, `kehillat-shaarei-torah-`, `bnai-torah-congregation-`.
+
+- Trim first; guard against an empty result; de-duplicate the two copies into one helper.
+- Collision handling currently appends `Date.now()`, minting a permanent public URL like
+  `/shuls/bnai-torah-1754…`. Use a counter, as `getUniqueSlug` does elsewhere.
+- **Do not** retro-fix existing slugs — they are live URLs. Note it for Daniel separately.
+- *Test:* trailing space, leading space, all-punctuation, non-ASCII, and a collision.
 
 ---
 
-## Chunk 6 — Member-facing UI
+# PHASE B — The shul directory
 
-- **6.1** `ShulAffiliationField` — a plain list of the four choices, **not** a typeahead (§4.4).
-  Shared by the register form and the dashboard.
-- **6.2** Register form: required, with the "why we ask" line and the `/privacy` link.
-  Server-side validation of the legal `(status, shul_id, text)` combinations; `shul_id` must exist
-  and be active.
-- **6.3** `PATCH /api/user/profile` — new route. Target user comes from `session.user.id`,
-  **never** the request body (this codebase has already shipped one privilege escalation from
-  trusting a client payload). Accepts only the affiliation fields. Enforce length and reject control
-  characters — `varchar(150)` is storage, not validation.
-- **6.4** Dashboard **Profile** card, separate from the notifications card, with its own save and
-  dirty state. `/dashboard/settings` is notifications-only and its Select All button rewrites the
-  whole object.
-- **6.5** "Remove my shul" → `none`/`private`.
-- **6.6** Tests: a valid registration succeeds in each legal state; **the Google path still works**;
-  the PATCH rejects a body-supplied user id; blank/control-character text rejected.
+### B1 — Normalisation helper
+
+`src/lib/shul-names.ts` — `normalizeShulName`: decode HTML entities (including the cp1252 numeric
+range), lowercase, **remove punctuation entirely**, collapse whitespace. Returns `""` for unusable
+input; callers discard rather than store.
+
+**The cp1252 table lives in `scripts/legacy-import/lib.ts`, which imports `mssql` and `dotenv` at
+module scope** — it cannot be pulled into a client bundle. Extract the table into this DB-free
+module and repoint `lib.ts` at it. Dependency direction is `scripts → src`.
+
+- *Tests:* `Aish HaTorah &#45; Thornhill` → `aish hatorah thornhill`; `B'nai Torah` → `bnai torah`
+  (space-substitution gives `b nai torah` and breaks the match — 90 rows turn on this); `.` and
+  `&#47;` → `""`; `Shaarei Shomayim` and `Shaarei Tefillah` do **not** collapse.
+
+### B2 — Directory import, with a review page
+
+`scripts/legacy-import/shul-directory.ts`, dry-run by default.
+
+Source: `DirectoryListings WHERE Minyan = 1` — **166 rows, 165 active**, `Company` unclipped.
+
+**Field map — every column carries its measured populated-count, because three specs this session
+asserted data on the strength of a column existing:**
+
+| Legacy | → | Populated |
+|---|---|---|
+| `Company` | `name` | 166/166 |
+| `Address` | `address` | 164/166 |
+| `City` | `city` | 161/166 |
+| `PostalCode` | `postalCode` | 127/166 |
+| `PhoneNumber` | `phone` | 133/166 |
+| `Email` | `email` | 70/166 |
+| `WebUrl` | `website` | 50/166 |
+| **`LocationID` → `Locations.Location`** | **`neighborhood`** | **164/166** |
+| ~~`Latitude`/`Longitude`~~ | — | **0 usable — all zero. Do not map.** |
+| ~~`Comments`~~ | — | 166/166 but it is an audit dump, not prose. Do not map to `description` |
+
+There is **no** rabbi, nusach or denomination column in the legacy data. Those stay null.
+
+**Review gate.** A localhost page lists all 166 with name, address and neighbourhood, each with a
+keep/drop toggle and a save. ~35 are plainly not shuls (Yogen Fruz, York University, three law
+firms, Mount Sinai Hospital), ~5 are duplicate rows of one shul. Expect **~126 keeps**.
+`--commit` refuses to run without a saved decision file.
+
+**Dedup against existing shuls.** All nine real Postgres shuls collide with a legacy row. Match on
+normalised name and **update** rather than insert; only unmatched candidates are created.
+
+`shuls` has **no `old_id` column** — add it in B2, not in a later chunk (revision 1 depended on it
+one chunk early), with a partial unique index.
+
+Created shuls start `isActive = false`. Requires A3.
+
+- *Tests:* re-run inserts 0; the nine existing shuls are updated not duplicated; a dropped candidate
+  never appears; neighbourhood is populated on ~164.
+
+### B3 — Neighbourhood vocabulary
+
+`shul_neighborhoods` holds 8 hand-seeded names (Thornhill, Forest Hill, North York…). The legacy
+vocabulary is 20 intersection-based names the community actually uses — *Bathurst & Wilson* (27),
+*Bathurst & Lawrence* (24), *Bathurst & Clark* (21), *Down Town* (18).
+
+**Daniel decides:** adopt the legacy vocabulary, keep the current one and map onto it, or run both.
+Nothing in B2 writes `neighborhood` until this is settled.
+
+### B4 — Davening times — assess, do not assume
+
+734 rows / 122 shuls, 0 orphans. **A third cannot be stored in the current schema:** 240 rows are
+zman-relative (`Shkia -20`, `Plag`, `Neitz`), 116 have no time at all, and `davening_schedules.time`
+is `time NOT NULL` with no anchor or offset column. 7 weekday booleans fan out against one
+`dayOfWeek`.
+
+Deliverable for this chunk is a **written assessment plus a schema proposal**, not an import. A
+partial import is worse than none — a shul page showing Shacharis and silently omitting Mincha
+because Mincha is shkia-relative.
+
+Note this interacts with B2: "unpublished until it has a davening time" would strand the 37 shuls
+whose schedules are entirely zman-relative.
 
 ---
 
-## Chunk 7 — The dashboard card
+# PHASE C — The member field
 
-- **7.1** Card at the top of `/dashboard` when `shul_status` is `unset` or `imported`. Dismissible;
-  dismissal remembered; stops after N appearances.
-- **7.2** `imported` copy: *"You told FrumToronto in 2010 that you daven at X. Still right?"* —
-  Yes / Change / Remove. Yes stamps `shul_answered_at` and moves off `imported`.
-- **7.3** `unset` copy: the plain question.
-- **7.4** Tests: shown for `unset` and `imported`, hidden for `listed`/`typed`/`none`/`private`;
-  confirming stamps `shul_answered_at`; dismissal persists.
+Now cheap, because the directory exists. Full detail in the spec; the corrections that matter:
+
+### C1 — Schema
+
+Four columns on `users` (`shul_id`, `shul_name_text`, `shul_status`, `shul_answered_at`) plus
+`shul_name_aliases`.
+
+- **Trigger BEFORE constraints.** `apply-sql-file.ts` runs statements in a bare loop with **no
+  transaction**; a failure between the CHECKs and the trigger leaves production unable to delete any
+  shul. Revision 1 had this backwards.
+- `CREATE OR REPLACE TRIGGER` and `DROP CONSTRAINT IF EXISTS` — the file is applied twice (primary
+  and test branch) and neither statement is idempotent by default.
+- `shulStatus` **must** be `.notNull().default("unset")` in Drizzle, not only in SQL, or
+  `DrizzleAdapter.createUser` — which inserts four fields — makes **every Google sign-up 500**.
+- `private` must be allowed to **retain** the answer. Revision 1's invariants forced it to NULL,
+  making "prefer not to say" destructive and irreversible.
+- `btrim(x, E' \t\r\n')`, not bare `btrim` — that strips spaces only.
+- Add an index on `users.shul_id`.
+- *Test first:* deleting a shul with a linked member **succeeds** and the member degrades. Watch it
+  fail without the trigger.
+
+### C2 — Affiliation import
+
+Join on `old_member_id`, **then email fallback** — 2,121 reachable directly, 202 not, of which 193
+recover by email, 9 are unreachable and must be **named in the output**, not silently skipped.
+
+Dedup for 141 duplicate emails / 39 conflicting affiliations: newest `CreatedDate`, then higher
+`MemberID` (`members.ts:145-150`).
+
+**Pin the prefix rule: normalised length ≥ 8.** Undocumented in revision 1, and it is load-bearing —
+without it `na` (15 members) prefix-matches *Nachal Yisroel* and `jc` matches *JCLL*. It costs 4
+correct matches (`bobov` → Bobover Shteibel) to remove 16 junk ones.
+
+Everything lands as `imported`, never `listed`/`typed`. Output is **aggregate-only** — no row-level
+person→shul pairs to a terminal.
+
+Expected: ~122 values / ~1,498 members auto-resolved (64%), 12 ambiguous, ~434 unmatched. Measured
+against all 166; **the review gate drops ~35, so re-measure after B2 rather than treating this as a
+pass/fail gate.**
+
+### C3 — Member-facing
+
+- `ShulAffiliationField`: with ~126 shuls this **is** a typeahead, not a plain list. Revision 1
+  argued for a list against 9 rows and then scheduled an import that obsoletes that argument two
+  chunks earlier.
+- Register form: required, with one line of copy — *"This helps us build the shul directory. Only
+  you and site admins can see it."*
+- `PATCH /api/user/profile` — new route. Target user from `session.user.id`, **never** the body.
+- A **Profile** card in the dashboard, separate from the notifications card. Note there is already
+  a read-only "Your Profile" card at `dashboard/page.tsx:161` — decide whether to extend it or add
+  beside it.
+- "Remove my shul".
+- *Test:* a valid registration succeeds in each state; **the Google path still works**;
+  `verifyTurnstileToken` fails open outside production so no mocking is needed.
+
+### C4 — The dashboard card
+
+Shown when `shul_status` is `unset` or `imported`. Catches Google sign-ups (who never submit
+`registerSchema`), the imported cohort, and refreshes 2010 answers with *"you told us this in 2010 —
+still right?"*
+
+**Dismissal needs somewhere to live** — a column, decided in C1, not bolted on after the migration
+has been applied to both databases.
+
+### C5 — Admin queue
+
+Unresolved aliases, defaulting to ≥3 members (~45 rows), tail behind a toggle. Create / link /
+dismiss / ambiguous. **"Create shul" shows the member's typed string as a quote and the admin types
+the real name** — `shuls.name` is public and feeds the slug. Back-linking calls `logAudit`.
 
 ---
 
-## Chunk 8 — Admin queue
+## Open — needs Daniel
 
-- **8.1** Tab under Shuls. Unresolved aliases, **defaulting to ≥3 members** (45 rows), long tail
-  behind a toggle.
-- **8.2** Actions: Create shul · Link to existing · Not a shul · Ambiguous.
-- **8.3** Create shul shows *"A member typed: `<value>`"* and the admin types the directory name.
-  **No silent pre-fill** — `shuls.name` is public and feeds the slug.
-- **8.4** Created shuls start unpublished until they have an address and a davening time.
-- **8.5** Back-linking applies exact and unique-prefix matches; **never ambiguous**. Calls
-  `logAudit` — it writes `shul_id` across hundreds of rows in one click.
-- **8.6** No export. On-page notice: *"Member affiliation is private. Do not circulate."*
-- **8.7** Tests: ambiguous never auto-applies; audit row written; back-link preserves
-  `shul_name_text`; a linked member can be un-linked.
-
----
-
-## Chunk 9 — Privacy hardening
-
-- **9.1** Add `shul_name_aliases` to `deleteUserWithContent`'s table lists; drop `raw_example` when
-  an alias resolves.
-- **9.2** Test: after `deleteUserWithContent`, **no table retains a string that user supplied**.
-  Write it generically so it catches the next table too.
-- **9.3** Sentinel test: a fixture member with a unique `shul_name_text`; assert it appears in no
-  response from `/api/shuls`, `/api/shuls/slug/[slug]`, `/api/blog`, `/api/blog/[slug]/comments`,
-  `/api/search/suggestions?type=all`.
-- **9.4** Amend the `shul-affiliation-is-private` decision record: "admins" is **one shared
-  credential**, `admin@frumtoronto.com`, and access is not individually attributable.
-
----
-
-## Verification before merge
-
-- `tsc` 0 errors; eslint no new errors; full suite green.
-- Both migrations applied to primary **and** the test branch.
-- The affiliation import re-run inserts 0.
-- Live check with the dev server pointed at the **test** branch: register a new member in each of
-  the four states; sign in with Google and confirm the card appears; confirm an `imported` member's
-  card and check `shul_answered_at` is stamped.
-- Public `/shuls` shows no `[TEST]` or `makra.ca` row.
+| | |
+|---|---|
+| **A2** | ids 3 and 5 (no real counterpart) — deactivate or delete? And the single `user_shuls` row on `makra.ca` — whose access is it? |
+| **B2** | the keep/drop review of 166 candidates |
+| **B3** | neighbourhood vocabulary — legacy intersections, the current 8, or both |
+| **B4** | whether to change `davening_schedules` to hold zman-relative times |
+| **A5** | whether to retro-fix the three live trailing-hyphen slugs (changes public URLs) |
 
 ## Deliberately deferred
 
 Multiple shuls per member · shul managers seeing membership · public counts · newsletter
-segmentation by shul · a typeahead picker (revisit above ~40 shuls) · importing member addresses.
-
-## Open, needs Daniel
-
-- **2.2** — renaming `[TEST]` rows that already have events attached.
-- **3.2** — the keep/drop review of 166 candidates.
-- **0.4** — the privacy policy wording.
+segmentation by shul · geocoding from `PostalCodes` (parked in `docs/planning/future-ideas.md`) ·
+the other unimported legacy data (`OPEN-THREADS.md` §5).

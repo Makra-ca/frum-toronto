@@ -7,6 +7,11 @@ status: accepted
 originSessionId: 415c321c-22e2-44e7-9590-782e530aa276
 ---
 
+> **Amended 2026-08-07.** The **visibility** decision below stands unchanged. What is withdrawn is
+> this record's framing that consent "cannot be back-dated" and that a privacy page gates the
+> import — Daniel corrected that: restoring a field members gave this same site is continuity, not
+> a new collection. See [[restoring-a-field-is-not-new-collection]].
+
 **Decision:** Shul affiliation is visible to the member and to admins. It does not appear on
 public profiles, shul managers cannot see who has affiliated with their shul, and shul pages
 show no membership counts.
@@ -24,6 +29,9 @@ roster. New signups are answering the same question in the same spirit.
 - *Fully public* — only defensible if this were a community directory people opted into.
 
 **Consequences:**
+- "Admins" is currently **one shared credential**, `admin@frumtoronto.com` — a role mailbox, not a
+  named person. Access is neither enumerable nor individually attributable, and every audit entry
+  records the same address. Stated here so the protection is not overread.
 - Opening this up later is easy; closing it after exposure is not. That asymmetry is the
   whole argument.
 - If shul managers ever want membership lists, it needs member opt-in, and the imported

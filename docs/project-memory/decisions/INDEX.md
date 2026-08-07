@@ -5,6 +5,7 @@ for the format.
 
 | Date | Decision | File |
 |---|---|---|
+| 2026-08-07 | Restoring a field members gave the old site is continuity, not new collection | [restoring-a-field-is-not-new-collection](2026-08-07-restoring-a-field-is-not-new-collection.md) |
 | 2026-08-07 | Shul affiliation is required at signup, with honest opt-outs instead of "Other" | [shul-affiliation-is-required-with-honest-opt-outs](2026-08-07-shul-affiliation-is-required-with-honest-opt-outs.md) |
 | 2026-08-07 | Legacy ShulAffiliation is imported and matched, not discarded | [legacy-shul-affiliation-is-imported-not-discarded](2026-08-07-legacy-shul-affiliation-is-imported-not-discarded.md) |
 | 2026-08-07 | A member's shul affiliation is private to them and admins | [shul-affiliation-is-private](2026-08-07-shul-affiliation-is-private.md) |
