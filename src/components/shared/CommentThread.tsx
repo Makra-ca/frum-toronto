@@ -8,6 +8,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { MessageSquare, Loader2, CornerDownRight, Trash2, Pencil } from "lucide-react";
 import Link from "next/link";
+import { formatInstant } from "@/lib/datetime";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { applyTombstones } from "@/lib/comments/tombstone";
 
 /** Stand-in timestamp for the optimistic update; only its presence matters. */
@@ -59,6 +70,14 @@ interface CommentThreadProps {
   label?: string;
 }
 
+/**
+ * "3 minutes ago" is the right thing to read on a fresh comment and the wrong
+ * thing on an old one: "2 years ago" tells you almost nothing, and the archive
+ * here goes back to 2005.
+ *
+ * So: relative for the first week, an actual date after that. The exact time is
+ * always available on hover via the title attribute, for both.
+ */
 function getRelativeTime(dateStr: string): string {
   const now = Date.now();
   const date = new Date(dateStr).getTime();
@@ -72,14 +91,30 @@ function getRelativeTime(dateStr: string): string {
     return `${diffMins} minute${diffMins === 1 ? "" : "s"} ago`;
   if (diffHours < 24)
     return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
-  if (diffDays < 30) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 
-  const diffMonths = Math.floor(diffDays / 30);
-  if (diffMonths < 12)
-    return `${diffMonths} month${diffMonths === 1 ? "" : "s"} ago`;
+  // Toronto, not the reader's zone — the site fixed that everywhere else and a
+  // comment posted at 11pm should not read as the next day to someone abroad.
+  return formatInstant(dateStr, {
+    month: "short",
+    day: "numeric",
+    year:
+      new Date(dateStr).getFullYear() === new Date().getFullYear()
+        ? undefined
+        : "numeric",
+  });
+}
 
-  const diffYears = Math.floor(diffDays / 365);
-  return `${diffYears} year${diffYears === 1 ? "" : "s"} ago`;
+/** The full moment, for the hover title. */
+function getExactTime(dateStr: string): string {
+  return formatInstant(dateStr, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 export function CommentThread({
@@ -100,6 +135,8 @@ export function CommentThread({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [savingEditId, setSavingEditId] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] =
+    useState<CommentThreadComment | null>(null);
 
   const fetchComments = useCallback(async () => {
     try {
@@ -228,8 +265,20 @@ export function CommentThread({
     }
   };
 
-  const handleDeleteComment = async (commentId: number) => {
-    if (!confirm("Delete this comment?")) return;
+  /**
+   * Opens the confirmation. The whole comment is passed, not just its id,
+   * because the dialog has to say what will actually happen — a comment with
+   * live replies becomes "[deleted]" and the thread survives, one without
+   * disappears. "Delete this comment?" implied the second in both cases.
+   */
+  const handleDeleteComment = (comment: CommentThreadComment) => {
+    setPendingDelete(comment);
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    const commentId = pendingDelete.id;
+    setPendingDelete(null);
     setDeletingId(commentId);
     try {
       const res = await fetch(`${apiBase}?commentId=${commentId}`, { method: "DELETE" });
@@ -333,7 +382,12 @@ export function CommentThread({
             : comment.content}
         </p>
         {comment.editedAt && !comment.isDeleted && (
-          <span className="text-xs text-gray-400 italic">edited</span>
+          <span
+            className="text-xs text-gray-400 italic"
+            title={`Edited ${getExactTime(comment.editedAt)}`}
+          >
+            edited
+          </span>
         )}
       </>
     );
@@ -351,6 +405,16 @@ export function CommentThread({
     setEditingId(comment.id);
     setEditContent(comment.content);
   };
+
+  /**
+   * Whether deleting the pending comment leaves a tombstone. Mirrors the rule
+   * in applyTombstones: only a top-level comment with at least one live reply
+   * survives its own deletion.
+   */
+  const pendingDeleteKeepsThread =
+    !!pendingDelete &&
+    pendingDelete.parentId === null &&
+    comments.some((c) => c.parentId === pendingDelete.id && !c.isDeleted);
 
   const topLevelComments = comments.filter((c) => c.parentId === null);
   const getReplies = (commentId: number) =>
@@ -453,7 +517,10 @@ export function CommentThread({
                             ? "Deleted comment"
                             : comment.authorName}
                         </span>
-                        <span className="text-xs text-gray-400">
+                        <span
+                          className="text-xs text-gray-400"
+                          title={getExactTime(comment.createdAt)}
+                        >
                           {getRelativeTime(comment.createdAt)}
                         </span>
                       </div>
@@ -494,7 +561,7 @@ export function CommentThread({
                               variant="ghost"
                               size="sm"
                               className="text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 h-7 px-2"
-                              onClick={() => handleDeleteComment(comment.id)}
+                              onClick={() => handleDeleteComment(comment)}
                               disabled={deletingId === comment.id}
                             >
                               {deletingId === comment.id ? (
@@ -560,36 +627,48 @@ export function CommentThread({
                               <span className="font-semibold text-sm">
                                 {reply.authorName}
                               </span>
-                              <span className="text-xs text-gray-400">
+                              <span
+                                className="text-xs text-gray-400"
+                                title={getExactTime(reply.createdAt)}
+                              >
                                 {getRelativeTime(reply.createdAt)}
                               </span>
                             </div>
                             {renderBody(reply)}
-                            {canEdit(reply) && editingId !== reply.id && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-xs text-gray-500 h-6 px-1.5 mt-1"
-                                onClick={() => startEdit(reply)}
-                              >
-                                <Pencil className="h-3 w-3 mr-1" />
-                                Edit
-                              </Button>
-                            )}
-                            {(isAdmin || currentUserId === reply.authorId) && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 h-6 px-1.5 mt-1"
-                                onClick={() => handleDeleteComment(reply.id)}
-                                disabled={deletingId === reply.id}
-                              >
-                                {deletingId === reply.id ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-3 w-3" />
+                            {/* The same row the top-level comment uses. Adding
+                                Edit here as a bare sibling left the two buttons
+                                unaligned against the parent's neat row. */}
+                            {(canEdit(reply) ||
+                              isAdmin ||
+                              currentUserId === reply.authorId) && (
+                              <div className="flex items-center gap-1 mt-1">
+                                {canEdit(reply) && editingId !== reply.id && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-xs text-gray-500 h-6 px-1.5"
+                                    onClick={() => startEdit(reply)}
+                                  >
+                                    <Pencil className="h-3 w-3 mr-1" />
+                                    Edit
+                                  </Button>
                                 )}
-                              </Button>
+                                {(isAdmin || currentUserId === reply.authorId) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 h-6 px-1.5"
+                                    onClick={() => handleDeleteComment(reply)}
+                                    disabled={deletingId === reply.id}
+                                  >
+                                    {deletingId === reply.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
                             )}
                           </Card>
                         ))}
@@ -602,6 +681,39 @@ export function CommentThread({
           )}
         </>
       )}
+
+      {/*
+        The site's dialog rather than window.confirm(). Its wording depends on
+        whether the thread survives, which the native alert could never say.
+      */}
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingDeleteKeepsThread
+                ? "Remove this comment?"
+                : "Delete this comment?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDeleteKeepsThread
+                ? "Replies have been posted to it, so the comment will be replaced with \u201cdeleted\u201d and those replies will stay readable. Your text will not be shown to anyone."
+                : "This will remove the comment. It cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {pendingDeleteKeepsThread ? "Remove" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
