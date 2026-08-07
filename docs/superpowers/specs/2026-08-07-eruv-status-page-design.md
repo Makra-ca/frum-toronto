@@ -185,6 +185,35 @@ same three states as the page, so it stays useful mid-week rather than reading
 "Unavailable", and always states which Shabbos it means, so "UP" is never
 undated.
 
+### 6. "Where this appears" tooltip — admin
+
+Scope: **Eruv and Important Numbers only.** Not a general admin-wide pattern; it
+can be extended later if it earns its keep.
+
+An info icon beside the heading on `/admin/community/eruv` and
+`/admin/community/important-numbers`, whose tooltip names the public URL **and
+the nav path** to reach it:
+
+```
+Appears publicly at /community/important-numbers
+Nav: Alerts ▾ → Important Numbers
+```
+
+The nav path is the part that matters. This was prompted by the owner not being
+able to find Important Numbers on the public site: its admin tab sits under
+**Community**, but its public link sits under **Alerts ▾**
+(`src/lib/constants/navigation.ts:35`). The tooltip closes that gap without
+moving anything.
+
+`src/components/ui/tooltip.tsx` already exists and is in use in
+`src/components/admin/EventForm.tsx` — follow that usage rather than introducing
+a new pattern.
+
+**The nav itself is deliberately left alone.** Moving Important Numbers to
+Community ▾, or duplicating it there — which the nav already does for Tehillim
+List (three dropdowns) and Newsletters (two) — was considered and declined. The
+mismatch is documented by the tooltip instead.
+
 ## Testing
 
 Unit (`tests/unit/eruv-shabbos.test.ts`), against `src/lib/eruv/shabbos.ts`:
