@@ -3,8 +3,14 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -28,12 +34,21 @@ interface EruvEntry {
   updatedAt: string | null;
 }
 
-function getToday(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+/** A selectable Shabbos. Supplied by the server so hebcal stays server-side. */
+interface ShabbosOption {
+  date: string;
+  label: string;
+}
+
+/** "2026-08-08" + "Eikev" -> "Sat, Aug 8 — Eikev". */
+function formatShabbosOption(option: ShabbosOption): string {
+  const [year, month, day] = option.date.split("-").map(Number);
+  const pretty = formatInstant(new Date(year, month - 1, day), {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  return option.label ? `${pretty} — ${option.label}` : pretty;
 }
 
 function formatRelativeDate(dateStr: string): string {
@@ -69,7 +84,8 @@ export default function EruvManagementPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   // Form state
-  const [statusDate, setStatusDate] = useState(getToday());
+  const [shabbatot, setShabbatot] = useState<ShabbosOption[]>([]);
+  const [statusDate, setStatusDate] = useState("");
   const [isUp, setIsUp] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -84,6 +100,13 @@ export default function EruvManagementPage() {
       const data = await res.json();
       if (res.ok) {
         setStatuses(data.statuses || []);
+
+        const options: ShabbosOption[] = data.shabbatot || [];
+        setShabbatot(options);
+        // Default to the Shabbos currently in effect, which is the first
+        // option. Only seeded when empty so a re-fetch after saving does not
+        // discard a selection the admin has already made.
+        setStatusDate((current) => current || options[0]?.date || "");
       }
     } catch (error) {
       console.error("Error fetching eruv statuses:", error);
@@ -95,7 +118,7 @@ export default function EruvManagementPage() {
 
   const handleSave = async () => {
     if (!statusDate) {
-      toast.error("Please select a date");
+      toast.error("Please select a Shabbos");
       return;
     }
 
@@ -110,7 +133,6 @@ export default function EruvManagementPage() {
       if (res.ok) {
         toast.success("Eruv status saved");
         setMessage("");
-        setStatusDate(getToday());
         setIsUp(true);
         fetchStatuses();
       } else {
@@ -132,13 +154,23 @@ export default function EruvManagementPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="statusDate">Date</Label>
-                <Input
-                  id="statusDate"
-                  type="date"
-                  value={statusDate}
-                  onChange={(e) => setStatusDate(e.target.value)}
-                />
+                <Label htmlFor="statusDate">Which Shabbos</Label>
+                {/*
+                  Saturdays only. The status is looked up by this exact date, so
+                  one saved against any other day would never be found.
+                */}
+                <Select value={statusDate} onValueChange={setStatusDate}>
+                  <SelectTrigger id="statusDate">
+                    <SelectValue placeholder="Select a Shabbos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {shabbatot.map((option) => (
+                      <SelectItem key={option.date} value={option.date}>
+                        {formatShabbosOption(option)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

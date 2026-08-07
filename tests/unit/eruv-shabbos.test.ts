@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { currentShabbos, listUpcomingShabbatot } from '@/lib/eruv/shabbos';
+import { currentShabbos, listUpcomingShabbatot, isShabbosDate } from '@/lib/eruv/shabbos';
 import { getUpcomingShabbat } from '@/lib/zmanim';
 import { TORONTO_LOCATION } from '@/lib/zmanim-location';
 
@@ -131,5 +131,35 @@ describe('listUpcomingShabbatot', () => {
     for (const option of list) {
       expect(option.label, option.date).toBeTruthy();
     }
+  });
+});
+
+describe('isShabbosDate', () => {
+  it('accepts a Saturday', () => {
+    expect(isShabbosDate('2026-08-08')).toBe(true);
+  });
+
+  it.each(['2026-08-07', '2026-08-09', '2026-08-11'])('rejects %s', (date) => {
+    expect(isShabbosDate(date)).toBe(false);
+  });
+
+  // Must not throw, and must not accept. A malformed date reaching the write
+  // path used to 500 rather than 400.
+  it.each(['not-a-date', '', '2026-13-45', '2026/08/08', '08-08-2026'])(
+    'rejects malformed input %j without throwing',
+    (input) => {
+      expect(isShabbosDate(input)).toBe(false);
+    },
+  );
+
+  // Read as a plain calendar date, never shifted into the server's timezone.
+  it('does not depend on the server timezone', () => {
+    const originalTz = process.env.TZ;
+    for (const tz of ['UTC', 'Asia/Tokyo', 'America/Los_Angeles']) {
+      process.env.TZ = tz;
+      expect(isShabbosDate('2026-08-08'), `server TZ ${tz}`).toBe(true);
+      expect(isShabbosDate('2026-08-09'), `server TZ ${tz}`).toBe(false);
+    }
+    process.env.TZ = originalTz;
   });
 });

@@ -30,6 +30,33 @@ function fromDateString(date: string): Date {
   return new Date(`${date}T12:00:00.000Z`);
 }
 
+/** Strict "YYYY-MM-DD". Anything else is not a date we can store. */
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Whether a stored date string denotes a Saturday.
+ *
+ * A status is looked up by its exact date, so one saved against a Tuesday would
+ * be invisible forever — silently. Both admin write paths use this, because a
+ * UI that only offers Saturdays is not itself a constraint.
+ *
+ * Parsed as UTC so it reads as a plain calendar date and cannot shift a day in
+ * a server timezone. Returns false rather than throwing on malformed input:
+ * reaching the write path, a throw became a 500 where the caller deserves a 400.
+ */
+export function isShabbosDate(date: string): boolean {
+  if (!DATE_PATTERN.test(date)) return false;
+
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return false;
+
+  // Rejects a well-formed but impossible date such as 2026-02-31, which JS
+  // would otherwise roll silently forward into March.
+  if (parsed.toISOString().slice(0, 10) !== date) return false;
+
+  return parsed.getUTCDay() === SATURDAY;
+}
+
 /**
  * The Shabbos currently in effect, as "YYYY-MM-DD".
  *
